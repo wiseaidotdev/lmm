@@ -3,7 +3,7 @@ WIP: A language agnostic framework to reality.
 
 ## Install From Registry
 
-To install AutoGPT CLI via Cargo, execute the following command:
+To install LMM CLI via Cargo, execute the following command:
 
 ```sh
 cargo install lmm --all-features
