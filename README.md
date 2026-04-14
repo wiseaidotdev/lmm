@@ -5,6 +5,7 @@
 [![LMM](https://wiseai.dev/assets/logo.png)](https://wiseai.dev)
 
 [![Work In Progress](https://img.shields.io/badge/Work%20In%20Progress-orange)](https://github.com/wiseaidotdev/lmm)
+[![Crates.io Downloads](https://img.shields.io/crates/d/lmm)](https://crates.io/crates/lmm)
 [![made-with-rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Rust](https://img.shields.io/badge/Rust-1.86%2B-blue.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
