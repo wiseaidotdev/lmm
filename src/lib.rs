@@ -10,6 +10,7 @@ pub mod encode;
 pub mod equation;
 pub mod error;
 pub mod field;
+pub mod lexicon;
 pub mod models;
 pub mod operator;
 pub mod perception;

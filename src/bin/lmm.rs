@@ -13,6 +13,7 @@ use lmm::encode::{decode_message, encode_text};
 use lmm::equation::Expression;
 use lmm::error::Result;
 use lmm::field::Field;
+use lmm::lexicon::Lexicon;
 use lmm::physics::{HarmonicOscillator, LorenzSystem, Pendulum, SIRModel};
 use lmm::predict::TextPredictor;
 use lmm::simulation::Simulator;
@@ -246,6 +247,7 @@ async fn main() -> Result<()> {
             predict_length,
             iterations,
             depth,
+            dictionary,
         } => {
             let source = if input == "-" {
                 text
@@ -255,7 +257,15 @@ async fn main() -> Result<()> {
                     .trim_end()
                     .to_string()
             };
-            let predictor = TextPredictor::new(window, iterations, depth);
+            let lexicon = match dictionary {
+                Some(path) => Lexicon::load_from(std::path::Path::new(&path)).ok(),
+                None => Lexicon::load_system().ok(),
+            };
+            let mut predictor = TextPredictor::new(window, iterations, depth);
+            if let Some(lex) = lexicon {
+                eprintln!("Loaded {} dictionary words", lex.word_count());
+                predictor = predictor.with_lexicon(lex);
+            }
             let result = predictor.predict_continuation(&source, predict_length)?;
             println!("━━━ LMM PREDICTOR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             println!("Input text  : {:?}", source);
