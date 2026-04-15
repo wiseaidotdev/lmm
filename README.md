@@ -19,6 +19,12 @@
 
 </div>
 
+## 🎬 Demo
+
+The following is a proof-of-concept demonstration of the predictive engine generating coherent English sentences. It is powered purely by deterministic mathematical equations and structural Subject-Verb-Object loops, utilizing the standard Linux system dictionary (`/usr/share/dict/words`) as its vocabulary fallback to function.
+
+![poc-demo](assets/poc-demo.mp4)
+
 ## 🧠 Framework Overview
 
 LMM bridges multimodal perception and actionable scientific discovery through five tightly integrated layers:
@@ -35,6 +41,12 @@ LMM bridges multimodal perception and actionable scientific discovery through fi
 
 ```mermaid
 flowchart TD
+  "Consciousness" -> "Symbolic Regression\n(Equation Discovery)";
+  "Consciousness" -> "System Dictionary\n(Lexicon Fallback)";
+  "Simulation Engine" -> "Physical Trajectories";
+  "Causal Graphs" -> "Counterfactual Interventions";
+  "Symbolic Regression\n(Equation Discovery)" -> "String Orbits\n(Predict / Encode)";
+
     A["Raw Input\n(bytes / sensors)"]
     B["MultiModalPerception\n──► Tensor"]
     C["Consciousness Loop\nperceive → encode → predict\nevaluate → plan (lookahead)"]
@@ -324,33 +336,32 @@ The Pharaohs encoded reality in mathematics.
 
 ### 9. `predict`: Symbolic Text Continuation
 
-Uses a **three-signal symbolic engine** to predict what comes next:
+The `predict` command acts as LMM's continuation engine. Unlike neural network LLMs that use massive statistical models, LMM strings together coherent English output using **Pure Mathematics**.
 
-1. **Suffix-pattern matching**: detects phrases from the context that match the current tail of generated text and continues them directly (prevents nonsense).
-1. **2nd-order Markov word-transition matrix**: `(word_a, word_b) → word_c` captures phrase-level grammar; falls back to 1st-order when unseen.
-1. **GP trajectory + rhythm equations**: score word candidates by positional pattern and sentence cadence as tie-breakers.
+It does this by operating on three distinct, deterministic signals:
+
+- **GP Trajectory Equation**: `f(pos) → word_byte_tone` (discovers long-range subject themes)
+- **GP Rhythm Equation**: `g(pos) → word_length` (discovers alternating phonetic cadence)
+- **Dictionary Grammar Engine**: Maps mathematical values to a curated pool of English nouns, verbs, adjectives with system dictionary fallback (`/usr/share/dict`), while flowing through cyclic Subject-Verb-Object (SVO) POS grammar loops.
 
 ```sh
-lmm predict --text "Large Mathematical Models compress the world into equations" \
-            --window 16 --predict-length 64
+lmm predict --text "Wise AI built the first LMM" --window 10 --predict-length 80
 ```
 
-```sh
+```text
+Loaded 63746 dictionary words
 ━━━ LMM PREDICTOR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Input text  : "Large Mathematical Models compress the world into equations"
-Window used : 8 words
-Trajectory  : (((x / 1.0038639598569228) / 0.9977330128790676) / 0.9977330128790676)
-Rhythm      : (sin(x) + (sin(x) + 6.380064552234503))
+Input text  : "Wise AI built the first LMM"
+Window used : 6 words
+Trajectory  : (99.77577741824268 + ((x + 3.4804258799212793) + 1.7728570078579993))
+Rhythm      : (cos(exp(x)) + 3.851491814600415)
 
 ━━━ PREDICTED CONTINUATION ━━━━━━━━━━━━━━━━━━━━━━━
-Large Mathematical Models compress the world into equations compress the world into equations Models compress the world into
+Wise AI built the first LMM in the true law often long time and a open path of an old scope is the solid order
 ```
 
 > [!NOTE]
-> The suffix-pattern engine detects that "equations" matches position 7 in the context,
-> so the continuation follows the actual documented phrase structure of the input.
-> For longer, richer inputs the Markov bigram transitions dominate, producing novel
-> phrase combinations grounded in the input's grammar.
+> Text is parsed completely via pure equations over a carefully constructed English vocabulary pool, mapping geometric relationships and POS states into elegant and mysterious sentences.
 
 | Flag                     | Default                           | Description                                      |
 | ------------------------ | --------------------------------- | ------------------------------------------------ |

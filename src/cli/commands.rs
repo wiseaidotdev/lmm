@@ -80,5 +80,7 @@ pub enum Commands {
         iterations: usize,
         #[arg(long, default_value_t = 4)]
         depth: usize,
+        #[arg(long)]
+        dictionary: Option<String>,
     },
 }

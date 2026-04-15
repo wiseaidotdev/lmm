@@ -10,6 +10,7 @@ repository = "https://github.com/wiseaidotdev/lmm"
 homepage = "https://wiseai.dev"
 categories = ["science"]
 keywords = ["asi", "ai", "machine-learning", "llm"]
+exclude = ["/assets", "/tests", ".*"]
 
 [dependencies]
 thiserror = "2.0.18"
