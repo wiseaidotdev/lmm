@@ -6,7 +6,7 @@
 
 [![Work In Progress](https://img.shields.io/badge/Work%20In%20Progress-orange)](https://github.com/wiseaidotdev/lmm)
 [![Crates.io Downloads](https://img.shields.io/crates/d/lmm)](https://crates.io/crates/lmm)
-[![PyPI version](https://img.shields.io/pypi/v/lmm.svg)](https://pypi.org/project/lmm/)
+[![PyPI version](https://img.shields.io/pypi/v/lmm-rs.svg)](https://pypi.org/project/lmm-rs/)
 [![NPM version](https://img.shields.io/npm/v/@wiseaidev/lmm.svg)](https://www.npmjs.com/package/@wiseaidev/lmm)
 [![made-with-rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Rust](https://img.shields.io/badge/Rust-1.86%2B-blue.svg)](https://www.rust-lang.org)
@@ -109,7 +109,7 @@ npm install -g @wiseaidev/lmm
 ### Via Python
 
 ```sh
-pip install lmm
+pip install lmm-rs
 ```
 
 > [!NOTE]
