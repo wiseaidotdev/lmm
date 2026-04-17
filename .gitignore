@@ -15,9 +15,24 @@ target/
 
 .env
 
-workspace/
-
+# Logs
 logs/
 
-certs/
+# Node.js
+node_modules/
+npm-debug.log*
+*.node
+index.js
+index.d.ts
 
+# Python
+__pycache__/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+build/
+*.egg-info/
+dist/
+wheels/
+*.so
