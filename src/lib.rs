@@ -11,6 +11,7 @@ pub mod encode;
 pub mod equation;
 pub mod error;
 pub mod field;
+pub mod imagen;
 pub mod lexicon;
 pub mod models;
 #[cfg(feature = "net")]

@@ -6,7 +6,7 @@ use lmm::cli::commands::{
     Cli,
     Commands::{
         Causal, Consciousness as CmdConsciousness, Decode, Discover, Encode, Essay,
-        Field as CmdField, Paragraph, Physics, Predict, Sentence, Simulate, Summarize,
+        Field as CmdField, Imagen, Paragraph, Physics, Predict, Sentence, Simulate, Summarize,
     },
 };
 use lmm::consciousness::Consciousness;
@@ -543,6 +543,40 @@ async fn main() -> anyhow::Result<()> {
                     }
                     Err(e) => error!("  ❌ Summarization failed: {}", e),
                 }
+            }
+        }
+        Imagen {
+            prompt,
+            width,
+            height,
+            components,
+            style,
+            palette,
+            output,
+        } => {
+            banner("Imagen · Spectral Field Synthesis", "🎨");
+            info!("  🖼  Prompt    : {:?}", prompt);
+            info!("  📐 Dimensions : {}x{}", width, height);
+            info!("  🎭 Style      : {}", style);
+            info!("  🎨 Palette    : {}", palette);
+            info!("  🌊 Components : {}", components);
+            let parsed_style = style
+                .parse::<lmm::imagen::StyleMode>()
+                .unwrap_or(lmm::imagen::StyleMode::Plasma);
+            let params = lmm::imagen::ImagenParams {
+                prompt,
+                width,
+                height,
+                components,
+                style: parsed_style,
+                palette_name: palette,
+                output: output.clone(),
+            };
+            info!("");
+            divider("Rendering");
+            match lmm::imagen::render(&params) {
+                Ok(path) => info!("  ✅ Saved to: {}", path),
+                Err(e) => error!("  ❌ Render failed: {}", e),
             }
         }
     }

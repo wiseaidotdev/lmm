@@ -206,4 +206,21 @@ pub enum Commands {
         #[arg(long, default_value_t = 3)]
         depth: usize,
     },
+    #[command(about = "Generate an image from text via Spectral Field Synthesis")]
+    Imagen {
+        #[arg(short, long)]
+        prompt: String,
+        #[arg(long, default_value_t = 512)]
+        width: u32,
+        #[arg(long, default_value_t = 512)]
+        height: u32,
+        #[arg(short = 'c', long, default_value_t = 8)]
+        components: usize,
+        #[arg(short = 's', long, default_value = "plasma")]
+        style: String,
+        #[arg(long, default_value = "auto")]
+        palette: String,
+        #[arg(short = 'o', long, default_value = "output.ppm")]
+        output: String,
+    },
 }

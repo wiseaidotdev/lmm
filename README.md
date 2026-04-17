@@ -144,6 +144,7 @@ Commands:
   paragraph      Generate a cohesive paragraph from a seed
   essay          Structure a full essay with intro and conclusion
   ask            Ask a question and get an equation-scored answer from the web
+  imagen         Generate an image from text via Spectral Field Synthesis
   help           Print this message or the help of the given subcommand(s)
 
 Options:
@@ -308,25 +309,28 @@ lmm encode --text "The Pharaohs encoded reality in mathematics." \
 ```
 
 ```sh
-━━━ LMM ENCODER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Input text  : "The Pharaohs encoded reality in mathematics."
-Characters  : 44
-Running GP symbolic regression (150 iterations, depth 5)...
+╔══════════════════════════════════════════════════════╗
+║  📐  Encode · GP Symbolic Compression                ║
+╚══════════════════════════════════════════════════════╝
 
-Equation: (95.09620435614187 - cos(x))
+  📝 Input   : "The Pharaohs encoded reality in mathematics."
+  📏 Length  : 44 chars
+
+-- Equation ----------------------------------
+  Equation: ((-12.541407707100985 * sin((-0.4 + ((x * x) * 0.8837323816189393)))) + 94.96615109151574)
 Length: 44 chars
-MSE: 646.3067
-Max residual: 64
+MSE: 530.1715
+Max residual: 56
 
-━━━ ENCODED DATA ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{"eq":"(95.09620435614187 - cos(x))","len":44,"mse":646.306722,"res":[-10,9,5,-64,-16,9,3,20,2,15,8,20,-62,7,15,3,15,5,7,6,-63,18,5,1,13,11,22,26,-64,9,15,-62,15,2,20,8,6,15,3,21,9,3,20,-49]}
+-- Encoded Data ------------------------------
+  {"eq":"((-12.541407707100985 * sin((-0.4 + ((x * x) * 0.8837323816189393)))) + 94.96615109151574)","len":44,"mse":530.171549,"res":[-16,15,6,-51,-3,13,2,8,-3,27,9,17,-51,-6,15,-2,12,-1,5,-7,-51,16,7,13,9,0,22,28,-51,22,13,-56,11,10,19,22,18,15,5,12,8,13,23,-49]}
 
-━━━ VERIFY ROUND-TRIP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Decoded text: "The Pharaohs encoded reality in mathematics."
-Round-trip  : ✅ PERFECT
+-- Round-trip Verify -------------------------
+  ✅ PERFECT
+  Decoded : "The Pharaohs encoded reality in mathematics."
 
-To decode later, run:
-  lmm decode --equation "(95.09620435614187 - cos(x))" --length 44 --residuals "-10,9,5,-64,-16,9,3,20,2,15,8,20,-62,7,15,3,15,5,7,6,-63,18,5,1,13,11,22,26,-64,9,15,-62,15,2,20,8,6,15,3,21,9,3,20,-49"
+  💾 To decode later:
+     lmm decode --equation "((-12.541407707100985 * sin((-0.4 + ((x * x) * 0.8837323816189393)))) + 94.96615109151574)" --length 44 --residuals "-16,15,6,-51,-3,13,2,8,-3,27,9,17,-51,-6,15,-2,12,-1,5,-7,-51,16,7,13,9,0,22,28,-51,22,13,-56,11,10,19,22,18,15,5,12,8,13,23,-49"
 ```
 
 > [!NOTE]
@@ -356,12 +360,15 @@ lmm decode \
 ```
 
 ```sh
-━━━ LMM DECODER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Equation : (95.09620435614187 - cos(x))
-Length   : 44
+╔══════════════════════════════════════════════════════╗
+║  🔓  Decode · Equation to Text                       ║
+╚══════════════════════════════════════════════════════╝
 
-━━━ DECODED TEXT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-The Pharaohs encoded reality in mathematics.
+  📐 Equation : (95.09620435614187 - cos(x))
+  📏 Length   : 44
+
+-- Decoded Text ------------------------------
+  The Pharaohs encoded reality in mathematics.
 ```
 
 | Flag                | Required | Description                                                                 |
@@ -388,15 +395,18 @@ lmm predict --text "Wise AI built the first LMM" --window 10 --predict-length 80
 ```
 
 ```text
-Loaded 63746 dictionary words
-━━━ LMM PREDICTOR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Input text  : "Wise AI built the first LMM"
-Window used : 6 words
-Trajectory  : (99.77577741824268 + ((x + 3.4804258799212793) + 1.7728570078579993))
-Rhythm      : (cos(exp(x)) + 3.851491814600415)
+╔══════════════════════════════════════════════════════╗
+║  🔮  Predict · Symbolic Continuation                 ║
+╚══════════════════════════════════════════════════════╝
 
-━━━ PREDICTED CONTINUATION ━━━━━━━━━━━━━━━━━━━━━━━
-Wise AI built the first LMM in the true law often long time and a open path of an old scope is the solid order
+  📚 Dictionary: 63746 words loaded
+  📝 Input     : "Wise AI built the first LMM"
+  🪟 Window    : 6 words
+  📈 Trajectory: (x + 103.82300000000001)
+  🎵 Rhythm    : (3.00402169780806 + sin(cos(cos(x))))
+
+-- Continuation ------------------------------
+  Wise AI built the first LMM in the true soul often long time and an open path of a solid scope is the human
 ```
 
 > [!NOTE]
@@ -575,7 +585,7 @@ URL: https://duckduckgo.com/c/Multi-paradigm_programming_languages?kp=%2D2
 ```
 
 > [!NOTE]
-> The `ask` command requires building with `--features cli,net`. No API key is needed — it uses DuckDuckGo Lite (text-only, no JavaScript required).
+> The `ask` command requires building with `--features cli,net`. No API key is needed.
 
 | Flag                | Default  | Description                                    |
 | ------------------- | -------- | ---------------------------------------------- |
@@ -585,6 +595,41 @@ URL: https://duckduckgo.com/c/Multi-paradigm_programming_languages?kp=%2D2
 | `--region`          | `wt-wt`  | DuckDuckGo region code (e.g. `us-en`, `uk-en`) |
 | `--iterations`      | `40`     | GP scoring iterations                          |
 | `--depth`           | `3`      | Maximum GP expression depth                    |
+
+### 15. `imagen`: Spectral Field Synthesis Image Generation
+
+Generates an image from text based on Spectral Field Synthesis. It hashes the prompt to derive pure mathematical wave components, applies non-linear styles, and maps amplitudes to RGB.
+
+```sh
+lmm imagen --prompt "The ancient Egyptians built the pyramids with mathematical precision" \
+           --width 512 --height 512 --style plasma --palette warm --components 12 --output ./egypt.ppm
+```
+
+```sh
+╔══════════════════════════════════════════════════════╗
+║  🎨  Imagen · Spectral Field Synthesis               ║
+╚══════════════════════════════════════════════════════╝
+
+  🖼  Prompt    : "The ancient Egyptians built the pyramids with mathematical precision"
+  📐 Dimensions : 512x512
+  🎭 Style      : plasma
+  🎨 Palette    : warm
+  🌊 Components : 12
+
+
+-- Rendering ---------------------------------
+  ✅ Saved to: ./egypt.ppm
+```
+
+| Flag                 | Default      | Description                                                         |
+| -------------------- | ------------ | ------------------------------------------------------------------- |
+| `-p`, `--prompt`     | required     | The text prompt to hash into the spectral seed                      |
+| `--width`            | `512`        | Image width in pixels                                               |
+| `--height`           | `512`        | Image height in pixels                                              |
+| `-c`, `--components` | `8`          | Number of cosine wave components per channel                        |
+| `-s`, `--style`      | `plasma`     | Transform: `wave`, `radial`, `orbital`, `fractal`, `flow`, `plasma` |
+| `--palette`          | `auto`       | Color palette: `warm`, `cool`, `neon`, `mono`, `auto`               |
+| `-o`, `--output`     | `output.ppm` | Output file path or directory (auto-names if dir)                   |
 
 ## 🔬 Architecture Deep Dive
 
@@ -626,6 +671,24 @@ flowchart TD
 
     Score -->|Lowest Score| W["Select Best Word from Vocab"]
     W -->|Update Recency| Out
+```
+
+### Spectral Field Synthesis Image Generation
+
+```mermaid
+flowchart TD
+    P["Text Prompt"] -->|FNV-1a Hash| S["64-bit Spectral Seed"]
+    S --> W_R["Generate Red Wave Components\n(Freq, Amp, Phase)"]
+    S --> W_G["Generate Green Wave Components\n(Freq, Amp, Phase)"]
+    S --> W_B["Generate Blue Wave Components\n(Freq, Amp, Phase)"]
+
+    W_R --> F["Evaluate F(x,y) = Σ A_k·cos(2π·f_x·x + 2π·f_y·y + φ_k)\nacross all (x,y) pixels"]
+    W_G --> F
+    W_B --> F
+
+    F --> T["Apply Non-linear Style Transform\n(Wave, Radial, Fractal, etc.)"]
+    T --> C["Map to Palette\n(Bias + Amp·sin(v))"]
+    C --> O["PPM Image Output"]
 ```
 
 ### RK45 Adaptive Integrator
