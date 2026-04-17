@@ -27,3 +27,41 @@ pub mod tensor;
 pub mod text;
 pub mod traits;
 pub mod world;
+
+pub mod app;
+
+#[cfg(all(feature = "python", not(feature = "rust-binary")))]
+use pyo3::prelude::*;
+
+#[cfg(all(feature = "python", not(feature = "rust-binary")))]
+#[pyfunction]
+fn run_cli(args: Vec<String>) -> PyResult<()> {
+    tokio::runtime::Runtime::new()
+        .map_err(|e: std::io::Error| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
+        .block_on(crate::app::run_cli_entry(args))
+        .map_err(|e: anyhow::Error| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
+}
+
+#[cfg(all(feature = "python", not(feature = "rust-binary")))]
+#[pymodule]
+fn _lmm(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add_function(wrap_pyfunction!(run_cli, m)?)?;
+    Ok(())
+}
+
+#[cfg(all(feature = "node", not(feature = "rust-binary")))]
+use napi_derive::napi;
+
+#[cfg(all(feature = "node", not(feature = "rust-binary")))]
+#[napi]
+pub fn run_cli(args: Vec<String>) {
+    tokio::runtime::Runtime::new()
+        .expect("tokio runtime")
+        .block_on(async move {
+            if let Err(e) = crate::app::run_cli_entry(args).await {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        });
+}
