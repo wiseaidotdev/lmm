@@ -1,5 +1,45 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! # Symbolic Text Generation
+//!
+//! This module provides a tiered text generation pipeline:
+//!
+//! | Struct | Role |
+//! |---|---|---|
+//! | [`SentenceGenerator`] | Single-sentence generation guided by tone |
+//! | [`ParagraphGenerator`] | Multi-sentence paragraphs with topic continuity |
+//! | [`EssayGenerator`] | Multi-paragraph essays with variable density |
+//! | [`TextSummarizer`] | Extractive summarisation using sentence scoring |
+//!
+//! ## Key Optimisation
+//!
+//! `keywords_from_text` previously built a `HashSet` on every call to filter out
+//! verbs, function words, and adjectives. This is now replaced by a compile-time
+//! `phf::Set` with O(1) lookups and zero runtime allocation.
+
 use crate::error::{LmmError, Result};
 use crate::lexicon::word_tone;
+use phf::{Set, phf_set};
+
+/// Compile-time perfect-hash set of words that are **not** useful keywords.
+static NON_KEYWORD_WORDS: Set<&'static str> = phf_set! {
+    "reveals", "encodes", "governs", "shapes", "defines", "captures", "reflects",
+    "transforms", "determines", "expresses", "describes", "manifests", "illuminates",
+    "compresses", "represents", "unveils", "generates", "produces", "enables", "connects",
+    "is", "are", "forms", "becomes", "remains", "holds",
+    "fundamental", "mathematical", "universal", "infinite", "precise", "elegant",
+    "structural", "invariant", "dynamic", "recursive", "continuous", "discrete",
+    "deterministic", "probabilistic", "axiomatic", "abstract", "emergent", "coherent",
+    "symmetric", "bounded",
+    "this", "that", "their", "also", "with", "from", "into", "will", "have", "been",
+    "more", "very", "most", "such", "than", "when", "early", "first", "some", "only",
+    "both", "each", "many", "other", "modern", "ancient"
+};
 
 static TRANSITIVE_VERBS: &[(&str, f64)] = &[
     ("reveals", 113.1),
@@ -213,22 +253,6 @@ fn split_into_sentences(text: &str) -> Vec<String> {
 }
 
 fn keywords_from_text(text: &str, n: usize) -> Vec<String> {
-    let verb_set: std::collections::HashSet<&str> = TRANSITIVE_VERBS
-        .iter()
-        .map(|(w, _)| *w)
-        .chain(LINKING_VERBS.iter().map(|(w, _)| *w))
-        .chain(ADJECTIVES.iter().map(|(w, _)| *w))
-        .chain(
-            [
-                "this", "that", "their", "also", "with", "from", "into", "will", "have", "been",
-                "more", "very", "most", "such", "than", "when", "early", "first", "some", "only",
-                "both", "each", "many", "other", "modern", "ancient",
-            ]
-            .iter()
-            .copied(),
-        )
-        .collect();
-
     let mut seen = std::collections::HashSet::new();
     let mut word_tones: Vec<(f64, String)> = text
         .split_whitespace()
@@ -238,7 +262,9 @@ fn keywords_from_text(text: &str, n: usize) -> Vec<String> {
                 .filter(|c| c.is_ascii_alphabetic())
                 .collect::<String>()
                 .to_ascii_lowercase();
-            if clean.len() >= 4 && !verb_set.contains(clean.as_str()) && seen.insert(clean.clone())
+            if clean.len() >= 4
+                && !NON_KEYWORD_WORDS.contains(clean.as_str())
+                && seen.insert(clean.clone())
             {
                 Some((word_tone(&clean), clean))
             } else {

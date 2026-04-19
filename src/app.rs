@@ -1,3 +1,20 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! # Application Entry-Point
+//!
+//! This module wires the `crate::cli::commands` argument parser to the
+//! individual subsystem functions (encode, simulate, discover, predict,
+//! generate text, render images, etc.).
+//!
+//! All public functionality is gated behind the `cli` Cargo feature so the
+//! library can be used as a pure Rust or Python/Node.js dependency without
+//! pulling in the CLI stack.
+
 #[cfg(feature = "cli")]
 use crate::causal::CausalGraph;
 #[cfg(all(feature = "cli", feature = "net"))]
@@ -17,8 +34,6 @@ use crate::discovery::SymbolicRegression;
 #[cfg(feature = "cli")]
 use crate::encode::{decode_message, encode_text};
 #[cfg(feature = "cli")]
-use crate::equation::Expression;
-#[cfg(feature = "cli")]
 use crate::field::Field;
 #[cfg(feature = "cli")]
 use crate::lexicon::Lexicon;
@@ -36,8 +51,6 @@ use crate::text::{EssayGenerator, ParagraphGenerator, SentenceGenerator, TextSum
 use crate::traits::{Causal as CausalTrait, Simulatable};
 #[cfg(feature = "cli")]
 use clap::Parser;
-#[cfg(feature = "cli")]
-use std::str::FromStr;
 #[cfg(feature = "cli")]
 use tracing::{Event, Subscriber, error, info};
 #[cfg(feature = "cli")]
@@ -300,48 +313,41 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
         } => {
             banner("Causal · Intervention Engine", "🔀");
             let mut graph = CausalGraph::new();
-            let x_id = graph.add_node("x", Some(Expression::Constant(0.0)));
-            let y_id = graph.add_node(
-                "y",
-                Some(Expression::Mul(
-                    Box::new(Expression::Constant(2.0)),
-                    Box::new(Expression::Variable("x".into())),
-                )),
-            );
-            let z_id = graph.add_node(
-                "z",
-                Some(Expression::Add(
-                    Box::new(Expression::Variable("y".into())),
-                    Box::new(Expression::Constant(1.0)),
-                )),
-            );
-            graph.add_edge(x_id, y_id, 1.0)?;
-            graph.add_edge(y_id, z_id, 1.0)?;
-            graph.nodes[x_id].observed_value = Some(3.0);
-            let before = graph.forward_pass()?;
+            graph.add_node("x", Some(0.0));
+            graph.add_node("y", None);
+            graph.add_node("z", None);
+            graph.add_edge("x", "y", Some(2.0))?;
+            graph.add_edge("y", "z", Some(1.0))?;
+            graph
+                .nodes
+                .iter_mut()
+                .find(|n| n.name == "x")
+                .unwrap()
+                .value = Some(3.0);
+            graph.forward_pass()?;
             divider("Before Intervention");
             info!(
                 "  x={:?}  y={:?}  z={:?}",
-                before.get(&x_id),
-                before.get(&y_id),
-                before.get(&z_id)
+                graph.get_value("x"),
+                graph.get_value("y"),
+                graph.get_value("z")
             );
             graph.intervene(&intervene_node, intervene_value)?;
-            let after = graph.forward_pass()?;
+            graph.forward_pass()?;
             if cli.verbose {
                 divider(&format!("After do({}={})", intervene_node, intervene_value));
                 info!(
                     "  x={:?}  y={:?}  z={:?}",
-                    after.get(&x_id),
-                    after.get(&y_id),
-                    after.get(&z_id)
+                    graph.get_value("x"),
+                    graph.get_value("y"),
+                    graph.get_value("z")
                 );
             } else {
                 println!(
                     "x={:?} y={:?} z={:?}",
-                    after.get(&x_id),
-                    after.get(&y_id),
-                    after.get(&z_id)
+                    graph.get_value("x"),
+                    graph.get_value("y"),
+                    graph.get_value("z")
                 );
             }
         }
@@ -434,17 +440,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             banner("Decode · Equation to Text", "🔓");
             info!("  📐 Equation : {}", equation);
             info!("  📏 Length   : {}", length);
-            let expr = Expression::from_str(&equation)
-                .map_err(|e| crate::error::LmmError::Perception(format!("Bad equation: {e}")))?;
-            let res_vec: Vec<i32> = if residuals.is_empty() {
-                vec![0; length]
-            } else {
-                residuals
-                    .split(',')
-                    .map(|s| s.trim().parse::<i32>().unwrap_or(0))
-                    .collect()
-            };
-            let decoded = crate::encode::decode_from_parts(&expr, length, &res_vec)?;
+            let decoded = crate::encode::decode_from_parts(&equation, length, &residuals)?;
             if cli.verbose {
                 divider("Decoded Text");
                 info!("  {}", decoded);

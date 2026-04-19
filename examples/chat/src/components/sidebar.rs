@@ -200,7 +200,7 @@ pub fn sidebar(props: &SidebarProps) -> Html {
                                 field_class={"w-full"}
                                 label_class={"text-xs text-vect-muted block mb-1"}
                                 error_class={"text-red-400 text-xs mt-1"}
-                                error_message={"Enter 1 – 200"}
+                                error_message={"Enter 1 - 200"}
                                 valid_handle={props.sentence_count_valid.clone()}
                                 validate_function={Callback::from(validate_count)}
                                 id={"sentence-count-input"}
@@ -219,7 +219,7 @@ pub fn sidebar(props: &SidebarProps) -> Html {
                                 field_class={"w-full"}
                                 label_class={"text-xs text-vect-muted block mb-1"}
                                 error_class={"text-red-400 text-xs mt-1"}
-                                error_message={"Enter 1 – 200"}
+                                error_message={"Enter 1 - 200"}
                                 valid_handle={props.paragraph_count_valid.clone()}
                                 validate_function={Callback::from(validate_count)}
                                 id={"paragraph-count-input"}
@@ -238,7 +238,7 @@ pub fn sidebar(props: &SidebarProps) -> Html {
                                 field_class={"w-full"}
                                 label_class={"text-xs text-vect-muted block mb-1"}
                                 error_class={"text-red-400 text-xs mt-1"}
-                                error_message={"Enter 1 – 200"}
+                                error_message={"Enter 1 - 200"}
                                 valid_handle={props.predict_length_valid.clone()}
                                 validate_function={Callback::from(validate_count)}
                                 id={"predict-length-input"}

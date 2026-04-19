@@ -9,8 +9,19 @@ documentation = "https://docs.rs/lmm"
 repository = "https://github.com/wiseaidotdev/lmm"
 homepage = "https://wiseai.dev"
 categories = ["science"]
-keywords = ["asi", "ai", "machine-learning", "llm"]
-exclude = ["/assets", "/tests", ".*", "/examples"]
+keywords = ["asi", "ai", "machine-learning", "llm", "lmm"]
+exclude = [
+    "/assets",
+    "/tests",
+    ".*",
+    "/examples",
+    "/papers",
+    "/python",
+    "/bin",
+    "package.json",
+    "package-lock.json",
+    "pyproject.toml"
+]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -22,6 +33,9 @@ anyhow = "1.0.102"
 rand = "0.10.1"
 serde = { version = "1.0.228", features = ["derive"] }
 tracing = "0.1"
+phf = { version = "0.13.1", features = ["macros"] }
+strum = { version = "0.28.0", features = ["derive"] }
+strum_macros = "0.28.0"
 clap = { version = "4.6.0", features = ["derive"], optional = true }
 tokio = { version = "1.51.1", features = ["full"], optional = true }
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"], optional = true }
