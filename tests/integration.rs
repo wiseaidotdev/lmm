@@ -130,20 +130,14 @@ fn test_consciousness_tick() {
 #[test]
 fn test_causal_end_to_end() {
     let mut g = CausalGraph::new();
-    let x = g.add_node("x", Some(Expression::Constant(4.0)));
-    let y = g.add_node(
-        "y",
-        Some(Expression::Mul(
-            Box::new(Expression::Constant(3.0)),
-            Box::new(Expression::Variable("x".into())),
-        )),
-    );
-    g.add_edge(x, y, 1.0).unwrap();
-    let vals = g.forward_pass().unwrap();
-    assert!((vals[&y] - 12.0).abs() < 1e-10);
+    g.add_node("x", Some(4.0));
+    g.add_node("y", None);
+    g.add_edge("x", "y", Some(3.0)).unwrap();
+    g.forward_pass().unwrap();
+    assert!((g.get_value("y").unwrap() - 12.0).abs() < 1e-10);
     g.intervene("x", 10.0).unwrap();
-    let after = g.forward_pass().unwrap();
-    assert!((after[&y] - 30.0).abs() < 1e-10);
+    g.forward_pass().unwrap();
+    assert!((g.get_value("y").unwrap() - 30.0).abs() < 1e-10);
 }
 
 #[test]
@@ -184,8 +178,7 @@ fn test_encode_decode_roundtrip() {
 
 #[test]
 fn test_decode_from_parts_known() {
-    let eq = Expression::Constant(65.0);
-    let decoded = decode_from_parts(&eq, 3, &[0, 1, 2]).unwrap();
+    let decoded = decode_from_parts("65", 3, "0,1,2").unwrap();
     assert_eq!(decoded.as_bytes(), &[65u8, 66, 67]);
 }
 
@@ -212,31 +205,18 @@ fn test_field_laplacian_1d() {
 #[test]
 fn test_causal_intervention_pipeline() {
     let mut graph = CausalGraph::new();
-    let x_id = graph.add_node("x", Some(Expression::Constant(3.0)));
-    let y_id = graph.add_node(
-        "y",
-        Some(Expression::Mul(
-            Box::new(Expression::Constant(2.0)),
-            Box::new(Expression::Variable("x".into())),
-        )),
-    );
-    let z_id = graph.add_node(
-        "z",
-        Some(Expression::Add(
-            Box::new(Expression::Variable("y".into())),
-            Box::new(Expression::Constant(1.0)),
-        )),
-    );
-    graph.add_edge(x_id, y_id, 1.0).unwrap();
-    graph.add_edge(y_id, z_id, 1.0).unwrap();
-    graph.nodes[x_id].observed_value = Some(3.0);
-    let before = graph.forward_pass().unwrap();
-    assert!((before[&y_id] - 6.0).abs() < 1e-10);
-    assert!((before[&z_id] - 7.0).abs() < 1e-10);
+    graph.add_node("x", Some(3.0));
+    graph.add_node("y", None);
+    graph.add_node("z", None);
+    graph.add_edge("x", "y", Some(2.0)).unwrap();
+    graph.add_edge("y", "z", Some(1.0)).unwrap();
+    graph.forward_pass().unwrap();
+    assert!((graph.get_value("y").unwrap() - 6.0).abs() < 1e-10);
+    assert!((graph.get_value("z").unwrap() - 6.0).abs() < 1e-10);
     graph.intervene("x", 10.0).unwrap();
-    let after = graph.forward_pass().unwrap();
-    assert!((after[&y_id] - 20.0).abs() < 1e-10);
-    assert!((after[&z_id] - 21.0).abs() < 1e-10);
+    graph.forward_pass().unwrap();
+    assert!((graph.get_value("y").unwrap() - 20.0).abs() < 1e-10);
+    assert!((graph.get_value("z").unwrap() - 20.0).abs() < 1e-10);
 }
 
 #[test]

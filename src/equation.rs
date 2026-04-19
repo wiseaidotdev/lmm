@@ -1,3 +1,50 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! # Symbolic Expression Engine
+//!
+//! This module defines [`Expression`], a recursive symbolic expression tree used throughout
+//! the LMM pipeline for physics laws, text-tone trajectories, MDL compression, and causal
+//! equations.
+//!
+//! ## Supported Operations
+//!
+//! | Variant | Infix/Prefix | Derivative | Simplification |
+//! |---|---|---|---|
+//! | `Constant(f64)` | `42`, `-3.5`, `1e-3` | 0 | constant folding |
+//! | `Variable(String)` | `x`, `G`, `m1` | 1 or 0 | unchanged |
+//! | `Add`, `Sub`, `Mul`, `Div`, `Pow` | `(a + b)` | product/quotient/chain rules | constant folding, identity elimination |
+//! | `Neg`, `Abs` | `(-x)`, `|x|` | negation rule | constant folding |
+//! | `Sin`, `Cos` | `sin(x)` | trig chain rule | constant folding |
+//! | `Exp`, `Log` | `exp(x)`, `ln(x)` | exponential/log chain rule | constant folding |
+//!
+//! ## Parsing
+//!
+//! [`Expression`] implements [`std::str::FromStr`] via a hand-written recursive-descent parser.
+//! Supported grammar:
+//! - Atoms: number literals (incl. `1e-3`), variable identifiers
+//! - Binary infix: `(a OP b)` fully parenthesised; exponentiation `(base)^(exp)`
+//! - Unary prefix: `(-a)`, `|a|`, `sin(a)`, `cos(a)`, `tan(a)`, `exp(a)`, `ln(a)`, `sqrt(a)`, `log10(a)`
+//!
+//! # Examples
+//!
+//! ```
+//! use lmm::equation::Expression;
+//! use std::collections::HashMap;
+//!
+//! let expr: Expression = "(x * 2)".parse().unwrap();
+//! let mut vars = HashMap::new();
+//! vars.insert("x".to_string(), 5.0);
+//! assert_eq!(expr.evaluate(&vars).unwrap(), 10.0);
+//!
+//! let d = expr.symbolic_diff("x");
+//! assert_eq!(d.simplify(), Expression::Constant(2.0));
+//! ```
+
 use crate::error::LmmError::{DivisionByZero, InvalidExpression};
 use crate::error::Result;
 use std::collections::HashMap;
@@ -385,9 +432,23 @@ impl<'a> Parser<'a> {
                 match name {
                     "sin" => Ok(Expression::Sin(Box::new(arg))),
                     "cos" => Ok(Expression::Cos(Box::new(arg))),
+                    "tan" => Ok(Expression::Div(
+                        Box::new(Expression::Sin(Box::new(arg.clone()))),
+                        Box::new(Expression::Cos(Box::new(arg))),
+                    )),
                     "exp" => Ok(Expression::Exp(Box::new(arg))),
                     "ln" => Ok(Expression::Log(Box::new(arg))),
-                    _ => Err(format!("unknown function: {name}")),
+                    "log10" => Ok(Expression::Div(
+                        Box::new(Expression::Log(Box::new(arg))),
+                        Box::new(Expression::Constant(std::f64::consts::LN_10)),
+                    )),
+                    "sqrt" => Ok(Expression::Pow(
+                        Box::new(arg),
+                        Box::new(Expression::Constant(0.5)),
+                    )),
+                    _ => Err(format!(
+                        "unknown function: {name}. Supported: sin, cos, tan, exp, ln, sqrt, log10"
+                    )),
                 }
             }
             Some(b'0'..=b'9' | b'-') => {
@@ -430,8 +491,19 @@ impl<'a> Parser<'a> {
 impl std::str::FromStr for Expression {
     type Err = String;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let mut p = Parser::new(s.trim());
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            return Err("Cannot parse empty expression".to_string());
+        }
+        let mut p = Parser::new(trimmed);
         let expr = p.parse_expr()?;
         Ok(expr)
     }
 }
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

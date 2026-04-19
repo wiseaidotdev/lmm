@@ -323,7 +323,7 @@ Laplacian of x²: [0.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 0.0]
 
 This is the flagship demonstration of LMM's power. Any text is treated as a
 sequence of byte values indexed by position. The GP engine discovers a symbolic
-equation `f(x) ≈ byte[x]`. Integer residuals `(byte[x] − round(f(x)))` are
+equation `f(x) ≈ byte[x]`. Integer residuals `(byte[x] - round(f(x)))` are
 stored alongside the equation, guaranteeing **lossless round-trip recovery**.
 
 ```sh

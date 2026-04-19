@@ -1,3 +1,19 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! # CLI Command Definitions
+//!
+//! Defines the [`Cli`] top-level parser and the [`Commands`] enum covering every
+//! subcommand exposed by the `lmm` binary. Each subcommand variant carries its
+//! own typed argument set that is forwarded to the appropriate engine function
+//! in [`crate::app`].
+//!
+//! The CLI is built with [`clap`] using the derive macro approach.
+
 use clap::builder::styling::{AnsiColor, Effects, Styles};
 use clap::{Parser, Subcommand};
 

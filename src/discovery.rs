@@ -1,3 +1,28 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! # Symbolic Regression
+//!
+//! This module implements [`SymbolicRegression`], a genetic programming engine that
+//! discovers symbolic mathematical expressions from data. It uses:
+//!
+//! - **Population-based search** - a pool of expression trees is evolved over generations.
+//! - **Tournament selection** - the fittest expressions are preferentially propagated.
+//! - **Crossover and mutation** - subtree swap and random perturbation diversify the pool.
+//! - **MDL scoring** - the [`crate::compression::mdl_score`] criterion balances fit vs.
+//!   complexity to prevent over-fitting.
+//!
+//! The discovered expression can be used directly as a physics law, text-rhythm model,
+//! or causal equation within other `lmm` subsystems.
+//!
+//! # See Also
+//! - [Koza, J. R. (1992). Genetic Programming. MIT Press.](https://en.wikipedia.org/wiki/Genetic_programming) - the original formulation of the genetic programming algorithms adapted here.
+//! - [`crate::predict::TextPredictor`] - utilizes this `SymbolicRegression` engine to mathematically model language tone and rhythm trajectories.
+
 use crate::compression::mdl_score;
 use crate::equation::Expression;
 use crate::error::{LmmError, Result};
@@ -5,14 +30,56 @@ use crate::tensor::Tensor;
 use crate::traits::Discoverable;
 use rand::{Rng, RngExt};
 
+/// A genetic-programming symbolic regression engine.
+///
+/// Evolves a population of mathematical expression trees over many generations,
+/// scoring each against training data with the MDL criterion.
+///
+/// # Examples
+///
+/// ```
+/// use lmm::traits::Simulatable;
+/// use lmm::discovery::SymbolicRegression;
+/// use lmm::tensor::Tensor;
+///
+/// let data = vec![
+///     Tensor::from_vec(vec![1.0]),
+///     Tensor::from_vec(vec![2.0]),
+///     Tensor::from_vec(vec![3.0]),
+/// ];
+/// let targets = vec![2.0, 4.0, 6.0];
+/// let expr = SymbolicRegression::new(3, 40).fit(
+///     &data.iter().map(|t| t.data.clone()).collect::<Vec<_>>(),
+///     &targets,
+/// ).unwrap();
+/// println!("Discovered: {expr}");
+/// ```
 pub struct SymbolicRegression {
+    /// Maximum depth of expression trees.
     pub max_depth: usize,
+    /// Population size (number of candidate expressions per generation).
     pub population_size: usize,
+    /// Number of evolutionary iterations.
     pub iterations: usize,
+    /// Names of input variables (e.g. `["x", "y"]`).
     pub variable_names: Vec<String>,
 }
 
 impl SymbolicRegression {
+    /// Creates a [`SymbolicRegression`] with a single default variable `"x"`.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_depth` - Maximum depth of expression trees.
+    /// * `iterations` - Number of evolutionary generations.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lmm::discovery::SymbolicRegression;
+    /// let sr = SymbolicRegression::new(3, 50);
+    /// assert_eq!(sr.max_depth, 3);
+    /// ```
     pub fn new(max_depth: usize, iterations: usize) -> Self {
         Self {
             max_depth,
@@ -311,6 +378,9 @@ impl SymbolicRegression {
 }
 
 impl Discoverable for SymbolicRegression {
+    /// Discovers a symbolic expression fitting `data → targets` with default parameters.
+    ///
+    /// Uses `max_depth = 3`, `iterations = 50`, and a single variable `x`.
     fn discover(data: &[Tensor], targets: &[f64]) -> Result<Expression> {
         if data.is_empty() {
             return Ok(Expression::Variable("x".into()));
@@ -320,3 +390,10 @@ impl Discoverable for SymbolicRegression {
         sr.fit(&inputs, targets)
     }
 }
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

@@ -1,5 +1,44 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! # Procedural Image Generation ("Imagen")
+//!
+//! This module implements a deterministic, prompt-driven PPM image generator built entirely
+//! from first principles - no external graphics crates required. Given a text prompt, it:
+//!
+//! 1. **Hashes** the prompt to a reproducible 64-bit seed via a FNV-1a variant.
+//! 2. **Generates spectral colour fields** using sums of cosine waves with LCG-seeded parameters.
+//! 3. **Applies a [`StyleMode`] modifier** (Wave, Radial, Orbital, Fractal, Flow, or Plasma).
+//! 4. **Maps field values to RGB** through a [`Palette`] (bias + amplitude cosine map).
+//! 5. **Writes** the result as a binary PPM file.
+//!
+//! [`StyleMode`] derives the full strum suite (`EnumString`, `EnumIter`, `AsRefStr`,
+//! `Display`) so it can be round-tripped from strings without a hand-written `match`.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use lmm::imagen::{ImagenParams, StyleMode, render};
+//!
+//! let params = ImagenParams {
+//!     prompt: "the fabric of spacetime".into(),
+//!     width: 256, height: 256, components: 12,
+//!     style: StyleMode::Fractal,
+//!     palette_name: "neon".into(),
+//!     output: "/tmp/".into(),
+//! };
+//! let path = render(&params).unwrap();
+//! println!("Saved to {path}");
+//! ```
+
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 use crate::error::{LmmError, Result};
+use phf::{Map, phf_map};
+use strum_macros::{AsRefStr, Display, EnumIter, EnumString};
 
 use std::f64::consts::TAU;
 #[cfg(not(target_arch = "wasm32"))]
@@ -9,59 +48,125 @@ use std::io::{BufWriter, Write};
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
+/// LCG multiplier (Knuth).
 const LCG_MULTIPLIER: u64 = 6364136223846793005;
+/// LCG additive constant.
 const LCG_INCREMENT: u64 = 1442695040888963407;
+/// FNV-1a 64-bit offset basis.
 const FNV_OFFSET_BASIS: u64 = 14695981039346656037;
+/// FNV-1a prime.
 const FNV_PRIME: u64 = 1099511628211;
+/// Per-character position multiplier used when hashing the prompt.
 const PROMPT_INDEX_MULTIPLIER: u64 = 31;
 
+/// Stride between spectral wave bands.
 const WAVE_BAND_STRIDE: u64 = 997;
+/// Stride between wave components within a band.
 const WAVE_COMPONENT_STRIDE: u64 = 31337;
+/// Minimum number of wave components.
 const MIN_WAVE_COMPONENTS: usize = 3;
+/// Maximum number of wave components.
 const MAX_WAVE_COMPONENTS: usize = 32;
+/// Maximum Mandelbrot iteration count for fractal style.
 const FRACTAL_MAX_ITERATIONS: u32 = 32;
+/// Escape radius squared for fractal iteration.
 const FRACTAL_ESCAPE_RADIUS_SQ: f64 = 4.0;
+/// Seed offset for the Gaussian sigma in the Orbital style.
 const STYLE_SIGMA_SEED_OFFSET: u64 = 99;
+/// Seed offset for the fractal c_real constant.
 const FRACTAL_C_REAL_SEED_OFFSET: u64 = 77;
+/// Seed offset for the fractal c_imag constant.
 const FRACTAL_C_IMAG_SEED_OFFSET: u64 = 78;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// Named palette constructors indexed by case-normalised name.
+///
+/// Lookup is O(1) via a compile-time perfect hash - no runtime `match`.
+static NAMED_PALETTES: Map<&'static str, fn() -> Palette> = phf_map! {
+    "warm"       => Palette::warm       as fn() -> Palette,
+    "cool"       => Palette::cool       as fn() -> Palette,
+    "neon"       => Palette::neon       as fn() -> Palette,
+    "monochrome" => Palette::monochrome as fn() -> Palette,
+    "mono"       => Palette::monochrome as fn() -> Palette,
+};
+
+/// Rendering style applied on top of the base spectral field.
+///
+/// Derives the full strum suite so the enum can be parsed from strings without a
+/// hand-written `match`. `StyleMode::from_str("fractal")` is case-insensitive.
+///
+/// | Variant | Description |
+/// |---|---|
+/// | `Wave` | Raw spectral field; no modifier |
+/// | `Radial` | Concentric ring interference |
+/// | `Orbital` | Gaussian envelope × angular harmonics |
+/// | `Fractal` | Mandelbrot-set iteration count |
+/// | `Flow` | Stream-line vector projection |
+/// | `Plasma` | Four-mode plasma sum |
+///
+/// # Examples
+///
+/// ```
+/// use lmm::traits::Simulatable;
+/// use lmm::imagen::StyleMode;
+/// use std::str::FromStr;
+///
+/// let s: StyleMode = "fractal".parse().unwrap();
+/// assert_eq!(s, StyleMode::Fractal);
+/// assert_eq!(s.to_string(), "Fractal");
+/// assert_eq!(s.as_ref(), "Fractal");
+/// ```
+#[derive(
+    EnumString, EnumIter, AsRefStr, Display, Debug, Clone, Copy, PartialEq, Eq, Hash, Default,
+)]
+#[strum(ascii_case_insensitive)]
 pub enum StyleMode {
+    /// Raw spectral cosine field, no geometric modifier.
+    #[default]
     Wave,
+    /// Radially symmetric ring interference pattern.
     Radial,
+    /// Gaussian-envelope orbital harmonics.
     Orbital,
+    /// Mandelbrot-set escape-time colouring.
     Fractal,
+    /// Stream-line flow-field projection.
     Flow,
+    /// Four-component plasma superposition.
     Plasma,
 }
 
-impl std::str::FromStr for StyleMode {
-    type Err = LmmError;
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "wave" => Ok(StyleMode::Wave),
-            "radial" => Ok(StyleMode::Radial),
-            "orbital" => Ok(StyleMode::Orbital),
-            "fractal" => Ok(StyleMode::Fractal),
-            "flow" => Ok(StyleMode::Flow),
-            "plasma" => Ok(StyleMode::Plasma),
-            _ => Err(LmmError::Perception(format!("unknown style: {}", s))),
-        }
-    }
-}
-
+/// RGB colour palette defined by per-channel bias and amplitude.
+///
+/// The mapping is: `channel_u8 = clamp(bias + amp × sin(field × 2π), 0, 1) × 255`.
+///
+/// # Examples
+///
+/// ```
+/// use lmm::traits::Simulatable;
+/// use lmm::imagen::Palette;
+///
+/// let p = Palette::warm();
+/// assert!(p.r_bias > p.b_bias); // warm → more red
+/// ```
 #[derive(Debug, Clone)]
 pub struct Palette {
+    /// Red channel bias ∈ [0, 1].
     pub r_bias: f64,
+    /// Green channel bias ∈ [0, 1].
     pub g_bias: f64,
+    /// Blue channel bias ∈ [0, 1].
     pub b_bias: f64,
+    /// Red channel amplitude ∈ [0, 1].
     pub r_amp: f64,
+    /// Green channel amplitude ∈ [0, 1].
     pub g_amp: f64,
+    /// Blue channel amplitude ∈ [0, 1].
     pub b_amp: f64,
 }
 
 impl Palette {
-    fn from_seed(seed: u64) -> Self {
+    /// Derives a pseudo-random palette from a 64-bit seed.
+    pub(crate) fn from_seed(seed: u64) -> Self {
         let r_bias = lcg_unit(seed) * 0.5 + 0.25;
         let g_bias = lcg_unit(seed.wrapping_add(1)) * 0.5 + 0.25;
         let b_bias = lcg_unit(seed.wrapping_add(2)) * 0.5 + 0.25;
@@ -78,6 +183,7 @@ impl Palette {
         }
     }
 
+    /// Warm palette: dominant reds, muted blues.
     pub fn warm() -> Self {
         Self {
             r_bias: 0.7,
@@ -89,6 +195,7 @@ impl Palette {
         }
     }
 
+    /// Cool palette: dominant blues, muted reds.
     pub fn cool() -> Self {
         Self {
             r_bias: 0.1,
@@ -100,6 +207,7 @@ impl Palette {
         }
     }
 
+    /// High-saturation neon palette.
     pub fn neon() -> Self {
         Self {
             r_bias: 0.1,
@@ -111,6 +219,7 @@ impl Palette {
         }
     }
 
+    /// Equal-bias greyscale palette.
     pub fn monochrome() -> Self {
         Self {
             r_bias: 0.5,
@@ -119,6 +228,34 @@ impl Palette {
             r_amp: 0.45,
             g_amp: 0.45,
             b_amp: 0.45,
+        }
+    }
+
+    /// Looks up a named palette by name, falling back to `Palette::from_seed(seed)`.
+    ///
+    /// The lookup uses the compile-time `NAMED_PALETTES` PHF map (O(1)).
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Palette name (case-insensitive).
+    /// * `seed` - Seed used when `name` is not recognised.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lmm::imagen::Palette;
+    ///
+    /// let p = Palette::by_name("warm", 0);
+    /// assert!(p.r_bias > 0.5);
+    /// let p2 = Palette::by_name("unknown_xyz", 42);
+    /// assert!(p2.r_bias > 0.0); // seed-derived
+    /// ```
+    pub fn by_name(name: &str, seed: u64) -> Self {
+        let lower = name.to_lowercase();
+        if let Some(ctor) = NAMED_PALETTES.get(lower.as_str()) {
+            ctor()
+        } else {
+            Self::from_seed(seed)
         }
     }
 }
@@ -153,15 +290,11 @@ impl WaveComponent {
         let s = seed
             .wrapping_add(band * WAVE_BAND_STRIDE)
             .wrapping_add(component * WAVE_COMPONENT_STRIDE);
-        let amplitude = lcg_unit(s) * 0.6 + 0.1;
-        let freq_x = lcg_unit(s.wrapping_add(1)) * 5.0 + 0.5;
-        let freq_y = lcg_unit(s.wrapping_add(2)) * 5.0 + 0.5;
-        let phase = lcg_unit(s.wrapping_add(3)) * TAU;
         Self {
-            amplitude,
-            freq_x,
-            freq_y,
-            phase,
+            amplitude: lcg_unit(s) * 0.6 + 0.1,
+            freq_x: lcg_unit(s.wrapping_add(1)) * 5.0 + 0.5,
+            freq_y: lcg_unit(s.wrapping_add(2)) * 5.0 + 0.5,
+            phase: lcg_unit(s.wrapping_add(3)) * TAU,
         }
     }
 
@@ -172,8 +305,7 @@ impl WaveComponent {
 
 fn spectral_field(components: &[WaveComponent], nx: f64, ny: f64) -> f64 {
     let raw: f64 = components.iter().map(|c| c.evaluate(nx, ny)).sum();
-    let norm = raw / components.len() as f64;
-    (norm + 1.0) * 0.5
+    (raw / components.len() as f64 + 1.0) * 0.5
 }
 
 fn apply_style(nx: f64, ny: f64, base: f64, style: StyleMode, seed: u64) -> f64 {
@@ -182,7 +314,6 @@ fn apply_style(nx: f64, ny: f64, base: f64, style: StyleMode, seed: u64) -> f64 
     let r = (cx * cx + cy * cy).sqrt();
     let theta = cy.atan2(cx);
     let sigma = lcg_unit(seed.wrapping_add(STYLE_SIGMA_SEED_OFFSET)) * 0.3 + 0.2;
-
     match style {
         StyleMode::Wave => base,
         StyleMode::Radial => {
@@ -212,8 +343,7 @@ fn apply_style(nx: f64, ny: f64, base: f64, style: StyleMode, seed: u64) -> f64 
         StyleMode::Flow => {
             let stream_x = (TAU * ny * 2.0 + base).sin();
             let stream_y = (TAU * nx * 2.0 + base).cos();
-            let dot = cx * stream_x + cy * stream_y;
-            (dot * 0.5 + 0.5).clamp(0.0, 1.0)
+            (cx * stream_x + cy * stream_y) * 0.5 + 0.5
         }
         StyleMode::Plasma => {
             let v1 = (TAU * (nx + base)).sin();
@@ -241,27 +371,70 @@ fn field_to_rgb(r_field: f64, g_field: f64, b_field: f64, palette: &Palette) -> 
     ]
 }
 
+/// Parameters controlling image generation.
+///
+/// # Examples
+///
+/// ```
+/// use lmm::traits::Simulatable;
+/// use lmm::imagen::{ImagenParams, StyleMode};
+///
+/// let params = ImagenParams {
+///     prompt: "entropy".into(),
+///     width: 64, height: 64,
+///     components: 8,
+///     style: StyleMode::Wave,
+///     palette_name: "cool".into(),
+///     output: "/tmp/".into(),
+/// };
+/// assert_eq!(params.width, 64);
+/// ```
+#[derive(Debug, Clone)]
 pub struct ImagenParams {
+    /// Text prompt - drives the deterministic seed.
     pub prompt: String,
+    /// Output image width in pixels.
     pub width: u32,
+    /// Output image height in pixels.
     pub height: u32,
+    /// Number of spectral wave components per channel (clamped to [3, 32]).
     pub components: usize,
+    /// Visual style modifier.
     pub style: StyleMode,
+    /// Named palette (`"warm"`, `"cool"`, `"neon"`, `"monochrome"`) or seed-derived.
     pub palette_name: String,
+    /// Output path (file or directory; `.ppm` extension is appended if directory).
     pub output: String,
 }
 
+/// Renders an image from `params` and returns the output file path.
+///
+/// Lookup of the named palette uses the compile-time `NAMED_PALETTES` PHF map (O(1));
+/// unknown names fall back to the prompt-derived seed palette.
+///
+/// # Errors
+///
+/// Returns [`LmmError::Perception`] when the output file or directory cannot be created or written.
+///
+/// # Examples
+///
+/// ```no_run
+/// use lmm::imagen::{ImagenParams, StyleMode, render};
+///
+/// let params = ImagenParams {
+///     prompt: "symmetry".into(),
+///     width: 64, height: 64, components: 6,
+///     style: StyleMode::Radial,
+///     palette_name: "cool".into(),
+///     output: "/tmp/test.ppm".into(),
+/// };
+/// let path = render(&params).unwrap();
+/// assert!(path.ends_with(".ppm"));
+/// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn render(params: &ImagenParams) -> Result<String> {
     let seed = prompt_seed(&params.prompt);
-
-    let palette = match params.palette_name.to_lowercase().as_str() {
-        "warm" => Palette::warm(),
-        "cool" => Palette::cool(),
-        "neon" => Palette::neon(),
-        "monochrome" | "mono" => Palette::monochrome(),
-        _ => Palette::from_seed(seed),
-    };
+    let palette = Palette::by_name(&params.palette_name, seed);
 
     let n = params
         .components
@@ -290,8 +463,7 @@ pub fn render(params: &ImagenParams) -> Result<String> {
             let r_val = apply_style(nx, ny, r_raw, params.style, seed.wrapping_add(0));
             let g_val = apply_style(nx, ny, g_raw, params.style, seed.wrapping_add(1));
             let b_val = apply_style(nx, ny, b_raw, params.style, seed.wrapping_add(2));
-            let rgb = field_to_rgb(r_val, g_val, b_val, &palette);
-            pixels.extend_from_slice(&rgb);
+            pixels.extend_from_slice(&field_to_rgb(r_val, g_val, b_val, &palette));
         }
     }
 
@@ -299,10 +471,10 @@ pub fn render(params: &ImagenParams) -> Result<String> {
     if params.output.ends_with('/') || params.output.ends_with('\\') || out_path.is_dir() {
         if !out_path.exists() {
             std::fs::create_dir_all(&out_path)
-                .map_err(|e| LmmError::Perception(format!("cannot create directory: {}", e)))?;
+                .map_err(|e| LmmError::Perception(format!("cannot create directory: {e}")))?;
         }
         let seed_hex = format!("{:08x}", seed as u32);
-        let style_str = format!("{:?}", params.style).to_lowercase();
+        let style_str = params.style.as_ref().to_lowercase();
         out_path.push(format!(
             "{}_{}_{}.ppm",
             style_str, params.palette_name, seed_hex
@@ -311,7 +483,7 @@ pub fn render(params: &ImagenParams) -> Result<String> {
         && !parent.as_os_str().is_empty()
     {
         std::fs::create_dir_all(parent)
-            .map_err(|e| LmmError::Perception(format!("cannot create directory: {}", e)))?;
+            .map_err(|e| LmmError::Perception(format!("cannot create directory: {e}")))?;
     }
 
     write_ppm(&out_path, w, h, &pixels)?;
@@ -321,12 +493,19 @@ pub fn render(params: &ImagenParams) -> Result<String> {
 #[cfg(not(target_arch = "wasm32"))]
 fn write_ppm(path: &Path, width: usize, height: usize, pixels: &[u8]) -> Result<()> {
     let file = File::create(path)
-        .map_err(|e| LmmError::Perception(format!("cannot create output file: {}", e)))?;
+        .map_err(|e| LmmError::Perception(format!("cannot create output file: {e}")))?;
     let mut writer = BufWriter::new(file);
     write!(writer, "P6\n{} {}\n255\n", width, height)
-        .map_err(|e| LmmError::Perception(format!("write error: {}", e)))?;
+        .map_err(|e| LmmError::Perception(format!("write error: {e}")))?;
     writer
         .write_all(pixels)
-        .map_err(|e| LmmError::Perception(format!("write error: {}", e)))?;
+        .map_err(|e| LmmError::Perception(format!("write error: {e}")))?;
     Ok(())
 }
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
