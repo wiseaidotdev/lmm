@@ -25,7 +25,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-lmm-agent = "0.0.1"
+lmm-agent = "0.0.2"
 ```
 
 Or enable it as a feature from the root `lmm` workspace:
