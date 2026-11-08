@@ -1035,7 +1035,9 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "lmm"
-version = "0.2.8"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d188fc2d994de6ac7798b708b5fd52b82b359709f1425598b533773d438775e9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1054,7 +1056,9 @@ dependencies = [
 
 [[package]]
 name = "lmm-agent"
-version = "0.1.2"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "959aff71cd7f1315aef25c002a2acd7763cbabba85c0089c525b48a650f51104"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1070,6 +1074,8 @@ dependencies = [
 [[package]]
 name = "lmm-derive"
 version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8d7c858a0781436deffa9dc1c9d96c86c281583db0d0c8dad2a55f2880c4cb2"
 dependencies = [
  "async-trait",
  "proc-macro2",

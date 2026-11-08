@@ -26,7 +26,7 @@ This crate is automatically pulled in when you use `lmm-agent`:
 
 ```toml
 [dependencies]
-lmm-agent = "0.1.2"
+lmm-agent = "0.2.0"
 ```
 
 ## 🚀 Usage
