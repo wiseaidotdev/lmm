@@ -7,11 +7,11 @@
 
 //! Integration tests for `cognition::knowledge`.
 
-use lmm_agent::agent::LmmAgent;
-use lmm_agent::cognition::knowledge::{
+use lmm::cognition::knowledge::{
     DocumentChunk, DocumentParser, KnowledgeIndex, KnowledgeSource, MarkdownParser,
     PlainTextParser, ingest,
 };
+use lmm_agent::agent::LmmAgent;
 
 const RUST_TEXT: &str = "\
 Rust is a systems language that prevents data races through its ownership model. \

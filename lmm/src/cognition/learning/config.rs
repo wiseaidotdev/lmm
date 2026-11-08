@@ -32,7 +32,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::config::LearningConfig;
+//! use lmm::cognition::learning::config::LearningConfig;
 //!
 //! let cfg = LearningConfig::default();
 //! assert_eq!(cfg.alpha, 0.1);
@@ -40,7 +40,7 @@
 //! assert!(cfg.epsilon > 0.0);
 //! ```
 
-use crate::types::LearningMode;
+use crate::cognition::types::LearningMode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -49,7 +49,7 @@ use std::collections::HashSet;
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::learning::config::LearningConfig;
+/// use lmm::cognition::learning::config::LearningConfig;
 ///
 /// let cfg = LearningConfig::builder()
 ///     .alpha(0.05)
@@ -132,8 +132,8 @@ impl LearningConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
-    /// use lmm_agent::types::LearningMode;
+    /// use lmm::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::types::LearningMode;
     ///
     /// let cfg = LearningConfig::default();
     /// assert!(cfg.is_mode_active(LearningMode::QTable));

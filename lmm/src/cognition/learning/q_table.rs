@@ -42,7 +42,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
+//! use lmm::cognition::learning::q_table::{ActionKey, QTable};
 //!
 //! let mut qt = QTable::new(0.1, 0.9, 0.3, 0.99, 0.01);
 //! let s = QTable::state_key("rust memory safety");
@@ -60,7 +60,7 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::learning::q_table::ActionKey;
+/// use lmm::cognition::learning::q_table::ActionKey;
 ///
 /// assert_ne!(ActionKey::Broaden, ActionKey::Narrow);
 /// ```
@@ -96,7 +96,7 @@ impl ActionKey {
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
+/// use lmm::cognition::learning::q_table::{ActionKey, QTable};
 ///
 /// let mut qt = QTable::new(0.1, 0.9, 0.3, 0.99, 0.01);
 /// let s  = QTable::state_key("rust ownership");
@@ -168,7 +168,7 @@ impl QTable {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::q_table::QTable;
+    /// use lmm::cognition::learning::q_table::QTable;
     ///
     /// let k1 = QTable::state_key("rust memory safety");
     /// let k2 = QTable::state_key("memory rust safety");
@@ -205,7 +205,7 @@ impl QTable {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
+    /// use lmm::cognition::learning::q_table::{ActionKey, QTable};
     ///
     /// let mut qt = QTable::new(0.1, 0.9, 0.0, 0.99, 0.01);
     /// let s = QTable::state_key("test query");
@@ -242,7 +242,7 @@ impl QTable {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
+    /// use lmm::cognition::learning::q_table::{ActionKey, QTable};
     ///
     /// let mut qt = QTable::new(0.1, 0.9, 0.0, 1.0, 0.0);
     /// let s  = QTable::state_key("a b");
@@ -271,7 +271,7 @@ impl QTable {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
+    /// use lmm::cognition::learning::q_table::{ActionKey, QTable};
     ///
     /// let mut qt = QTable::new(0.1, 0.9, 0.0, 1.0, 0.0);
     /// let s = QTable::state_key("rust");

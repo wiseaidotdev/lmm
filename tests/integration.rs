@@ -422,3 +422,96 @@ mod net_tests {
         assert_eq!(seed, "rust programming");
     }
 }
+
+mod tram_tests {
+    use lmm::predict::TextPredictor;
+    use lmm::stochastic::{StochasticEnhancer, detect::LanguageHint};
+    use lmm::text::TextSummarizer;
+    use lmm_agent::agent::LmmAgent;
+    use lmm::cognition::knowledge::KnowledgeSource;
+
+    #[tokio::test]
+    async fn tram_agent_ingest_and_answer() {
+        let mut agent = LmmAgent::new(
+            "TRAM Test Agent".into(),
+            "Stochastic Determinism replaces neural networks.".into(),
+        );
+        let n = agent
+            .ingest(KnowledgeSource::RawText(
+                "Stochastic Determinism is a framework for machine intelligence \
+                 that does not rely on training or neural networks. \
+                 It computes answers from first principles every time it is invoked."
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        assert!(n > 0, "At least one KB chunk should have been ingested");
+
+        let answer = agent.answer_from_knowledge("What is Stochastic Determinism?");
+        assert!(
+            answer.is_some(),
+            "Agent should surface an answer from the KB"
+        );
+    }
+
+    #[tokio::test]
+    async fn tram_agent_think_loop_converges() {
+        let mut agent = LmmAgent::new("TRAM Thinker".into(), "What is entropy?".into());
+        let result = agent
+            .think("What is entropy in thermodynamics?")
+            .await
+            .unwrap();
+        assert!(result.steps > 0, "Think loop should execute at least one step");
+        assert!(
+            result.final_error >= 0.0 && result.final_error <= 1.0,
+            "Jaccard error must be in [0, 1]"
+        );
+    }
+
+    #[tokio::test]
+    async fn tram_pipeline_produces_non_empty_output() {
+        let prompt = "What is the nature of mathematical reality?";
+        let corpus = "Mathematical structures encode the laws of physics. \
+                      Equations reveal the deep symmetry of nature. \
+                      Entropy measures the disorder within a thermodynamic system.";
+
+        let summarizer = TextSummarizer::new(2, 20, 3);
+        let best = summarizer
+            .summarize_with_query(corpus, prompt)
+            .unwrap_or_default();
+        let seed = if best.is_empty() {
+            prompt.to_string()
+        } else {
+            format!("{} {}", prompt, best.join(" "))
+        };
+
+        let predictor = TextPredictor::new(16, 20, 3);
+        let continuation = predictor
+            .predict_continuation(&seed, 60)
+            .map(|r| format!("{} {}", seed.trim(), r.continuation.trim()))
+            .unwrap_or_else(|_| seed.clone());
+
+        let enhanced = StochasticEnhancer::new(0.5).enhance_detailed(&continuation);
+
+        assert!(!enhanced.text.is_empty(), "TRAM output must not be empty");
+        assert_eq!(
+            enhanced.language,
+            LanguageHint::English,
+            "English input should yield English hint"
+        );
+    }
+
+    #[tokio::test]
+    async fn tram_stochastic_produces_different_runs() {
+        let seed = "Mathematics reveals the structure of the universe through elegant equations.";
+        let enhancer = StochasticEnhancer::new(0.8);
+        let runs: Vec<String> = (0..5)
+            .map(|_| enhancer.enhance_detailed(seed).text)
+            .collect();
+        let unique: std::collections::HashSet<&String> = runs.iter().collect();
+        assert!(
+            unique.len() >= 2,
+            "At least 2 of 5 TRAM-enhanced runs should differ"
+        );
+    }
+}

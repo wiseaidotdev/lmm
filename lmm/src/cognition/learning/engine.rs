@@ -21,12 +21,12 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::engine::LearningEngine;
-//! use lmm_agent::cognition::learning::config::LearningConfig;
-//! use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
-//! use lmm_agent::cognition::memory::ColdStore;
-//! use lmm_agent::cognition::knowledge::KnowledgeIndex;
-//! use lmm_agent::cognition::signal::CognitionSignal;
+//! use lmm::cognition::learning::engine::LearningEngine;
+//! use lmm::cognition::learning::config::LearningConfig;
+//! use lmm::cognition::learning::q_table::{ActionKey, QTable};
+//! use lmm::cognition::memory::ColdStore;
+//! use lmm::cognition::knowledge::KnowledgeIndex;
+//! use lmm::cognition::signal::CognitionSignal;
 //!
 //! let mut engine = LearningEngine::new(LearningConfig::default());
 //! let sig = CognitionSignal::new(0, "rust memory".into(), "rust uses ownership".into(), 1.0, 0.0);
@@ -50,7 +50,7 @@ use crate::cognition::learning::meta::MetaAdapter;
 use crate::cognition::learning::q_table::{ActionKey, QTable};
 use crate::cognition::memory::ColdStore;
 use crate::cognition::signal::CognitionSignal;
-use crate::types::{AgentSnapshot, ExperienceRecord, LearningMode};
+use crate::cognition::types::{AgentSnapshot, ExperienceRecord, LearningMode};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -60,8 +60,8 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::learning::engine::LearningEngine;
-/// use lmm_agent::cognition::learning::config::LearningConfig;
+/// use lmm::cognition::learning::engine::LearningEngine;
+/// use lmm::cognition::learning::config::LearningConfig;
 ///
 /// let mut engine = LearningEngine::new(LearningConfig::default());
 /// assert!(engine.q_table().is_empty());
@@ -93,8 +93,8 @@ impl LearningEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
     ///
     /// let engine = LearningEngine::new(LearningConfig::default());
     /// assert_eq!(engine.episode_count(), 0);
@@ -167,10 +167,10 @@ impl LearningEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
-    /// use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
-    /// use lmm_agent::cognition::signal::CognitionSignal;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::q_table::{ActionKey, QTable};
+    /// use lmm::cognition::signal::CognitionSignal;
     ///
     /// let mut engine = LearningEngine::new(LearningConfig::default());
     /// let sig = CognitionSignal::new(0, "a b".into(), "a b c".into(), 1.0, 0.0);
@@ -216,9 +216,9 @@ impl LearningEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
-    /// use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::q_table::{ActionKey, QTable};
     ///
     /// let mut engine = LearningEngine::new(LearningConfig::default());
     /// let s = QTable::state_key("hello world");
@@ -254,10 +254,10 @@ impl LearningEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
-    /// use lmm_agent::cognition::memory::ColdStore;
-    /// use lmm_agent::cognition::knowledge::KnowledgeIndex;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::memory::ColdStore;
+    /// use lmm::cognition::knowledge::KnowledgeIndex;
     ///
     /// let mut engine = LearningEngine::new(LearningConfig::default());
     /// let cold = ColdStore::default();
@@ -300,10 +300,10 @@ impl LearningEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
-    /// use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
-    /// use lmm_agent::types::AgentSnapshot;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::q_table::{ActionKey, QTable};
+    /// use lmm::cognition::types::AgentSnapshot;
     ///
     /// let mut engine = LearningEngine::new(LearningConfig::default());
     /// let remote_qt = QTable::new(0.1, 0.9, 0.0, 1.0, 0.0);
@@ -322,8 +322,8 @@ impl LearningEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
     ///
     /// let engine = LearningEngine::new(LearningConfig::default());
     /// let snap = engine.export_snapshot("agent-1");

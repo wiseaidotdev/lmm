@@ -15,7 +15,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::goal::GoalEvaluator;
+//! use lmm::cognition::goal::GoalEvaluator;
 //!
 //! let eval = GoalEvaluator::new(0.3);
 //! assert!(eval.is_converged(0.1));
@@ -36,7 +36,7 @@
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::goal::GoalEvaluator;
+/// use lmm::cognition::goal::GoalEvaluator;
 ///
 /// let eval = GoalEvaluator::new(0.25);
 /// assert!(eval.is_converged(0.0));
@@ -71,7 +71,7 @@ impl GoalEvaluator {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::goal::GoalEvaluator;
+    /// use lmm::cognition::goal::GoalEvaluator;
     ///
     /// let eval = GoalEvaluator::new(0.3);
     /// assert!(eval.is_converged(0.29));
@@ -88,7 +88,7 @@ impl GoalEvaluator {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::goal::GoalEvaluator;
+    /// use lmm::cognition::goal::GoalEvaluator;
     ///
     /// assert_eq!(GoalEvaluator::error("hello world", "hello world"), 0.0);
     /// assert_eq!(GoalEvaluator::error("foo", "bar"), 1.0);
@@ -102,7 +102,7 @@ impl GoalEvaluator {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::goal::GoalEvaluator;
+    /// use lmm::cognition::goal::GoalEvaluator;
     ///
     /// assert_eq!(GoalEvaluator::progress(0.0), 100.0);
     /// assert_eq!(GoalEvaluator::progress(1.0), 0.0);

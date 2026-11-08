@@ -28,8 +28,8 @@
 //! ## Quick example
 //!
 //! ```rust
-//! use lmm_agent::cognition::r#loop::ThinkLoop;
-//! use lmm_agent::cognition::search::SearchOracle;
+//! use lmm::cognition::r#loop::ThinkLoop;
+//! use lmm::cognition::search::SearchOracle;
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -63,6 +63,7 @@ pub mod memory;
 pub mod reflect;
 pub mod search;
 pub mod signal;
+pub mod types;
 
 pub use attribution::{AttributionReport, CausalAttributor};
 pub use drive::{DriveSignal, DriveState, InternalDrive};
@@ -78,10 +79,4 @@ pub use memory::{ColdStore, HotStore, MemoryEntry};
 pub use reflect::Reflector;
 pub use search::SearchOracle;
 pub use signal::{CognitionSignal, error_from_texts};
-
-// Copyright 2026 Mahmoud Harmouch.
-//
-// Licensed under the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
+pub use types::ThinkResult;

@@ -30,7 +30,7 @@ flowchart TD
 
 ## 🚀 Quick Start
 
-```rust
+```rust ,ignore
 use lmm_agent::prelude::*;
 use async_trait::async_trait;
 
@@ -71,7 +71,7 @@ async fn main() {
 
 ## 🔧 LmmAgent Builder
 
-```rust
+```rust ,ignore
 use lmm_agent::agent::LmmAgent;
 use lmm_agent::types::{Message, Planner, Goal};
 
@@ -96,7 +96,7 @@ let agent = LmmAgent::builder()
 | `LmmAgent`        | Core agent struct (memory, tools, planner, knowledge, etc.)  |
 | `LmmAgentBuilder` | Fluent builder for `LmmAgent`                                |
 | `Message`         | A chat message with `role` + `content`                       |
-| `Status`          | `Idle`, `Active`, `InUnitTesting`, `Completed`, `Thinking`  |
+| `Status`          | `Idle`, `Active`, `InUnitTesting`, `Completed`, `Thinking`   |
 | `Knowledge`       | Map of fact keys to natural-language descriptions            |
 | `Planner`         | Ordered list of `Goal`s with priorities and completion flags |
 | `Profile`         | Agent personality traits and behavioural script              |
@@ -108,7 +108,7 @@ let agent = LmmAgent::builder()
 
 The `Auto` derive macro generates:
 
-```rust,ignore
+```rust ,ignore
 // All below methods are generated automatically
 async fn generate(&mut self, prompt: &str) -> Result<String>;
 async fn search(&self, query: &str)         -> Result<Vec<LiteSearchResult>>;

@@ -21,7 +21,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::memory::{HotStore, ColdStore, MemoryEntry};
+//! use lmm::cognition::memory::{HotStore, ColdStore, MemoryEntry};
 //!
 //! let mut hot = HotStore::new(3);
 //! hot.push(MemoryEntry::new("first observation".into(), 0.8, 0));
@@ -45,7 +45,7 @@ use std::collections::VecDeque;
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::memory::MemoryEntry;
+/// use lmm::cognition::memory::MemoryEntry;
 ///
 /// let entry = MemoryEntry::new("Rust owns memory safely.".into(), 0.92, 3);
 /// assert_eq!(entry.content, "Rust owns memory safely.");
@@ -83,7 +83,7 @@ impl MemoryEntry {
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::memory::{HotStore, MemoryEntry};
+/// use lmm::cognition::memory::{HotStore, MemoryEntry};
 ///
 /// let mut store = HotStore::new(2);
 /// store.push(MemoryEntry::new("a".into(), 0.5, 0));
@@ -141,7 +141,7 @@ impl HotStore {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::memory::{HotStore, MemoryEntry};
+    /// use lmm::cognition::memory::{HotStore, MemoryEntry};
     ///
     /// let mut store = HotStore::new(10);
     /// store.push(MemoryEntry::new("Rust ownership model".into(), 0.8, 0));
@@ -181,7 +181,7 @@ impl HotStore {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::memory::{HotStore, ColdStore, MemoryEntry};
+    /// use lmm::cognition::memory::{HotStore, ColdStore, MemoryEntry};
     ///
     /// let mut hot = HotStore::new(5);
     /// hot.push(MemoryEntry::new("high value".into(), 0.9, 0));
@@ -225,7 +225,7 @@ impl HotStore {
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::memory::{ColdStore, MemoryEntry};
+/// use lmm::cognition::memory::{ColdStore, MemoryEntry};
 ///
 /// let mut cold = ColdStore::default();
 /// cold.promote(MemoryEntry::new("fact about Rust".into(), 0.9, 0));
@@ -265,7 +265,7 @@ impl ColdStore {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::memory::{ColdStore, MemoryEntry};
+    /// use lmm::cognition::memory::{ColdStore, MemoryEntry};
     ///
     /// let mut cold = ColdStore::default();
     /// cold.promote(MemoryEntry::new("old fact".into(), 0.5, 0));

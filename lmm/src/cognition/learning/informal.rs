@@ -39,7 +39,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::informal::InformalLearner;
+//! use lmm::cognition::learning::informal::InformalLearner;
 //!
 //! let mut learner = InformalLearner::new(0.5, 1, 0.5);
 //! learner.observe("rust ownership memory safety", 0.9);
@@ -58,7 +58,7 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::learning::informal::InformalLearner;
+/// use lmm::cognition::learning::informal::InformalLearner;
 ///
 /// let mut il = InformalLearner::new(0.4, 1, 0.5);
 /// il.observe("Rust memory safe concurrent", 0.8);
@@ -119,7 +119,7 @@ impl InformalLearner {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::informal::InformalLearner;
+    /// use lmm::cognition::learning::informal::InformalLearner;
     ///
     /// let mut il = InformalLearner::new(0.5, 1, 0.0);
     /// il.observe("rust ownership", 0.8);
@@ -158,7 +158,7 @@ impl InformalLearner {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::informal::InformalLearner;
+    /// use lmm::cognition::learning::informal::InformalLearner;
     ///
     /// let mut il = InformalLearner::new(0.0, 1, 0.0);
     /// il.observe("alpha beta gamma", 1.0);
@@ -203,8 +203,8 @@ impl InformalLearner {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::informal::InformalLearner;
-    /// use lmm_agent::cognition::knowledge::KnowledgeIndex;
+    /// use lmm::cognition::learning::informal::InformalLearner;
+    /// use lmm::cognition::knowledge::KnowledgeIndex;
     ///
     /// let mut il = InformalLearner::new(0.0, 1, 0.0);
     /// for _ in 0..3 { il.observe("ownership memory concurrent", 1.0); }

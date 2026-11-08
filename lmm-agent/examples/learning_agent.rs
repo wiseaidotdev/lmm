@@ -24,9 +24,9 @@
 //! cargo run --example learning_agent -p lmm-agent --features net
 //! ```
 
-use lmm_agent::cognition::learning::config::LearningConfig;
-use lmm_agent::cognition::learning::engine::LearningEngine;
-use lmm_agent::cognition::learning::store::LearningStore;
+use lmm::cognition::learning::config::LearningConfig;
+use lmm::cognition::learning::engine::LearningEngine;
+use lmm::cognition::learning::store::LearningStore;
 use lmm_agent::prelude::*;
 use std::path::Path;
 

@@ -11,7 +11,7 @@
 //!
 //! - The **setpoint** is the agent's natural-language goal.
 //! - The **plant** is the `SearchOracle` (DuckDuckGo or offline stub).
-//! - The **error signal** is the Jaccard token-distance between goal and observation.
+//! - The **error signal** is the recall-based token-distance between goal and observation.
 //! - The **controller** is a PI (proportional + integral) gain schedule.
 //! - The **feedback path** is the reward-weighted memory update.
 //!
@@ -33,8 +33,8 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::r#loop::ThinkLoop;
-//! use lmm_agent::cognition::search::SearchOracle;
+//! use lmm::cognition::r#loop::ThinkLoop;
+//! use lmm::cognition::search::SearchOracle;
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -55,7 +55,7 @@ use crate::cognition::memory::{ColdStore, HotStore, MemoryEntry};
 use crate::cognition::reflect::Reflector;
 use crate::cognition::search::SearchOracle;
 use crate::cognition::signal::CognitionSignal;
-use crate::types::ThinkResult;
+use crate::cognition::types::ThinkResult;
 
 /// The closed-loop controller that drives the agent's reasoning process.
 ///
@@ -65,8 +65,8 @@ use crate::types::ThinkResult;
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::r#loop::ThinkLoop;
-/// use lmm_agent::cognition::search::SearchOracle;
+/// use lmm::cognition::r#loop::ThinkLoop;
+/// use lmm::cognition::search::SearchOracle;
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -152,8 +152,8 @@ impl ThinkLoop {
     /// ```rust
     /// #[tokio::main]
     /// async fn main() {
-    ///     use lmm_agent::cognition::r#loop::ThinkLoop;
-    ///     use lmm_agent::cognition::search::SearchOracle;
+    ///     use lmm::cognition::r#loop::ThinkLoop;
+    ///     use lmm::cognition::search::SearchOracle;
     ///
     ///     let mut oracle = SearchOracle::new(5);
     ///     let mut lp = ThinkLoop::new("Rust memory model", 10, 0.25, 1.0, 0.05);
@@ -192,7 +192,9 @@ impl ThinkLoop {
                 observation
             };
 
-            if !fact_content.is_empty() {
+            let observation_was_empty = fact_content.is_empty();
+
+            if !observation_was_empty {
                 self.hot
                     .push(MemoryEntry::new(fact_content, current_reward, step));
             }
@@ -204,12 +206,12 @@ impl ThinkLoop {
                 break;
             }
 
-            if current_reward < prev_reward {
+            if current_reward < prev_reward && observation_was_empty {
                 stall_streak += 1;
                 if stall_streak >= self.stall_patience {
                     break;
                 }
-            } else {
+            } else if !observation_was_empty {
                 stall_streak = 0;
             }
             prev_reward = current_reward;
@@ -233,7 +235,7 @@ impl ThinkLoop {
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::r#loop::ThinkLoop;
+/// use lmm::cognition::r#loop::ThinkLoop;
 ///
 /// let lp = ThinkLoop::builder("What is ownership?")
 ///     .max_iterations(5)

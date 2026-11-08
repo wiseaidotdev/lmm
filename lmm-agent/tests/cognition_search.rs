@@ -7,7 +7,7 @@
 
 //! Unit tests for `cognition::search` - `SearchOracle`.
 
-use lmm_agent::cognition::search::SearchOracle;
+use lmm::cognition::search::SearchOracle;
 
 #[test]
 fn new_limit_clamped_to_at_least_one() {

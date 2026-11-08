@@ -24,8 +24,8 @@
 //! - [Pearl, J. (2009). Causality. Cambridge University Press.](https://doi.org/10.1017/CBO9780511803161)
 //! - [Shapley value - Wikipedia](https://en.wikipedia.org/wiki/Shapley_value)
 
-use lmm::causal::CausalGraph;
-use lmm::error::Result;
+use crate::causal::CausalGraph;
+use crate::error::Result;
 
 /// The fraction of the outcome attributable to each parent variable.
 ///
@@ -36,7 +36,7 @@ use lmm::error::Result;
 ///
 /// ```
 /// use lmm::causal::CausalGraph;
-/// use lmm_agent::cognition::attribution::{CausalAttributor, AttributionReport};
+/// use lmm::cognition::attribution::{CausalAttributor, AttributionReport};
 ///
 /// let mut g = CausalGraph::new();
 /// g.add_node("cause_a", Some(1.0));
@@ -101,7 +101,7 @@ impl CausalAttributor {
     ///
     /// ```
     /// use lmm::causal::CausalGraph;
-    /// use lmm_agent::cognition::attribution::CausalAttributor;
+    /// use lmm::cognition::attribution::CausalAttributor;
     ///
     /// let mut g = CausalGraph::new();
     /// g.add_node("x", Some(2.0));

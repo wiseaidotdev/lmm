@@ -31,17 +31,17 @@
 //! Adapted from the `autogpt` project's `agents/agent.rs`:
 //! <https://github.com/wiseaidotdev/autogpt/blob/main/autogpt/src/agents/agent.rs>
 
-use crate::cognition::drive::InternalDrive;
-use crate::cognition::knowledge::{KnowledgeIndex, KnowledgeSource, ingest as knowledge_ingest};
-use crate::cognition::learning::engine::LearningEngine;
-use crate::cognition::learning::q_table::{ActionKey, QTable};
-use crate::cognition::learning::store::LearningStore;
 use crate::traits::agent::Agent;
-use crate::types::{
+use anyhow::Result;
+use lmm::cognition::drive::InternalDrive;
+use lmm::cognition::knowledge::{KnowledgeIndex, KnowledgeSource, ingest as knowledge_ingest};
+use lmm::cognition::learning::engine::LearningEngine;
+use lmm::cognition::learning::q_table::{ActionKey, QTable};
+use lmm::cognition::learning::store::LearningStore;
+use lmm::cognition::types::{
     Capability, ContextManager, Knowledge, Message, Planner, Profile, Reflection, Status, Task,
     TaskScheduler, ThinkResult, Tool,
 };
-use anyhow::Result;
 use lmm::predict::TextPredictor;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -51,8 +51,8 @@ use duckduckgo::browser::Browser;
 #[cfg(feature = "net")]
 use duckduckgo::user_agents::get as get_ua;
 
-use crate::cognition::r#loop::ThinkLoop;
-use crate::cognition::search::SearchOracle;
+use lmm::cognition::r#loop::ThinkLoop;
+use lmm::cognition::search::SearchOracle;
 
 // LmmAgent struct
 
@@ -680,7 +680,7 @@ impl LmmAgent {
     ///
     /// ```rust
     /// use lmm_agent::agent::LmmAgent;
-    /// use lmm_agent::cognition::knowledge::KnowledgeSource;
+    /// use lmm::cognition::knowledge::KnowledgeSource;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -721,7 +721,7 @@ impl LmmAgent {
     ///
     /// ```rust
     /// use lmm_agent::agent::LmmAgent;
-    /// use lmm_agent::cognition::knowledge::KnowledgeSource;
+    /// use lmm::cognition::knowledge::KnowledgeSource;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -749,8 +749,8 @@ impl LmmAgent {
     ///
     /// ```rust
     /// use lmm_agent::agent::LmmAgent;
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
     ///
     /// let mut agent = LmmAgent::builder()
     ///     .persona("Learner")
@@ -776,8 +776,8 @@ impl LmmAgent {
     ///
     /// ```rust
     /// use lmm_agent::agent::LmmAgent;
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
     ///
     /// let mut agent = LmmAgent::builder()
     ///     .persona("Learner")
@@ -795,15 +795,15 @@ impl LmmAgent {
         Ok(())
     }
 
-    /// Returns the Q-table–recommended action for the current query string,
+    /// Returns the Q-table-recommended action for the current query string,
     /// or `None` when no learning engine is attached or the state is unknown.
     ///
     /// # Examples
     ///
     /// ```rust
     /// use lmm_agent::agent::LmmAgent;
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
     ///
     /// let mut agent = LmmAgent::builder()
     ///     .persona("Learner")
@@ -847,8 +847,8 @@ impl LmmAgent {
         &self,
         graph: &lmm::causal::CausalGraph,
         outcome_var: &str,
-    ) -> anyhow::Result<crate::cognition::attribution::AttributionReport> {
-        crate::cognition::attribution::CausalAttributor::attribute(graph, outcome_var)
+    ) -> anyhow::Result<lmm::cognition::attribution::AttributionReport> {
+        lmm::cognition::attribution::CausalAttributor::attribute(graph, outcome_var)
             .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
@@ -881,8 +881,8 @@ impl LmmAgent {
         graph: &lmm::causal::CausalGraph,
         observed: &std::collections::HashMap<String, f64>,
         max_hypotheses: usize,
-    ) -> anyhow::Result<Vec<crate::cognition::hypothesis::Hypothesis>> {
-        let r#gen = crate::cognition::hypothesis::HypothesisGenerator::new(0.05, max_hypotheses);
+    ) -> anyhow::Result<Vec<lmm::cognition::hypothesis::Hypothesis>> {
+        let r#gen = lmm::cognition::hypothesis::HypothesisGenerator::new(0.05, max_hypotheses);
         r#gen
             .generate(graph, observed)
             .map_err(|e| anyhow::anyhow!("{e}"))
@@ -904,7 +904,7 @@ impl LmmAgent {
     /// let state = agent.drive_state();
     /// assert!(!state.signals.is_empty());
     /// ```
-    pub fn drive_state(&mut self) -> crate::cognition::drive::DriveState {
+    pub fn drive_state(&mut self) -> lmm::cognition::drive::DriveState {
         self.internal_drive.tick()
     }
 
@@ -1003,9 +1003,16 @@ impl Agent for LmmAgent {
     }
 }
 
-// Copyright 2026 Mahmoud Harmouch.
-//
-// Licensed under the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
+impl lmm::cognition::types::AgentEval for LmmAgent {
+    fn planner(&self) -> Option<&Planner> {
+        self.planner.as_ref()
+    }
+
+    fn memory(&self) -> &[Message] {
+        &self.memory
+    }
+
+    fn knowledge(&self) -> Option<&Knowledge> {
+        Some(&self.knowledge)
+    }
+}

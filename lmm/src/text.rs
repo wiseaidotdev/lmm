@@ -38,7 +38,10 @@ static NON_KEYWORD_WORDS: Set<&'static str> = phf_set! {
     "symmetric", "bounded",
     "this", "that", "their", "also", "with", "from", "into", "will", "have", "been",
     "more", "very", "most", "such", "than", "when", "early", "first", "some", "only",
-    "both", "each", "many", "other", "modern", "ancient"
+    "both", "each", "many", "other", "modern", "ancient",
+    "what", "which", "where", "does", "about", "would", "could", "should", "make",
+    "here", "there", "they", "them", "then", "thus", "even", "just", "like", "well",
+    "know", "need", "want", "give", "take", "show", "seem", "feel", "look", "work"
 };
 
 static TRANSITIVE_VERBS: &[(&str, f64)] = &[
@@ -615,11 +618,17 @@ impl ParagraphGenerator {
     }
 
     pub fn generate(&self, seed: &str) -> Result<String> {
+        let run_nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .subsec_nanos() as usize;
+        let sentence_count = 2 + (run_nanos % 5);
         let base_gen = SentenceGenerator::new(self.iterations, self.depth);
-        let keywords = keywords_from_text(seed, self.sentence_count.max(3));
-        let mut sentences: Vec<String> = Vec::with_capacity(self.sentence_count);
+        let keywords = keywords_from_text(seed, sentence_count.max(3));
+        let mut sentences: Vec<String> = Vec::with_capacity(sentence_count);
 
-        for i in 0..self.sentence_count {
+        for i in 0..sentence_count {
+            let variant = run_nanos.wrapping_add(i).wrapping_add(seed_hash(seed));
             let sub_seed = if i == 0 {
                 seed.to_string()
             } else if let Some(kw) = keywords.get(i) {
@@ -627,7 +636,7 @@ impl ParagraphGenerator {
             } else {
                 seed.to_string()
             };
-            sentences.push(base_gen.generate_variant(&sub_seed, i)?);
+            sentences.push(base_gen.generate_variant(&sub_seed, variant)?);
         }
 
         Ok(sentences.join(" "))

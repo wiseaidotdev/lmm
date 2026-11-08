@@ -9,7 +9,7 @@
 //!
 //! This module equips agents with the capacity for genuine novelty: forming
 //! testable causal hypotheses that go beyond the relationships already present
-//! in an observed [`lmm::causal::CausalGraph`].
+//! in an observed [`crate::causal::CausalGraph`].
 //!
 //! ## Algorithm
 //!
@@ -29,8 +29,8 @@
 //! - [Popper, K. (1959). The Logic of Scientific Discovery. Hutchinson.](https://en.wikipedia.org/wiki/The_Logic_of_Scientific_Discovery)
 //! - [Abductive reasoning - Wikipedia](https://en.wikipedia.org/wiki/Abductive_reasoning)
 
-use lmm::causal::{CausalEdge, CausalGraph};
-use lmm::error::Result;
+use crate::causal::{CausalEdge, CausalGraph};
+use crate::error::Result;
 
 /// A candidate causal explanation proposed by the [`HypothesisGenerator`].
 ///
@@ -41,7 +41,7 @@ use lmm::error::Result;
 /// # Examples
 ///
 /// ```
-/// use lmm_agent::cognition::hypothesis::Hypothesis;
+/// use lmm::cognition::hypothesis::Hypothesis;
 ///
 /// let h = Hypothesis {
 ///     proposed_edge: lmm::causal::CausalEdge {
@@ -75,7 +75,7 @@ pub struct Hypothesis {
 /// ```
 /// use std::collections::HashMap;
 /// use lmm::causal::CausalGraph;
-/// use lmm_agent::cognition::hypothesis::HypothesisGenerator;
+/// use lmm::cognition::hypothesis::HypothesisGenerator;
 ///
 /// fn main() {
 ///     let mut g = CausalGraph::new();
@@ -130,7 +130,7 @@ impl HypothesisGenerator {
         let mut forward_graph = graph.clone();
         forward_graph.forward_pass()?;
 
-        let under_explained: Vec<(&lmm::causal::CausalNode, f64)> = forward_graph
+        let under_explained: Vec<(&crate::causal::CausalNode, f64)> = forward_graph
             .nodes
             .iter()
             .filter_map(|node| {
@@ -211,7 +211,7 @@ impl HypothesisGenerator {
     /// ```
     /// use std::collections::HashMap;
     /// use lmm::causal::CausalGraph;
-    /// use lmm_agent::cognition::hypothesis::HypothesisGenerator;
+    /// use lmm::cognition::hypothesis::HypothesisGenerator;
     ///
     /// fn main() {
     ///     let mut g = CausalGraph::new();

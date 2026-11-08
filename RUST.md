@@ -124,7 +124,7 @@ println!("{:?}", new_state);
 
 ### Spectral image generation
 
-```rust,no_run
+```rust ,no_run
 use lmm::prelude::*;
 
 let params = ImagenParams {

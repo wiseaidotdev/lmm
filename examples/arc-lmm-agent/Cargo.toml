@@ -15,7 +15,8 @@ name = "arc-lmm-agent"
 path = "src/main.rs"
 
 [dependencies]
-lmm-agent = { version = "0.1.2" }
+lmm-agent = { version = "0.2.0" }
+lmm = { version = "0.3.0" }
 arc-agi-rs = { version = "0.1.0" }
 tokio = { version = "1.52.1", features = ["full"] }
 anyhow = "1.0.102"

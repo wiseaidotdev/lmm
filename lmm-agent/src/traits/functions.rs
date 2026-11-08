@@ -13,9 +13,9 @@
 //! <https://github.com/wiseaidotdev/autogpt/blob/main/autogpt/src/traits/functions.rs>
 
 use crate::agent::LmmAgent;
-use crate::types::{Message, Task};
 use anyhow::Result;
 use async_trait::async_trait;
+use lmm::cognition::types::{Message, Task};
 
 // Functions (sync accessor)
 
@@ -43,6 +43,7 @@ pub trait Functions {
 ///
 /// The [`lmm_derive::Auto`] macro implements this trait automatically for any
 /// struct that contains an `agent: LmmAgent` field and implements [`Executor`].
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait AsyncFunctions: Send + Sync {
     /// Runs the agent's core task loop.
@@ -129,6 +130,7 @@ pub trait AsyncFunctions: Send + Sync {
 ///     }
 /// }
 /// ```
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait Executor {
     /// Executes the agent's core logic against the supplied [`Task`].

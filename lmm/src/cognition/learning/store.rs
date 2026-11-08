@@ -18,9 +18,9 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::store::LearningStore;
-//! use lmm_agent::cognition::learning::engine::LearningEngine;
-//! use lmm_agent::cognition::learning::config::LearningConfig;
+//! use lmm::cognition::learning::store::LearningStore;
+//! use lmm::cognition::learning::engine::LearningEngine;
+//! use lmm::cognition::learning::config::LearningConfig;
 //!
 //! let engine = LearningEngine::new(LearningConfig::default());
 //! let path = std::env::temp_dir().join(format!("test_helm_store_{}.json", uuid::Uuid::new_v4()));
@@ -50,9 +50,9 @@ impl LearningStore {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::store::LearningStore;
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::store::LearningStore;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
     ///
     /// let engine = LearningEngine::new(LearningConfig::default());
     /// let path = std::env::temp_dir().join(format!("helm_doctest_{}.json", uuid::Uuid::new_v4()));
@@ -79,9 +79,9 @@ impl LearningStore {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::store::LearningStore;
-    /// use lmm_agent::cognition::learning::engine::LearningEngine;
-    /// use lmm_agent::cognition::learning::config::LearningConfig;
+    /// use lmm::cognition::learning::store::LearningStore;
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
     ///
     /// let engine = LearningEngine::new(LearningConfig::default());
     /// let path = std::env::temp_dir().join(format!("helm_load_doctest_{}.json", uuid::Uuid::new_v4()));

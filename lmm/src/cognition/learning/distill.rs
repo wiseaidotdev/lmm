@@ -27,9 +27,9 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::distill::KnowledgeDistiller;
-//! use lmm_agent::cognition::memory::{ColdStore, MemoryEntry};
-//! use lmm_agent::cognition::knowledge::KnowledgeIndex;
+//! use lmm::cognition::learning::distill::KnowledgeDistiller;
+//! use lmm::cognition::memory::{ColdStore, MemoryEntry};
+//! use lmm::cognition::knowledge::KnowledgeIndex;
 //!
 //! let mut cold = ColdStore::default();
 //! cold.promote(MemoryEntry::new("Rust prevents data races at compile time.".into(), 0.9, 0));
@@ -52,9 +52,9 @@ use std::collections::{HashMap, HashSet};
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::learning::distill::KnowledgeDistiller;
-/// use lmm_agent::cognition::memory::{ColdStore, MemoryEntry};
-/// use lmm_agent::cognition::knowledge::KnowledgeIndex;
+/// use lmm::cognition::learning::distill::KnowledgeDistiller;
+/// use lmm::cognition::memory::{ColdStore, MemoryEntry};
+/// use lmm::cognition::knowledge::KnowledgeIndex;
 ///
 /// let mut cold = ColdStore::default();
 /// cold.promote(MemoryEntry::new(

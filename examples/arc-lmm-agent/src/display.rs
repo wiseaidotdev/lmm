@@ -5,7 +5,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! # `display` – production-ready terminal output for arc-lmm-agent.
+//! # `display`: production-ready terminal output for arc-lmm-agent.
 //!
 //! Provides structured, coloured, human-readable prints that surface the agent's
 //! inner cognitive mechanics.  All output goes to **stderr** so it does not

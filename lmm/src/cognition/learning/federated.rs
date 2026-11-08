@@ -32,9 +32,9 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::federated::FederatedAggregator;
-//! use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
-//! use lmm_agent::types::AgentSnapshot;
+//! use lmm::cognition::learning::federated::FederatedAggregator;
+//! use lmm::cognition::learning::q_table::{ActionKey, QTable};
+//! use lmm::cognition::types::AgentSnapshot;
 //!
 //! let mut qt_a = QTable::new(0.1, 0.9, 0.0, 1.0, 0.0);
 //! let s = QTable::state_key("shared topic");
@@ -53,7 +53,7 @@
 //! ```
 
 use crate::cognition::learning::q_table::QTable;
-use crate::types::AgentSnapshot;
+use crate::cognition::types::AgentSnapshot;
 use serde::{Deserialize, Serialize};
 
 /// Self-federated Q-table aggregator.
@@ -61,9 +61,9 @@ use serde::{Deserialize, Serialize};
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::learning::federated::FederatedAggregator;
-/// use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
-/// use lmm_agent::types::AgentSnapshot;
+/// use lmm::cognition::learning::federated::FederatedAggregator;
+/// use lmm::cognition::learning::q_table::{ActionKey, QTable};
+/// use lmm::cognition::types::AgentSnapshot;
 ///
 /// let mut local_qt = QTable::new(0.1, 0.9, 0.0, 1.0, 0.0);
 /// let topic = "topic a rust systems";

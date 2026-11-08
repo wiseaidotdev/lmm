@@ -36,8 +36,8 @@
 //!
 //! ```rust
 //! use std::collections::HashMap;
-//! use lmm_agent::cognition::learning::meta::MetaAdapter;
-//! use lmm_agent::cognition::learning::q_table::ActionKey;
+//! use lmm::cognition::learning::meta::MetaAdapter;
+//! use lmm::cognition::learning::q_table::ActionKey;
 //!
 //! let mut adapter = MetaAdapter::new(3);
 //!
@@ -91,8 +91,8 @@ impl TaskPrototype {
 ///
 /// ```rust
 /// use std::collections::HashMap;
-/// use lmm_agent::cognition::learning::meta::MetaAdapter;
-/// use lmm_agent::cognition::learning::q_table::ActionKey;
+/// use lmm::cognition::learning::meta::MetaAdapter;
+/// use lmm::cognition::learning::q_table::ActionKey;
 ///
 /// let mut a = MetaAdapter::new(5);
 /// let offsets = HashMap::from([(ActionKey::Expand, 0.7)]);
@@ -179,8 +179,8 @@ impl MetaAdapter {
     ///
     /// ```rust
     /// use std::collections::HashMap;
-    /// use lmm_agent::cognition::learning::meta::MetaAdapter;
-    /// use lmm_agent::cognition::learning::q_table::ActionKey;
+    /// use lmm::cognition::learning::meta::MetaAdapter;
+    /// use lmm::cognition::learning::q_table::ActionKey;
     ///
     /// let mut a = MetaAdapter::new(3);
     /// a.record_episode("machine learning", HashMap::from([(ActionKey::Expand, 0.6)]), 0.7);
