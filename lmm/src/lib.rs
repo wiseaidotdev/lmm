@@ -15,6 +15,7 @@
 pub mod causal;
 #[cfg(feature = "cli")]
 pub mod cli;
+pub mod cognition;
 pub mod compression;
 pub mod consciousness;
 pub mod discovery;

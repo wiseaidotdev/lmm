@@ -7,8 +7,8 @@
 
 //! Unit + integration tests for the `ThinkLoop` controller.
 
-use lmm_agent::cognition::r#loop::ThinkLoop;
-use lmm_agent::cognition::search::SearchOracle;
+use lmm::cognition::r#loop::ThinkLoop;
+use lmm::cognition::search::SearchOracle;
 
 #[test]
 fn builder_default_max_iterations_is_10() {

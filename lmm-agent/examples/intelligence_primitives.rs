@@ -15,9 +15,9 @@
 //! |---|-------------------------------------|------------------------------------|
 //! | 1 | Calibrated Bayesian Uncertainty     | `lmm::uncertainty`                 |
 //! | 2 | Compositional Symbolic Reasoning    | `lmm::reasoner`                    |
-//! | 3 | Causal Counterfactual Attribution   | `lmm_agent::cognition::attribution`|
-//! | 4 | Hypothesis Formation                | `lmm_agent::cognition::hypothesis` |
-//! | 5 | Internalized Motivational Drives    | `lmm_agent::cognition::drive`      |
+//! | 3 | Causal Counterfactual Attribution   | `lmm::cognition::attribution`|
+//! | 4 | Hypothesis Formation                | `lmm::cognition::hypothesis` |
+//! | 5 | Internalized Motivational Drives    | `lmm::cognition::drive`      |
 //!
 //! Run with:
 //!

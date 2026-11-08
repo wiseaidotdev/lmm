@@ -13,6 +13,12 @@
 //! in [`crate::app`].
 //!
 //! The CLI is built with [`clap`] using the derive macro approach.
+//!
+//! ## Default mode
+//!
+//! When the user passes `-p 'question'` **without** a subcommand, `lmm`
+//! automatically routes to `tram`, the Text Reasoning and Applied Mathematics
+//! engine.
 
 use clap::builder::styling::{AnsiColor, Effects, Styles};
 use clap::{Parser, Subcommand};
@@ -26,6 +32,10 @@ fn styles() -> Styles {
         .placeholder(AnsiColor::Green.on_default())
 }
 
+/// Top-level argument parser for the `lmm` binary.
+///
+/// `command` is optional: when absent and `prompt` is set, `run_cli_entry`
+/// defaults to the [`Commands::Tram`] subcommand.
 #[derive(Parser, Debug)]
 #[clap(
     author,
@@ -51,9 +61,7 @@ AUTHORS:
 
 Large Mathematical Model · Equation-Based Intelligence
 
-The `lmm` CLI enables interaction with the Large Mathematical Model (LMM).
-It provides advanced equation discovery, physics simulation, causal 
-inference, and unified sequence processing features.
+Pass -p 'your question' without a subcommand to invoke TRAM mode directly.
 "#
 )]
 pub struct Cli {
@@ -65,12 +73,100 @@ pub struct Cli {
     )]
     pub verbose: bool,
 
+    /// Short-circuit prompt: invoke TRAM mode without spelling out the subcommand.
+    ///
+    /// `lmm -p 'what is entropy'` is equivalent to `lmm tram -p 'what is entropy'`.
+    #[arg(
+        short = 'p',
+        long,
+        global = false,
+        help = "Prompt for TRAM mode (default subcommand when no subcommand is given)"
+    )]
+    pub prompt: Option<String>,
+
+    /// Optional path to a local knowledge-base file or directory to ingest.
+    ///
+    /// Applied when using the top-level `-p` shortcut (default TRAM mode).
+    #[arg(
+        short = 'k',
+        long,
+        alias = "kb",
+        global = false,
+        help = "Optional path to a local knowledge-base file or directory for TRAM mode"
+    )]
+    pub knowledge_base: Option<String>,
+
+    /// Per-word stochastic synonym-substitution probability [0.0, 1.0].
+    ///
+    /// Applied when using the top-level `-p` shortcut (default TRAM mode).
+    /// Lower values produce less variation; `0.0` disables substitution entirely.
+    #[arg(
+        long,
+        global = false,
+        help = "Stochastic synonym-substitution probability [0.0, 1.0] for TRAM mode (default: 0.05 for KB, 0.12 for symbolic)"
+    )]
+    pub probability: Option<f64>,
+
+    /// ThinkLoop reasoning iteration budget.
+    ///
+    /// Applied when using the top-level `-p` shortcut (default TRAM mode).
+    #[arg(
+        short = 'i',
+        long,
+        global = false,
+        default_value_t = 10,
+        help = "ThinkLoop reasoning iteration budget for TRAM mode (default: 10)"
+    )]
+    pub iterations: usize,
+
+    /// GP expression-tree depth limit for TRAM mode.
+    ///
+    /// Applied when using the top-level `-p` shortcut (default TRAM mode).
+    #[arg(
+        short = 'd',
+        long,
+        global = false,
+        default_value_t = 3,
+        help = "GP expression-tree depth limit for TRAM mode (default: 3)"
+    )]
+    pub depth: usize,
+
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
+/// All subcommands available in the `lmm` binary.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Text Reasoning and Applied Mathematics, the default reasoning engine.
+    ///
+    /// TRAM ingests an optional local knowledge base, runs a closed-loop
+    /// `ThinkLoop` reasoning cycle via `lmm-agent`, generates a symbolic
+    /// continuation with `TextPredictor`, and applies stochastic synonym
+    /// substitution to guarantee a unique response on every invocation.
+    /// All computation runs on a single CPU core, no GPU, no neural weights.
+    ///
+    /// When the `net` feature is enabled and no knowledge base is provided,
+    /// TRAM falls back to a DuckDuckGo search to enrich the seed before
+    /// generation.
+    #[command(about = "Reason from first principles: KB → web fallback → symbolic generation")]
+    Tram {
+        /// Natural-language prompt or question.
+        #[arg(short, long)]
+        prompt: String,
+        /// Optional path to a local knowledge-base file or directory to ingest.
+        #[arg(short, long, alias = "kb")]
+        knowledge_base: Option<String>,
+        /// Per-word stochastic synonym-substitution probability [0.0, 1.0].
+        #[arg(long)]
+        probability: Option<f64>,
+        /// ThinkLoop reasoning iteration budget.
+        #[arg(short, long, default_value_t = 10)]
+        iterations: usize,
+        /// GP expression-tree depth limit.
+        #[arg(short, long, default_value_t = 3)]
+        depth: usize,
+    },
     #[command(about = "Simulate continuous logical pathways")]
     Simulate {
         #[arg(short, long, default_value_t = 0.01)]

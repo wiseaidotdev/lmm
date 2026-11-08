@@ -36,7 +36,7 @@ impl Executor for MyAgent {
 
 Delegates all methods to the inner `LmmAgent` field:
 
-```rust,ignore
+```rust ,ignore
 impl Agent for MyAgent {
     fn new(persona: Cow<'static, str>, behavior: Cow<'static, str>) -> Self {
          let mut s = Self::default();
@@ -53,7 +53,7 @@ impl Agent for MyAgent {
 
 #### `Functions`
 
-```rust,ignore
+```rust ,ignore
 impl Functions for MyAgent {
     fn get_agent(&self)         -> &LmmAgent     { &self.agent }
     fn get_agent_mut(&mut self) -> &mut LmmAgent { &mut self.agent }
@@ -62,7 +62,7 @@ impl Functions for MyAgent {
 
 #### `AsyncFunctions`
 
-```rust,ignore
+```rust ,ignore
 #[async_trait]
 impl AsyncFunctions for MyAgent {
     async fn generate(&mut self, prompt: &str) -> Result<String>      { unimplemented!() }
@@ -100,9 +100,9 @@ impl Executor for DataAgent {
 
 ## ⚠️ Field Name Contract
 
-| Field      | Type                | Must be named      |
-| ---------- | ------------------- | ------------------ |
-| `agent`    | `LmmAgent`          | exactly `agent`    |
+| Field   | Type       | Must be named   |
+| ------- | ---------- | --------------- |
+| `agent` | `LmmAgent` | exactly `agent` |
 
 Compile errors will occur if the `agent` field is missing or misnamed.
 

@@ -7,8 +7,8 @@
 
 //! Unit tests for `cognition::reflect` - `Reflector`.
 
-use lmm_agent::cognition::memory::{ColdStore, HotStore, MemoryEntry};
-use lmm_agent::cognition::reflect::Reflector;
+use lmm::cognition::memory::{ColdStore, HotStore, MemoryEntry};
+use lmm::cognition::reflect::Reflector;
 
 #[test]
 fn formulate_query_empty_hot_returns_goal() {

@@ -18,13 +18,13 @@ pub use crate::runtime::AutoAgent;
 pub use crate::traits::agent::Agent;
 pub use crate::traits::composite::AgentFunctions;
 pub use crate::traits::functions::{AsyncFunctions, Executor, Functions};
-pub use crate::types::{
+pub use lmm::cognition::types::{
     AgentSnapshot, Capability, ContextManager, ExperienceRecord, Goal, Knowledge, LearningMode,
     Message, Planner, Profile, Reflection, Route, ScheduledTask, Scope, Status, Task,
     TaskScheduler, ThinkResult, Tool, ToolName, default_eval_fn,
 };
 
-pub use crate::cognition::{
+pub use lmm::cognition::{
     ActionKey, AttributionReport, CausalAttributor, CognitionSignal, ColdStore, DocumentChunk,
     DriveSignal, DriveState, ElasticMemoryGuard, FederatedAggregator, GoalEvaluator, HotStore,
     Hypothesis, HypothesisGenerator, InformalLearner, InternalDrive, KnowledgeDistiller,

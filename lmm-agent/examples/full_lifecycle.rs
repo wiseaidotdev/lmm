@@ -26,9 +26,10 @@
 //! cargo run --example full_lifecycle -p lmm-agent
 //! ```
 
-use lmm_agent::cognition::learning::config::LearningConfig;
-use lmm_agent::cognition::learning::engine::LearningEngine;
-use lmm_agent::cognition::learning::store::LearningStore;
+use lmm::cognition::learning::config::LearningConfig;
+use lmm::cognition::learning::engine::LearningEngine;
+use lmm::cognition::learning::store::LearningStore;
+use lmm::cognition::types::AgentEval;
 use lmm_agent::prelude::*;
 use std::borrow::Cow;
 use std::path::Path;
@@ -38,10 +39,10 @@ fn section(n: u8, title: &str) {
     println!("\n>>> {n}. {title}");
 }
 
-fn research_eval(agent: &dyn Agent) -> Cow<'static, str> {
+fn research_eval(agent: &dyn AgentEval) -> Cow<'static, str> {
     let mem_count = agent.memory().len();
     let has_planner = agent.planner().is_some();
-    let facts_count = agent.knowledge().facts.len();
+    let facts_count = agent.knowledge().map(|k| k.facts.len()).unwrap_or(0);
     Cow::Owned(format!(
         "  Reflection: {mem_count} hot messages · {facts_count} facts · planner={has_planner}"
     ))

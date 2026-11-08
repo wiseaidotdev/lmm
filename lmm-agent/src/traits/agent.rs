@@ -14,7 +14,7 @@
 //! Adapted from the `autogpt` project's `traits/agent.rs`:
 //! <https://github.com/wiseaidotdev/autogpt/blob/main/autogpt/src/traits/agent.rs>
 
-use crate::types::{
+use lmm::cognition::types::{
     Capability, ContextManager, Knowledge, Message, Planner, Profile, Reflection, Status, Task,
     TaskScheduler, Tool,
 };

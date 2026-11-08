@@ -25,8 +25,8 @@
 //! cargo run --example federated_learning -p lmm-agent
 //! ```
 
-use lmm_agent::cognition::learning::config::LearningConfig;
-use lmm_agent::cognition::learning::engine::LearningEngine;
+use lmm::cognition::learning::config::LearningConfig;
+use lmm::cognition::learning::engine::LearningEngine;
 use lmm_agent::prelude::*;
 
 #[tokio::main]

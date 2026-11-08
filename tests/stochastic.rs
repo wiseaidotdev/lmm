@@ -1,3 +1,11 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+use lmm::stochastic::detect::{LanguageHint, detect_language};
 use lmm::stochastic::{StochasticEnhancer, SynonymBank};
 
 #[test]
@@ -131,4 +139,127 @@ fn enhancer_with_curated_word_replaces_known_synonyms() {
         found_synonym,
         "At least one curated synonym should appear in 20 runs"
     );
+}
+
+#[test]
+fn detect_language_english_ascii_returns_english() {
+    let hint = detect_language("Mathematics reveals the structure of reality through equations.");
+    assert_eq!(hint, LanguageHint::English);
+}
+
+#[test]
+fn detect_language_arabic_script_returns_arabic() {
+    let hint = detect_language("يبدأ النظام بتحليل البيانات المهمة.");
+    assert_eq!(hint, LanguageHint::Arabic);
+}
+
+#[test]
+fn detect_language_french_markers_return_french() {
+    let hint = detect_language("Le résultat est très important pour la recherche scientifique.");
+    assert_eq!(hint, LanguageHint::French);
+}
+
+#[test]
+fn detect_language_german_markers_return_german() {
+    let hint = detect_language("Das System verarbeitet die Daten schnell und effizient.");
+    assert_eq!(hint, LanguageHint::German);
+}
+
+#[test]
+fn detect_language_spanish_markers_return_spanish() {
+    let hint = detect_language("El sistema analiza los datos con rapidez y precisión.");
+    assert_eq!(hint, LanguageHint::Spanish);
+}
+
+#[test]
+fn detect_language_arabic_codepoints_score_highest() {
+    let hint = detect_language("تحليل البيانات ونتائج النظام");
+    assert_eq!(hint, LanguageHint::Arabic);
+}
+
+#[test]
+fn detect_language_empty_defaults_to_english() {
+    let hint = detect_language("");
+    assert_eq!(hint, LanguageHint::English);
+}
+
+#[test]
+fn enhance_detailed_returns_language_hint() {
+    let e = StochasticEnhancer::new(0.5);
+    let out = e.enhance_detailed("Mathematics governs the cosmos.");
+    assert_eq!(out.language, LanguageHint::English);
+}
+
+#[test]
+fn enhance_detailed_substitution_count_nonzero_at_full_probability() {
+    let e = StochasticEnhancer::new(1.0);
+    let out = e.enhance_detailed("mathematics entropy symmetry complexity");
+    assert!(
+        out.substitutions > 0,
+        "At p=1.0 with known words, substitutions should be > 0"
+    );
+}
+
+#[test]
+fn enhance_detailed_zero_probability_zero_substitutions() {
+    let e = StochasticEnhancer::new(0.0);
+    let out = e.enhance_detailed("mathematics entropy symmetry complexity");
+    assert_eq!(out.substitutions, 0);
+    assert_eq!(out.text, "mathematics entropy symmetry complexity");
+}
+
+#[test]
+fn enhance_detailed_text_matches_enhance() {
+    let e = StochasticEnhancer::new(0.0);
+    let input = "Equations reveal truth.";
+    let det = e.enhance_detailed(input);
+    let basic = e.enhance(input);
+    assert_eq!(det.text, basic);
+}
+
+#[test]
+fn synonymbank_candidate_returns_some_for_known_english_word() {
+    let bank = SynonymBank::new();
+    let mut rng = rand::rng();
+    let result = bank.candidate("chaos", &mut rng, LanguageHint::English);
+    assert!(result.is_some(), "'chaos' is in the curated table");
+}
+
+#[test]
+fn synonymbank_candidate_arabic_table_returns_some() {
+    let bank = SynonymBank::new();
+    let mut rng = rand::rng();
+    let result = bank.candidate("نص", &mut rng, LanguageHint::Arabic);
+    assert!(result.is_some(), "'نص' is in the Arabic curated table");
+}
+
+#[test]
+fn synonymbank_candidate_french_table_returns_some() {
+    let bank = SynonymBank::new();
+    let mut rng = rand::rng();
+    let result = bank.candidate("texte", &mut rng, LanguageHint::French);
+    assert!(result.is_some(), "'texte' is in the French curated table");
+}
+
+#[test]
+fn synonymbank_candidate_german_table_returns_some() {
+    let bank = SynonymBank::new();
+    let mut rng = rand::rng();
+    let result = bank.candidate("system", &mut rng, LanguageHint::German);
+    assert!(result.is_some(), "'system' is in the German curated table");
+}
+
+#[test]
+fn synonymbank_candidate_spanish_table_returns_some() {
+    let bank = SynonymBank::new();
+    let mut rng = rand::rng();
+    let result = bank.candidate("texto", &mut rng, LanguageHint::Spanish);
+    assert!(result.is_some(), "'texto' is in the Spanish curated table");
+}
+
+#[test]
+fn synonymbank_candidate_unknown_word_returns_none_or_some() {
+    let bank = SynonymBank::new();
+    let mut rng = rand::rng();
+    let _result = bank.candidate("zxqvwklm", &mut rng, LanguageHint::English);
 }

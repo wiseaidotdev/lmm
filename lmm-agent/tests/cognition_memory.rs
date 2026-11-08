@@ -7,7 +7,7 @@
 
 //! Unit tests for `cognition::memory` - `MemoryEntry`, `HotStore`, `ColdStore`.
 
-use lmm_agent::cognition::memory::{ColdStore, HotStore, MemoryEntry};
+use lmm::cognition::memory::{ColdStore, HotStore, MemoryEntry};
 
 #[test]
 fn memory_entry_stores_fields_correctly() {

@@ -14,17 +14,17 @@ search = "version": "{current_version}"
 replace = "version": "{new_version}"
 
 [bumpversion:file:python/lmm/__init__.py]
-search = "__version__ = '{current_version}'"
-replace = "__version__ = '{new_version}'"
+search = "__version__ = "{current_version}""
+replace = "__version__ = "{new_version}""
 
 [bumpversion:file:CITATION.cff]
-search = "version: v'{current_version}'"
-replace = "version: v'{new_version}'"
+search = "version: v{current_version}"
+replace = "version: v{new_version}"
 
 [bumpversion:file:RUST.md]
 search = lmm = "{current_version}"
 replace = lmm = "{new_version}"
 
-[bumpversion:file:WASM.md]
-search = lmm = { version = "{current_version}", default-features = false, features = ["wasm-net"] }
-replace = lmm = { version = "{new_version}", default-features = false, features = ["wasm-net"] }
+# [bumpversion:file:WASM.md]
+# search = lmm = { version = "{current_version}", default-features = false, features = ["wasm-net"] }
+# replace = lmm = { version = "{new_version}", default-features = false, features = ["wasm-net"] }

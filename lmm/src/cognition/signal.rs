@@ -24,7 +24,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::signal::CognitionSignal;
+//! use lmm::cognition::signal::CognitionSignal;
 //!
 //! let sig = CognitionSignal::new(0, "What is Rust?".into(), "Rust is a systems language.".into(), 1.0, 0.0);
 //! assert!(sig.error >= 0.0 && sig.error <= 1.0);
@@ -43,7 +43,7 @@ use std::collections::HashSet;
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::signal::CognitionSignal;
+/// use lmm::cognition::signal::CognitionSignal;
 ///
 /// let sig = CognitionSignal::new(0, "goal text".into(), "goal text".into(), 1.0, 0.0);
 /// // Perfect match → error = 0.0
@@ -91,7 +91,7 @@ impl CognitionSignal {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::signal::CognitionSignal;
+    /// use lmm::cognition::signal::CognitionSignal;
     ///
     /// let sig = CognitionSignal::new(1, "Rust ownership".into(), "Rust has ownership".into(), 1.0, 0.5);
     /// println!("step={} error={:.3} reward={:.3}", sig.step, sig.error, sig.reward);
@@ -121,23 +121,37 @@ impl CognitionSignal {
     }
 }
 
-/// Computes the **Jaccard token-overlap distance** between `goal` and `text`.
+/// Computes the **recall-based error** between `goal` and `text`.
 ///
 /// Returns a value in [0, 1]:
-/// - `0.0` - identical token sets (fully converged).
-/// - `1.0` - disjoint token sets (no overlap at all).
+/// - `0.0` - all goal tokens appear in the observation (fully converged).
+/// - `1.0` - no goal tokens appear in the observation (no overlap).
 ///
-/// Case-insensitive; punctuation is stripped.
+/// Unlike Jaccard distance, recall is not penalised by the observation being
+/// much larger than the goal.  A one-word query goal `"python"` immediately
+/// converges when the observation text mentions the word "python", regardless
+/// of how many other words the observation contains.  Multi-word goals
+/// converge progressively as the ThinkLoop expands the query with hot-store
+/// context words.
+///
+/// Case-insensitive; punctuation is stripped before tokenisation.
+///
+/// # Time Complexity
+///
+/// O(|goal| + |text|)
 ///
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::signal::error_from_texts;
+/// use lmm::cognition::signal::error_from_texts;
 ///
+/// // Perfect recall: every goal token appears in text.
 /// assert_eq!(error_from_texts("hello world", "hello world"), 0.0);
+/// // Zero recall: no goal token appears in text.
 /// assert_eq!(error_from_texts("foo", "bar"), 1.0);
-/// let e = error_from_texts("Rust is fast", "Rust is safe and fast");
-/// assert!(e < 1.0 && e > 0.0);
+/// // Partial recall: "Rust" found in observation, "fast" also found → low error.
+/// let e = error_from_texts("Rust fast", "Rust is safe and fast and reliable");
+/// assert!(e < 0.5);
 /// ```
 pub fn error_from_texts(goal: &str, text: &str) -> f64 {
     let goal_tokens = tokenize(goal);
@@ -146,18 +160,18 @@ pub fn error_from_texts(goal: &str, text: &str) -> f64 {
     if goal_tokens.is_empty() && text_tokens.is_empty() {
         return 0.0;
     }
-    if goal_tokens.is_empty() || text_tokens.is_empty() {
+    if goal_tokens.is_empty() {
+        return 0.0;
+    }
+    if text_tokens.is_empty() {
         return 1.0;
     }
 
-    let intersection = goal_tokens.intersection(&text_tokens).count();
-    let union = goal_tokens.len() + text_tokens.len() - intersection;
-
-    if union == 0 {
-        return 0.0;
-    }
-
-    (1.0 - intersection as f64 / union as f64).clamp(0.0, 1.0)
+    let found = goal_tokens
+        .iter()
+        .filter(|t| text_tokens.contains(*t))
+        .count();
+    (1.0 - found as f64 / goal_tokens.len() as f64).clamp(0.0, 1.0)
 }
 
 /// Lowercases, strips punctuation, splits on whitespace, and deduplicates tokens.

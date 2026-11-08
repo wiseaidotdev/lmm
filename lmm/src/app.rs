@@ -9,11 +9,18 @@
 //!
 //! This module wires the `crate::cli::commands` argument parser to the
 //! individual subsystem functions (encode, simulate, discover, predict,
-//! generate text, render images, etc.).
+//! generate text, render images, TRAM reasoning, etc.).
 //!
 //! All public functionality is gated behind the `cli` Cargo feature so the
 //! library can be used as a pure Rust or Python/Node.js dependency without
 //! pulling in the CLI stack.
+//!
+//! ## TRAM Default
+//!
+//! When the user invokes `lmm -p 'question'` without a subcommand, the
+//! `command` field of [`crate::cli::commands::Cli`] is `None` and the
+//! `prompt` field is `Some(question)`.  In that case `run_cli_entry` falls
+//! through to [`handle_tram`], which is identical to `lmm tram -p 'question'`.
 
 #[cfg(feature = "cli")]
 use crate::causal::CausalGraph;
@@ -25,8 +32,15 @@ use crate::cli::commands::{
     Commands::{
         Causal, Consciousness as CmdConsciousness, Decode, Discover, Encode, Essay,
         Field as CmdField, Imagen, Paragraph, Physics, Predict, Sentence, Simulate, Summarize,
+        Tram,
     },
 };
+#[cfg(feature = "cli")]
+use crate::cognition::knowledge::{KnowledgeIndex, KnowledgeSource, ingest as cognition_ingest};
+#[cfg(feature = "cli")]
+use crate::cognition::r#loop::ThinkLoop;
+#[cfg(feature = "cli")]
+use crate::cognition::search::SearchOracle;
 #[cfg(feature = "cli")]
 use crate::consciousness::Consciousness;
 #[cfg(feature = "cli")]
@@ -44,6 +58,8 @@ use crate::predict::TextPredictor;
 #[cfg(feature = "cli")]
 use crate::simulation::Simulator;
 #[cfg(feature = "cli")]
+use crate::stochastic::StochasticEnhancer;
+#[cfg(feature = "cli")]
 use crate::tensor::Tensor;
 #[cfg(feature = "cli")]
 use crate::text::{EssayGenerator, ParagraphGenerator, SentenceGenerator, TextSummarizer};
@@ -51,6 +67,10 @@ use crate::text::{EssayGenerator, ParagraphGenerator, SentenceGenerator, TextSum
 use crate::traits::{Causal as CausalTrait, Simulatable};
 #[cfg(feature = "cli")]
 use clap::Parser;
+#[cfg(all(feature = "cli", feature = "net"))]
+use duckduckgo::browser::Browser;
+#[cfg(all(feature = "cli", feature = "net"))]
+use duckduckgo::user_agents::get as get_ua;
 #[cfg(feature = "cli")]
 use tracing::{Event, Subscriber, error, info};
 #[cfg(feature = "cli")]
@@ -181,9 +201,610 @@ fn divider(label: &str) {
 #[cfg(feature = "cli")]
 fn maybe_enhance(text: &str, stochastic: bool, probability: f64) -> String {
     if stochastic {
-        crate::stochastic::StochasticEnhancer::new(probability).enhance(text)
+        StochasticEnhancer::new(probability).enhance(text)
     } else {
         text.to_string()
+    }
+}
+
+/// Executes the TRAM (Text Reasoning and Applied Mathematics) pipeline.
+///
+/// TRAM is the primary reasoning mode of the `lmm` binary, a CPU-only,
+/// training-free alternative to GPT-style language models. It operates in
+/// five stages:
+///
+/// ```text
+/// prompt
+///   │
+///   ├─► KnowledgeIndex ingestion  (local KB file or directory)
+///   │       ↓ if empty and `net` feature is on
+///   │   DuckDuckGo pre-fetch  (10 results ingested directly into KnowledgeIndex)
+///   │       ↓
+///   │   ThinkLoop::run(&mut oracle)   (PID closed-loop, N iter, threshold 0.25)
+///   │       ↓  hot-store sentences written to KnowledgeIndex
+///   │   KnowledgeIndex::answer(prompt)  (IDF-ranked extractive answer, low stochastic)
+///   │       ↓ if None and cold-memory has content → TextSummarizer on cold corpus
+///   │       ↓ if None → ParagraphGenerator (topic-aware symbolic synthesis)
+///   │       ↓
+///   └─► StochasticEnhancer::enhance_detailed  (guaranteed per-run variation)
+/// ```
+///
+/// No GPU, no neural weights, no API keys. Every response is computed fresh
+/// from first principles using symbolic mathematics and stochastic determinism.
+///
+/// # Arguments
+///
+/// * `prompt`         - Natural-language question or task description.
+/// * `knowledge_base` - Optional filesystem path to a KB file or directory.
+/// * `probability`    - Optional per-word synonym-substitution probability [0.0, 1.0].
+/// * `verbose`        - Whether to emit rich diagnostic output.
+/// * `iterations`     - Maximum ThinkLoop iterations (default 10).
+///
+/// # Time Complexity
+///
+/// O(|KB| + iterations × |oracle|) for the think loop;
+/// O(|output|) for the stochastic pass.
+///
+/// # Space Complexity
+///
+/// O(|KB| + |hot_store|) for the in-memory knowledge index.
+#[cfg(feature = "cli")]
+pub async fn handle_tram(
+    prompt: String,
+    knowledge_base: Option<String>,
+    probability: Option<f64>,
+    verbose: bool,
+    iterations: usize,
+) -> anyhow::Result<()> {
+    banner("TRAM · Text Reasoning and Applied Mathematics", "🧮");
+    info!("  ❓ Prompt    : {:?}", prompt);
+    info!("  🔁 Iterations: {}", iterations);
+
+    let mut index = KnowledgeIndex::new();
+    let kb_provided = knowledge_base.is_some();
+
+    if let Some(kb_path) = knowledge_base {
+        let path = std::path::Path::new(&kb_path);
+        let source = if path.is_file() {
+            Some(KnowledgeSource::File(path.to_path_buf()))
+        } else if path.is_dir() {
+            Some(KnowledgeSource::Dir(path.to_path_buf()))
+        } else {
+            error!("  ⚠️  KB path not found: {:?}", kb_path);
+            None
+        };
+        if let Some(src) = source {
+            match cognition_ingest(&mut index, src).await {
+                Ok(n) => info!("  📚 KB ingested: {} chunks from {:?}", n, kb_path),
+                Err(e) => error!("  ⚠️  KB ingestion failed: {e}"),
+            }
+        }
+    }
+
+    prefetch_web(&prompt, &mut index, kb_provided, verbose).await;
+
+    divider("ThinkLoop Reasoning");
+
+    let run_seed: u64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos() as u64;
+
+    let mut oracle = SearchOracle::new(5);
+    let convergence_threshold = 0.70;
+    let think_iterations = if index.is_empty() {
+        iterations
+    } else {
+        iterations.min(3)
+    };
+    let mut lp = ThinkLoop::builder(&prompt)
+        .max_iterations(think_iterations)
+        .convergence_threshold(convergence_threshold)
+        .build();
+
+    let think_result = lp.run(&mut oracle).await;
+    let think_converged =
+        think_result.converged || (!index.is_empty() && think_result.final_error >= 0.99);
+    info!(
+        "  🔄 ThinkLoop: converged={} steps={} error={:.3}",
+        think_converged, think_result.steps, think_result.final_error
+    );
+
+    let cold_corpus: String = lp
+        .cold
+        .all()
+        .iter()
+        .map(|e| e.content.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    for entry in lp.cold.all() {
+        let chunks_added = index.ingest_text("think", &entry.content);
+        if verbose {
+            info!("  💡 Memory → KB: +{} chunk(s)", chunks_added);
+        }
+    }
+
+    divider("Knowledge Retrieval");
+
+    let top_k = 5 + (run_seed % 6) as usize;
+    let (answer_text, from_kb) = match index.answer(&prompt, top_k) {
+        Some(answer) if is_quality_answer(&answer) => {
+            info!("  ✅ KB answer found ({} chars)", answer.len());
+            let prose = assemble_paragraphs(&answer, run_seed);
+            (prose, true)
+        }
+        Some(_) => {
+            info!("  🔀 KB answer too sparse. Building symbolic response");
+            let text = build_symbolic_response(&prompt, &cold_corpus);
+            (text, false)
+        }
+        None => {
+            info!("  🔀 No KB answer. Building symbolic response");
+            let text = build_symbolic_response(&prompt, &cold_corpus);
+            (text, false)
+        }
+    };
+
+    divider("Stochastic Enhancement");
+    let effective_prob = match probability {
+        Some(p) => p.clamp(0.0, 1.0),
+        None => {
+            if from_kb {
+                0.05
+            } else {
+                0.12
+            }
+        }
+    };
+    let enhanced = StochasticEnhancer::new(effective_prob)
+        .curated_only()
+        .enhance_detailed(&answer_text);
+    info!(
+        "  🎲 substitutions={} language={:?} prob={:.2}",
+        enhanced.substitutions, enhanced.language, effective_prob
+    );
+
+    if verbose {
+        divider("TRAM Response");
+        info!("  {}", enhanced.text);
+    } else {
+        println!("{}", enhanced.text);
+    }
+
+    Ok(())
+}
+
+/// Returns `true` when `answer` contains enough substance to present to the user.
+///
+/// A "quality" answer has an average of ≥ 8 words per sentence. Short sentences
+/// indicate the index was populated with page-title strings rather than real
+/// prose (a common outcome when DuckDuckGo Lite returns no snippets).
+///
+/// # Arguments
+///
+/// * `answer` - Raw text from `KnowledgeIndex::answer`.
+///
+/// # Time Complexity
+///
+/// O(|answer|)
+#[cfg(feature = "cli")]
+fn is_quality_answer(answer: &str) -> bool {
+    let word_count = answer.split_whitespace().count();
+    if word_count < 20 {
+        return false;
+    }
+    let sentences: Vec<&str> = answer
+        .split(['.', '!', '?'])
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let sentence_count = sentences.len().max(1);
+    let avg_words_per_sentence = word_count / sentence_count;
+
+    if avg_words_per_sentence < 12 {
+        return false;
+    }
+
+    let verb_count = sentences
+        .iter()
+        .filter(|s| {
+            let lower = s.to_lowercase();
+            lower.contains(" is ")
+                || lower.contains(" are ")
+                || lower.contains(" was ")
+                || lower.contains(" were ")
+                || lower.contains(" has ")
+                || lower.contains(" have ")
+                || lower.contains(" provides ")
+                || lower.contains(" enables ")
+                || lower.contains(" uses ")
+                || lower.contains(" includes ")
+                || lower.contains(" supports ")
+                || lower.contains(" allows ")
+                || lower.contains(" makes ")
+                || lower.contains(" creates ")
+                || lower.contains(" consists ")
+                || lower.contains(" contains ")
+                || lower.contains(" designed ")
+                || lower.contains(" built ")
+                || lower.contains(" formed ")
+                || lower.contains(" released ")
+                || lower.contains(" developed ")
+        })
+        .count();
+    verb_count * 10 >= sentence_count * 4
+}
+
+/// Assembles raw KB answer text into randomised multi-paragraph prose.
+///
+/// Sentences are split from the raw answer, shuffled pseudo-randomly with
+/// `run_seed`, then grouped into 1-3 paragraphs separated by blank lines.
+/// A discourse connector is prepended to the first sentence of each
+/// subsequent paragraph so the output reads naturally.
+///
+/// # Arguments
+///
+/// * `text`     - Raw extractive answer from `KnowledgeIndex::answer`.
+/// * `run_seed` - Per-run nanosecond entropy value from [`handle_tram`].
+///
+/// # Time Complexity
+///
+/// O(|text|)
+#[cfg(feature = "cli")]
+fn assemble_paragraphs(text: &str, run_seed: u64) -> String {
+    static CONNECTORS: &[&str] = &[
+        "Furthermore,",
+        "In addition,",
+        "Notably,",
+        "Moreover,",
+        "As a result,",
+        "In practice,",
+        "By extension,",
+        "Interestingly,",
+        "At its core,",
+        "Consequently,",
+    ];
+
+    let mut sentences: Vec<String> = text
+        .split(['.', '!', '?'])
+        .map(|s| s.trim().to_string())
+        .filter(|s| s.split_whitespace().count() >= 5)
+        .map(|s| {
+            let mut out = s.clone();
+            if !out.ends_with('.') && !out.ends_with('!') && !out.ends_with('?') {
+                out.push('.');
+            }
+            out
+        })
+        .collect();
+
+    if sentences.is_empty() {
+        return text.to_string();
+    }
+
+    let n = sentences.len();
+    let mut seed = run_seed;
+    for i in (1..n).rev() {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let j = (seed >> 33) as usize % (i + 1);
+        sentences.swap(i, j);
+    }
+
+    let para_count = if sentences.len() <= 2 {
+        1
+    } else if sentences.len() <= 4 {
+        1 + (run_seed % 2) as usize
+    } else {
+        1 + (run_seed % 3) as usize
+    };
+
+    let per_para = (sentences.len() / para_count).max(1);
+    let mut paragraphs: Vec<String> = Vec::new();
+    let mut offset = 0usize;
+
+    for p in 0..para_count {
+        let take = if p == para_count - 1 {
+            sentences.len() - offset
+        } else {
+            per_para
+        };
+        if take == 0 {
+            break;
+        }
+        let chunk: Vec<&str> = sentences[offset..offset + take]
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        offset += take;
+
+        let mut para = if p > 0 {
+            let conn = CONNECTORS[(run_seed as usize + p) % CONNECTORS.len()];
+            let first = chunk[0];
+            let joined_first = if let Some(fc) = first.chars().next() {
+                format!(
+                    "{} {}{}",
+                    conn,
+                    fc.to_ascii_lowercase(),
+                    &first[fc.len_utf8()..]
+                )
+            } else {
+                format!("{} {}", conn, first)
+            };
+            let mut parts = vec![joined_first];
+            parts.extend(chunk[1..].iter().map(|s| s.to_string()));
+            parts.join(" ")
+        } else {
+            chunk.join(" ")
+        };
+
+        if let Some(fc) = para.chars().next() {
+            let upper: String = fc.to_uppercase().collect();
+            para = upper + &para[fc.len_utf8()..];
+        }
+
+        paragraphs.push(para);
+    }
+
+    paragraphs.join("\n\n")
+}
+
+/// Builds a topic-aware symbolic response when no KB answer is available.
+///
+/// First attempts to summarise the ThinkLoop cold-memory corpus. If that
+/// corpus is too thin, falls back to `ParagraphGenerator` which uses
+/// `keywords_from_text` to anchor sentences to the actual prompt topic.
+///
+/// # Arguments
+///
+/// * `prompt`       - Original user prompt (used as topic seed).
+/// * `cold_corpus`  - Concatenated ThinkLoop cold-store content (may be empty).
+///
+/// # Time Complexity
+///
+/// O(|cold_corpus| + |prompt|)
+#[cfg(feature = "cli")]
+fn build_symbolic_response(prompt: &str, cold_corpus: &str) -> String {
+    if cold_corpus.split_whitespace().count() >= 20 {
+        let summarizer = TextSummarizer::new(5, 8, 3);
+        if let Ok(sentences) = summarizer.summarize_with_query(cold_corpus, prompt) {
+            let joined = sentences.join(" ");
+            if joined.split_whitespace().count() >= 10 {
+                return joined;
+            }
+        }
+    }
+    let para_gen = ParagraphGenerator::new(4, 20, 3);
+    para_gen
+        .generate(prompt)
+        .unwrap_or_else(|_| prompt.to_string())
+}
+
+/// Extracts a clean topic keyword phrase from a natural-language prompt by
+/// stripping common question prefixes and filler words.
+///
+/// The DuckDuckGo Instant Answer API returns rich Wikipedia summaries for
+/// concise noun phrases ("Rust programming language") but nothing for
+/// question forms ("what is rust programming"). This function normalises the
+/// prompt before the IA query while keeping the full text for ThinkLoop.
+///
+/// # Time Complexity
+///
+/// O(|prompt|)
+#[cfg(feature = "cli")]
+fn extract_topic(prompt: &str) -> String {
+    static FILLER_PREFIXES: &[&str] = &[
+        "what is a ",
+        "what is an ",
+        "what is the ",
+        "what is ",
+        "what are the ",
+        "what are ",
+        "what was ",
+        "what were ",
+        "how does a ",
+        "how does an ",
+        "how does ",
+        "how do ",
+        "how is ",
+        "how are ",
+        "explain ",
+        "describe ",
+        "define ",
+        "tell me about ",
+        "what's ",
+        "whats ",
+        "who is ",
+        "who was ",
+        "why is ",
+        "why are ",
+        "where is ",
+        "when is ",
+        "give me information about ",
+        "give me info on ",
+    ];
+    let lower = prompt.to_lowercase();
+    for prefix in FILLER_PREFIXES {
+        if lower.starts_with(prefix) {
+            let raw = prompt[prefix.len()..].trim();
+            return strip_leading_articles(raw);
+        }
+    }
+    strip_leading_articles(prompt.trim())
+}
+
+/// Strips a leading article ("a", "an", "the") from a noun phrase.
+///
+/// # Time Complexity
+///
+/// O(|s|)
+#[cfg(feature = "cli")]
+fn strip_leading_articles(s: &str) -> String {
+    let lower = s.to_lowercase();
+    for article in &["a ", "an ", "the "] {
+        if lower.starts_with(article) {
+            return s[article.len()..].trim().to_string();
+        }
+    }
+    s.to_string()
+}
+
+/// Issues a DuckDuckGo pre-fetch when no KB is provided and the `net` feature is active.
+///
+/// Results are ingested directly into `index` before the ThinkLoop runs,
+/// giving the IDF retriever real web content to rank against.
+///
+/// This function is a no-op when compiled without the `net` feature.
+///
+/// # Arguments
+///
+/// * `prompt`      - The search query to issue.
+/// * `index`       - The `KnowledgeIndex` to populate.
+/// * `kb_provided` - When `true`, a local KB was supplied and the web fetch is skipped.
+/// * `verbose`     - When `true`, diagnostic lines are printed.
+#[cfg(feature = "cli")]
+async fn prefetch_web(prompt: &str, index: &mut KnowledgeIndex, kb_provided: bool, verbose: bool) {
+    prefetch_web_inner(prompt, index, kb_provided, verbose).await;
+}
+
+#[cfg(all(feature = "cli", feature = "net"))]
+async fn prefetch_web_inner(
+    prompt: &str,
+    index: &mut KnowledgeIndex,
+    kb_provided: bool,
+    verbose: bool,
+) {
+    if kb_provided {
+        return;
+    }
+
+    divider("Web Knowledge");
+    let browser = Browser::new();
+    let ua = get_ua("firefox").unwrap_or("Mozilla/5.0");
+    let mut ingested = 0usize;
+    let mut prose_chunks = 0usize;
+
+    let topic_query = extract_topic(prompt);
+    let topic_lang = format!("{} programming language", topic_query);
+    let topic_lang2 = format!("{} language", topic_query);
+    let topic_what = format!("what is {}", topic_query);
+
+    let ia_candidates: &[&str] = &[
+        topic_query.as_str(),
+        topic_lang.as_str(),
+        topic_lang2.as_str(),
+        topic_what.as_str(),
+        prompt,
+    ];
+
+    let mut ia_winner: Option<&str> = None;
+    for query in ia_candidates.iter().copied() {
+        if prose_chunks > 0 {
+            break;
+        }
+        let encoded = query
+            .chars()
+            .map(|c| if c == ' ' { '+' } else { c })
+            .collect::<String>();
+        let ia_path = format!("?q={}&ia=web", encoded);
+        if let Ok(resp) = browser.get_api_response(&ia_path, None).await {
+            if let Some(text) = resp.abstract_text.filter(|s| !s.trim().is_empty()) {
+                let wc = text.split_whitespace().count();
+                let added = index.ingest_text("web-ia", text.trim());
+                if added > 0 && wc >= 20 {
+                    prose_chunks += added;
+                }
+                ingested += added;
+            }
+            if let Some(def) = resp.definition.filter(|s| !s.trim().is_empty()) {
+                let wc = def.split_whitespace().count();
+                let added = index.ingest_text("web-ia", def.trim());
+                if added > 0 && wc >= 20 {
+                    prose_chunks += added;
+                }
+                ingested += added;
+            }
+            if let Some(ans) = resp.answer.filter(|s| !s.trim().is_empty()) {
+                let wc = ans.split_whitespace().count();
+                let added = index.ingest_text("web-ia", ans.trim());
+                if added > 0 && wc >= 20 {
+                    prose_chunks += added;
+                }
+                ingested += added;
+            }
+            for topic in resp.related_topics.iter().take(10) {
+                if let Some(text) = topic.text.as_deref().filter(|s| !s.trim().is_empty()) {
+                    let wc = text.split_whitespace().count();
+                    if wc >= 20 {
+                        let added = index.ingest_text("web-ia", text.trim());
+                        prose_chunks += added;
+                        ingested += added;
+                    } else if wc >= 8 {
+                        ingested += index.ingest_text("web-ia", text.trim());
+                    }
+                }
+            }
+            if ingested > 0 && ia_winner.is_none() {
+                ia_winner = Some(query);
+            }
+        }
+    }
+
+    if prose_chunks > 0 {
+        info!(
+            "  🌐 Instant Answer [{:?}]: {} chunk(s) ingested ({} prose)",
+            ia_winner.unwrap_or(topic_query.as_str()),
+            ingested,
+            prose_chunks
+        );
+        return;
+    }
+
+    if ingested > 0 {
+        info!(
+            "  🌐 Instant Answer [{:?}]: {} fragment(s) — augmenting with Lite search",
+            ia_winner.unwrap_or(topic_query.as_str()),
+            ingested
+        );
+    }
+
+    let mut lite_snippets_found = 0usize;
+    match browser.lite_search(prompt, "wt-wt", Some(15), ua).await {
+        Ok(results) if !results.is_empty() => {
+            for r in &results {
+                let snippet = r.snippet.trim();
+                let title = r.title.trim();
+                if snippet.split_whitespace().count() >= 8 {
+                    let chunk = format!("{} {}", title, snippet);
+                    ingested += index.ingest_text("web-lite", chunk.trim());
+                    lite_snippets_found += 1;
+                }
+            }
+            if lite_snippets_found == 0 {
+                info!(
+                    "  🌐 Lite search: {} results (titles only - no snippets)",
+                    results.len()
+                );
+            } else {
+                info!(
+                    "  🌐 Lite search: {} result(s), {} snippet chunk(s) ingested",
+                    results.len(),
+                    ingested
+                );
+            }
+        }
+        Ok(_) => {
+            if verbose {
+                info!("  🌐 Lite search: no results");
+            }
+        }
+        Err(e) => {
+            if verbose {
+                info!("  ⚠️  Lite search error: {e}");
+            }
+        }
     }
 }
 
@@ -192,7 +813,37 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
     let cli = Cli::parse_from(args);
     setup_logging(cli.verbose)?;
 
-    match cli.command {
+    let command = match cli.command {
+        Some(cmd) => cmd,
+        None => {
+            let prompt = cli.prompt.unwrap_or_else(|| {
+                eprintln!(
+                    "lmm: no subcommand given. Try `lmm --help` or `lmm -p 'your question'`."
+                );
+                std::process::exit(1);
+            });
+            return handle_tram(
+                prompt,
+                cli.knowledge_base,
+                cli.probability,
+                cli.verbose,
+                cli.iterations,
+            )
+            .await;
+        }
+    };
+
+    match command {
+        Tram {
+            prompt,
+            knowledge_base,
+            probability,
+            iterations,
+            depth: _,
+        } => {
+            handle_tram(prompt, knowledge_base, probability, cli.verbose, iterations).await?;
+        }
+
         Simulate { step, steps } => {
             banner("Simulate · Harmonic Oscillator", "🌊");
             let osc = HarmonicOscillator::new(1.0, 1.0, 0.0)?;
@@ -608,11 +1259,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                         info!("  📖  {}", essay.title);
                         info!("  ══════════════════════════════════════");
                     } else {
-                        println!(
-                            "{}
-",
-                            essay.title
-                        );
+                        println!("{}\n", essay.title);
                     }
                     let count = essay.paragraphs.len();
                     for (i, para) in essay.paragraphs.iter().enumerate() {
@@ -630,11 +1277,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                             info!("  {}", enhanced);
                             info!("");
                         } else {
-                            println!(
-                                "{}
-",
-                                enhanced
-                            );
+                            println!("{}\n", enhanced);
                         }
                     }
                 }

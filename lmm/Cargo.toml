@@ -36,6 +36,9 @@ tracing = { workspace = true }
 phf = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+uuid = { workspace = true }
 clap = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
@@ -44,12 +47,15 @@ duckduckgo = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 napi = { workspace = true, optional = true }
 napi-derive = { workspace = true, optional = true }
+lopdf = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
 
 [dev-dependencies]
 lmm-agent = { workspace = true }
 lmm-derive = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+bump2version = "0.2.2"
 yew = "0.23"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -65,7 +71,7 @@ required-features = ["rust-binary"]
 
 [features]
 default = []
-rust-binary = ["cli", "net"]
+rust-binary = ["cli", "net", "knowledge"]
 cli = [
     "clap",
     "tokio",
@@ -75,7 +81,9 @@ cli = [
 net = [
     "duckduckgo",
     "tokio",
+    "reqwest"
 ]
 wasm-net = ["duckduckgo"]
-python = ["pyo3", "cli", "net"]
-node = ["napi", "napi-derive", "napi-build", "cli", "net"]
+python = ["pyo3", "cli", "net", "knowledge"]
+node = ["napi", "napi-derive", "napi-build", "cli", "net", "knowledge"]
+knowledge = ["lopdf"]

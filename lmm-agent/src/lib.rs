@@ -5,6 +5,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(clippy::double_must_use)]
+
 //! # `lmm-agent` - equation-based autonomous agent framework.
 //!
 //! This crate lets you compose, build, and run autonomous agents that reason
@@ -61,7 +63,6 @@
 //! ```
 
 pub mod agent;
-pub mod cognition;
 pub mod error;
 pub mod prelude;
 pub mod runtime;

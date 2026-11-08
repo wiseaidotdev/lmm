@@ -18,27 +18,20 @@ exclude = [
 [dependencies]
 anyhow = { workspace = true }
 thiserror = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 tracing = { workspace = true }
-chrono = { workspace = true }
 uuid = { workspace = true }
-rand = { workspace = true }
 lmm-derive = { workspace = true }
 lmm = { workspace = true }
-phf = { workspace = true }
 
 duckduckgo = { workspace = true, optional = true }
-lopdf = { workspace = true, optional = true }
-reqwest = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
 
 [features]
 default = []
-net = ["duckduckgo", "reqwest"]
-knowledge = ["lopdf"]
+net = ["duckduckgo", "lmm/net"]
+knowledge = ["lmm/knowledge"]

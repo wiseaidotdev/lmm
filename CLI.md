@@ -1,19 +1,16 @@
 # LMM Command-Line Interface 💻
 
-The `lmm` binary provides 15 subcommands covering simulation, symbolic regression, causal inference, encoding, prediction, and rich text generation: All powered by pure deterministic mathematics.
+The `lmm` binary provides 16 subcommands covering TRAM reasoning, simulation, symbolic regression, causal inference, encoding, prediction, and rich text generation: All powered by pure deterministic mathematics.
 
 ## 📦 Installation
 
-```sh
-cargo install lmm --features rust-binary
-```
-
-To enable the internet-aware `ask` command:
+To enable the internet-aware `tram` and `ask` commands:
 
 ```sh
-cargo install lmm --features rust-binary,net
+cargo install lmm --features rust-binary   # rust-binary = cli + net + knowledge
+
 # or build from source:
-cargo build --release --features cli,net
+cargo build --release --features rust-binary
 ```
 
 The resulting binary is named `lmm`.
@@ -21,18 +18,93 @@ The resulting binary is named `lmm`.
 ## 🛠 Usage
 
 ```sh
-lmm <COMMAND> [OPTIONS]
+lmm [OPTIONS] [COMMAND]
 ```
 
-Global flags available on `predict`, `summarize`, `sentence`, `paragraph`, `essay`, `ask`:
+The `-p` / `--prompt` flag invokes **TRAM mode** directly at the top level without requiring a subcommand. All TRAM parameters (`--knowledge-base`, `--probability`, `--iterations`, `--depth`) are available both at the top level and under the explicit `tram` subcommand:
 
-| Flag              | Default | Description                                    |
-| ----------------- | ------- | ---------------------------------------------- | --- |
-| `--stochastic`    | `false` | Enable synonym-based output randomization      |
-| `--probability`   | `0.5`   | Word replacement rate (0.0 = none, 1.0 = all)  |
-| `-v`, `--verbose` | `false` | Show full banners, seeds, and boxed separators | :   |
+```sh
+# Top-level direct execution:
+lmm -p "rust programming" --verbose
+lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
+lmm -p "stochastic determinism" -k ./papers -i 15 --probability=0.1 --verbose
+
+# Explicit subcommand (identical behavior):
+lmm tram -p "rust programming" --verbose
+lmm tram -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
+```
+
+### Top-Level & TRAM Mode Flags:
+
+| Flag                       | Short | Default  | Description                                                                                |
+| -------------------------- | :---: | :------: | ------------------------------------------------------------------------------------------ |
+| `--prompt`                 | `-p`  | _(none)_ | Prompt for TRAM mode (default subcommand when no subcommand is given)                      |
+| `--knowledge-base`, `--kb` | `-k`  | _(none)_ | Optional path to a local KB file or directory to ingest                                    |
+| `--probability`            |   -   |  `0.05`  | Stochastic synonym-substitution rate [0.0 - 1.0] (default: 0.05 for KB, 0.12 for symbolic) |
+| `--iterations`             | `-i`  |   `10`   | ThinkLoop reasoning iteration budget                                                       |
+| `--depth`                  | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
+| `--verbose`                | `-v`  | `false`  | Show full banners, seeds, pipeline stages, and statistics                                  |
 
 ## 📖 Subcommand Reference
+
+### 0. `tram` (default): Text Reasoning and Applied Mathematics
+
+The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API for now. We will add more search apis in the future.), closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
+
+```sh
+# Short-form via top-level -p flag (auto-selects TRAM mode):
+lmm -p "rust programming" --verbose
+lmm -p "what is entropy" --verbose
+lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
+
+# Explicit subcommand:
+lmm tram -p "rust programming" --verbose
+lmm tram -p "stochastic determinism" --knowledge-base ./papers --verbose
+lmm tram -p "machine learning" --iterations 20 --verbose
+```
+
+| Flag                       | Short | Default  | Description                                                                                |
+| -------------------------- | :---: | :------: | ------------------------------------------------------------------------------------------ |
+| `--prompt`                 | `-p`  | required | The question or query                                                                      |
+| `--knowledge-base`, `--kb` | `-k`  | _(none)_ | Path to a local KB file or directory                                                       |
+| `--probability`            |   -   |  `0.05`  | Stochastic synonym-substitution rate [0.0 - 1.0] (default: 0.05 for KB, 0.12 for symbolic) |
+| `--iterations`             | `-i`  |   `10`   | ThinkLoop reasoning iteration budget                                                       |
+| `--depth`                  | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
+| `--verbose`                | `-v`  | `false`  | Show pipeline stage banners and statistics                                                 |
+
+**Pipeline stages (verbose output):**
+
+```sh
+> lmm -p "rust programming language" --verbose
+
+╔══════════════════════════════════════════════════════╗
+║  🧮  TRAM · Text Reasoning and Applied Mathematics   ║
+╚══════════════════════════════════════════════════════╝
+
+  ❓ Prompt    : "rust programming language"
+  🔁 Iterations: 10
+
+-- Web Knowledge -----------------------------
+  🌐 Instant Answer ["rust programming language"]: 11 chunk(s) ingested (11 prose)
+
+-- ThinkLoop Reasoning -----------------------
+  🔄 ThinkLoop: converged=true steps=1 error=0.000
+  💡 Memory → KB: +12 chunk(s)
+
+-- Knowledge Retrieval -----------------------
+  ✅ KB answer found (597 chars)
+
+-- Stochastic Enhancement --------------------
+  🎲 substitutions=0 language=English prob=0.05
+
+-- TRAM Response -----------------------------
+  Rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety. Outline of the Rust programming language - The following outline is provided as an overview of and topical guide to Rust: Rust is a multi-paradigm programming language emphasizing performance, memory safety, and concurrency.
+
+Furthermore, rust supports multiple programming paradigms. Rust (programming language) Category History of programming languages - The history of programming languages spans from documentation of early mechanical computers to modern tools for software development.
+```
+
+> [!NOTE]
+> TRAM uses the `duckduckgo` crate exclusively (`Browser::get_api_response` for the Instant Answer API, `Browser::lite_search` for the Lite fallback).
 
 ### 1. `simulate`: Harmonic Oscillator
 
@@ -42,10 +114,10 @@ Runs a damped harmonic oscillator using the RK4 integrator.
 lmm simulate --step 0.01 --steps 200
 ```
 
-| Flag            | Default | Description                 |
+| Flag | Default | Description |
 | --------------- | ------- | --------------------------- | --- |
-| `-s`, `--step`  | `0.01`  | Integration step size (Δt)  |
-| `-t`, `--steps` | `100`   | Number of integration steps | :   |
+| `-s`, `--step` | `0.01` | Integration step size (Δt) |
+| `-t`, `--steps` | `100` | Number of integration steps | : |
 
 ### 2. `physics`: Physics Model Simulation
 
@@ -58,11 +130,11 @@ lmm physics --model sir --steps 1000 --step-size 0.5
 lmm physics --model harmonic --steps 200
 ```
 
-| Flag                | Default    | Description                             |
+| Flag | Default | Description |
 | ------------------- | ---------- | --------------------------------------- | --- |
-| `-m`, `--model`     | `harmonic` | `lorenz`, `pendulum`, `sir`, `harmonic` |
-| `-s`, `--steps`     | `200`      | Number of integration steps             |
-| `-z`, `--step-size` | `0.01`     | Step size Δt                            | :   |
+| `-m`, `--model` | `harmonic` | `lorenz`, `pendulum`, `sir`, `harmonic` |
+| `-s`, `--steps` | `200` | Number of integration steps |
+| `-z`, `--step-size` | `0.01` | Step size Δt | : |
 
 ### 3. `discover`: Symbolic Regression
 
@@ -72,10 +144,10 @@ Runs Genetic Programming to discover a symbolic equation from data.
 lmm discover --iterations 200
 ```
 
-| Flag                 | Default     | Description                                      |
+| Flag | Default | Description |
 | -------------------- | ----------- | ------------------------------------------------ | --- |
-| `-d`, `--data-path`  | `synthetic` | Data source (`synthetic` = built-in linear data) |
-| `-i`, `--iterations` | `100`       | Number of GP evolution iterations                | :   |
+| `-d`, `--data-path` | `synthetic` | Data source (`synthetic` = built-in linear data) |
+| `-i`, `--iterations` | `100` | Number of GP evolution iterations | : |
 
 ### 4. `consciousness`: Perceive → Predict → Act Loop
 
@@ -85,9 +157,9 @@ Runs one tick of the full consciousness loop: raw bytes → perception tensor �
 lmm consciousness --lookahead 5
 ```
 
-| Flag                | Default | Description                        |
+| Flag | Default | Description |
 | ------------------- | ------- | ---------------------------------- | --- |
-| `-l`, `--lookahead` | `3`     | Multi-step lookahead horizon depth | :   |
+| `-l`, `--lookahead` | `3` | Multi-step lookahead horizon depth | : |
 
 ### 5. `causal`: Causal Graph + do-Calculus
 
@@ -97,10 +169,10 @@ Builds a 3-node Structural Causal Model (`x → y → z`) and applies an interve
 lmm causal --intervene-node x --intervene-value 10.0
 ```
 
-| Flag                      | Default | Description                      |
+| Flag | Default | Description |
 | ------------------------- | ------- | -------------------------------- | --- |
-| `-n`, `--intervene-node`  | `x`     | Name of the node to intervene on |
-| `-v`, `--intervene-value` | `1.0`   | Value to set (do-calculus)       | :   |
+| `-n`, `--intervene-node` | `x` | Name of the node to intervene on |
+| `-v`, `--intervene-value` | `1.0` | Value to set (do-calculus) | : |
 
 ### 6. `field`: Scalar Field Calculus
 
@@ -111,10 +183,10 @@ lmm field --size 8 --operation gradient
 lmm field --size 8 --operation laplacian
 ```
 
-| Flag                | Default    | Description               |
+| Flag | Default | Description |
 | ------------------- | ---------- | ------------------------- | --- |
-| `-s`, `--size`      | `10`       | Number of field points    |
-| `-o`, `--operation` | `gradient` | `gradient` or `laplacian` | :   |
+| `-s`, `--size` | `10` | Number of field points |
+| `-o`, `--operation` | `gradient` | `gradient` or `laplacian` | : |
 
 ### 7. `encode`: Text → Symbolic Equation
 
@@ -163,16 +235,16 @@ Continues a text seed using three deterministic mathematical signals: a GP Traje
 lmm predict --text "Wise AI built the first LMM" --window 10 --predict-length 180
 ```
 
-| Flag                     | Default                           | Description                                   |
+| Flag | Default | Description |
 | ------------------------ | --------------------------------- | --------------------------------------------- | --- |
-| `-i`, `--input`          | `-`                               | Path to a text file (`-` = use `--text`)      |
-| `-t`, `--text`           | `The Pharaohs encoded reality in` | Inline seed                                   |
-| `-w`, `--window`         | `32`                              | Context window in words                       |
-| `-p`, `--predict-length` | `16`                              | Approximate character budget for continuation |
-| `--iterations`           | `80`                              | GP iterations for the prediction model        |
-| `--depth`                | `4`                               | Maximum GP expression tree depth              |
-| `--stochastic`           | `false`                           | Enable synonym-based randomization            |
-| `--probability`          | `0.5`                             | Word replacement rate                         | :   |
+| `-i`, `--input` | `-` | Path to a text file (`-` = use `--text`) |
+| `-t`, `--text` | `The Pharaohs encoded reality in` | Inline seed |
+| `-w`, `--window` | `32` | Context window in words |
+| `-p`, `--predict-length` | `16` | Approximate character budget for continuation |
+| `--iterations` | `80` | GP iterations for the prediction model |
+| `--depth` | `4` | Maximum GP expression tree depth |
+| `--stochastic` | `false` | Enable synonym-based randomization |
+| `--probability` | `0.5` | Word replacement rate | : |
 
 ### 10. `summarize`: Key Sentence Extraction
 
@@ -182,12 +254,12 @@ Distils a body of text to its most mathematically significant sentences, scored 
 lmm summarize --text "..." --sentences 2
 ```
 
-| Flag                | Default  | Description                        |
+| Flag | Default | Description |
 | ------------------- | -------- | ---------------------------------- | --- |
-| `-t`, `--text`      | required | Input text to summarize            |
-| `-n`, `--sentences` | `2`      | Number of key sentences to extract |
-| `--stochastic`      | `false`  | Enable synonym-based randomization |
-| `--probability`     | `0.5`    | Word replacement rate              | :   |
+| `-t`, `--text` | required | Input text to summarize |
+| `-n`, `--sentences` | `2` | Number of key sentences to extract |
+| `--stochastic` | `false` | Enable synonym-based randomization |
+| `--probability` | `0.5` | Word replacement rate | : |
 
 ### 11. `sentence`: Single Sentence Generation
 
@@ -198,11 +270,11 @@ lmm sentence --text "Mathematics is the language of the universe"
 lmm sentence --text "Mathematics is the language of the universe" --stochastic
 ```
 
-| Flag            | Default  | Description                           |
+| Flag | Default | Description |
 | --------------- | -------- | ------------------------------------- | --- |
-| `-t`, `--text`  | required | Seed topic                            |
-| `--stochastic`  | `false`  | Randomize word synonyms each run      |
-| `--probability` | `0.5`    | Fraction of eligible words to replace | :   |
+| `-t`, `--text` | required | Seed topic |
+| `--stochastic` | `false` | Randomize word synonyms each run |
+| `--probability` | `0.5` | Fraction of eligible words to replace | : |
 
 ### 12. `paragraph`: Cohesive Paragraph Generation
 
@@ -212,12 +284,12 @@ Chains logically coherent sentences seeded by keywords extracted from the origin
 lmm paragraph --text "Equations reveal hidden truths about nature" --sentences 6
 ```
 
-| Flag                | Default  | Description                           |
+| Flag | Default | Description |
 | ------------------- | -------- | ------------------------------------- | --- |
-| `-t`, `--text`      | required | Seed topic                            |
-| `-n`, `--sentences` | `4`      | Number of sentences                   |
-| `--stochastic`      | `false`  | Randomize word synonyms each run      |
-| `--probability`     | `0.5`    | Fraction of eligible words to replace | :   |
+| `-t`, `--text` | required | Seed topic |
+| `-n`, `--sentences` | `4` | Number of sentences |
+| `--stochastic` | `false` | Randomize word synonyms each run |
+| `--probability` | `0.5` | Fraction of eligible words to replace | : |
 
 ### 13. `essay`: Full Essay Blueprint
 
@@ -227,32 +299,35 @@ Generates a fully structured essay: introduction, mathematical body paragraphs, 
 lmm essay --text "Symmetry and the deeper patterns of physics" --paragraphs 2 --sentences 15
 ```
 
-| Flag                 | Default  | Description                           |
+| Flag | Default | Description |
 | -------------------- | -------- | ------------------------------------- | --- |
-| `-t`, `--text`       | required | Topic or title seed                   |
-| `-n`, `--paragraphs` | `2`      | Number of body paragraphs             |
-| `-s`, `--sentences`  | `3`      | Sentences per paragraph               |
-| `--stochastic`       | `false`  | Randomize word synonyms each run      |
-| `--probability`      | `0.5`    | Fraction of eligible words to replace | :   |
+| `-t`, `--text` | required | Topic or title seed |
+| `-n`, `--paragraphs` | `2` | Number of body paragraphs |
+| `-s`, `--sentences` | `3` | Sentences per paragraph |
+| `--stochastic` | `false` | Randomize word synonyms each run |
+| `--probability` | `0.5` | Fraction of eligible words to replace | : |
 
-### 14. `ask`: Internet-Aware Knowledge Synthesis _(requires `net` feature)_
+### 15. `ask`: Internet-Aware Knowledge Synthesis _(legacy, prefer `tram`)_
 
 Searches DuckDuckGo Lite, aggregates result snippets into a corpus, then applies GP scoring to extract and compose the most mathematically significant sentences into a coherent response.
+
+> [!TIP]
+> For most use-cases, `lmm -p "..."` (TRAM mode) is preferred: it uses the DuckDuckGo Instant Answer API (richer content) and applies the full TRAM pipeline including ThinkLoop reasoning and quality-gated knowledge retrieval.
 
 ```sh
 lmm ask --prompt "What is the Rust programming language?" --limit 5 --sentences 3
 ```
 
-| Flag                | Default  | Description                               |
+| Flag | Default | Description |
 | ------------------- | -------- | ----------------------------------------- | --- |
-| `-p`, `--prompt`    | required | The question or search query              |
-| `-l`, `--limit`     | `5`      | Maximum number of search results to fetch |
-| `-n`, `--sentences` | `3`      | Number of key sentences to extract        |
-| `--region`          | `wt-wt`  | DuckDuckGo region code (e.g. `us-en`)     |
-| `--iterations`      | `40`     | GP scoring iterations                     |
-| `--depth`           | `3`      | Maximum GP expression depth               |
-| `--stochastic`      | `false`  | Randomize word synonyms in the answer     |
-| `--probability`     | `0.5`    | Fraction of eligible words to replace     | :   |
+| `-p`, `--prompt` | required | The question or search query |
+| `-l`, `--limit` | `5` | Maximum number of search results to fetch |
+| `-n`, `--sentences` | `3` | Number of key sentences to extract |
+| `--region` | `wt-wt` | DuckDuckGo region code (e.g. `us-en`) |
+| `--iterations` | `40` | GP scoring iterations |
+| `--depth` | `3` | Maximum GP expression depth |
+| `--stochastic` | `false` | Randomize word synonyms in the answer |
+| `--probability` | `0.5` | Fraction of eligible words to replace | : |
 
 ### 15. `imagen`: Spectral Field Synthesis Image Generation
 

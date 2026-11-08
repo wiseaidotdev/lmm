@@ -22,12 +22,12 @@
 
 > **LMM (Large Mathematical Model)** is a pure‑Rust framework that models higher‑dimensional reality through symbolic mathematics and physics simulation; Inspired by the Pharaonic model of intelligence: compress the world into durable, universal equations. No training. No GPU. No API key.
 
-| 🐧 Linux `(Recommended)` | 🪟 Windows | 🐳 Docker |
-| :------: | :--------: | :--------: |
-| ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png) | ![lmm-windows](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png) | ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png) |
-| [Download `lmm` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm) | [Download `lmm.exe` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm.exe) | `docker pull wiseaidev/lmm` |
-| `cargo install lmm --features rust-binary` | `cargo install lmm --features rust-binary` | `docker run -it wiseaidev/lmm` |
-| `lmm` ← launches CLI | `lmm` ← launches CLI | [Read DOCKER.md](https://github.com/wiseaidotdev/lmm/blob/main/DOCKER.md) |
+|                                 🐧 Linux `(Recommended)`                                  |                                            🪟 Windows                                             |                                  🐳 Docker                                   |
+| :---------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------: |
+|       ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png)        |          ![lmm-windows](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png)           | ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png) |
+| [Download `lmm` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm) | [Download `lmm.exe` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm.exe) |                         `docker pull wiseaidev/lmm`                          |
+|                        `cargo install lmm --features rust-binary`                         |                            `cargo install lmm --features rust-binary`                             |                        `docker run -it wiseaidev/lmm`                        |
+|                                   `lmm` ← launches CLI                                    |                                       `lmm` ← launches CLI                                        |  [Read DOCKER.md](https://github.com/wiseaidotdev/lmm/blob/main/DOCKER.md)   |
 
 </div>
 
@@ -35,42 +35,10 @@
 
 The following demonstrates the symbolic prediction engine generating coherent English sentences powered entirely by deterministic mathematical equations and structural Subject-Verb-Object grammar; No neural networks, no statistical models. The engine supports a full suite of CLI subcommands including `predict`, `summarize`, `sentence`, `paragraph`, `essay`, and `ask`, enabling multi-paragraph construction driven entirely by mathematics.
 
-| | | |
-|:---:|:---:|:---:|
+|                                                                                                       |                                                                                                       |                                                                                                       |
+| :---------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------: |
 | <video src="https://github.com/user-attachments/assets/f20ed16f-d90e-4983-bc47-0de2ce5c5a4f"></video> | <video src="https://github.com/user-attachments/assets/680d4ef4-bab1-47d4-84e8-86a11aa93294"></video> | <video src="https://github.com/user-attachments/assets/299c280d-dcf3-484f-bf02-c37836811dcb"></video> |
 | <video src="https://github.com/user-attachments/assets/06ef5c15-7743-4d62-908f-52d22288de76"></video> | <video src="https://github.com/user-attachments/assets/3b4bba24-012b-487b-98c8-91e61336cead"></video> | <video src="https://github.com/user-attachments/assets/fc1d0adc-e2c3-421a-b6b6-4b21dcf3af06"></video> |
-
-## 🧠 What Does LMM Provide?
-
-LMM bridges multimodal perception and actionable scientific discovery through five tightly integrated layers:
-
-| Layer          | Modules                                       | Purpose                                                  |
-| -------------- | --------------------------------------------- | -------------------------------------------------------- |
-| **Perception** | `perception.rs`, `tensor.rs`                  | Raw bytes → normalised tensors                           |
-| **Symbolic**   | `equation.rs`, `symbolic.rs`, `discovery.rs`  | GP symbolic regression, differentiation, simplification  |
-| **Physics**    | `physics.rs`, `simulation.rs`                 | ODE models + Euler / RK4 / RK45 / leapfrog integrators  |
-| **Causal**     | `causal.rs`                                   | SCM graphs, do-calculus interventions, counterfactuals   |
-| **Cognition**  | `consciousness.rs`, `world.rs`, `operator.rs` | Full perceive → encode → predict → act loop              |
-
-### ⚙️ Architecture
-
-```mermaid
-flowchart TD
-    A["Raw Input\n(bytes / sensors)"]
-    B["MultiModalPerception\n → Tensor"]
-    C["Consciousness Loop\nperceive → encode → predict\nevaluate → plan (lookahead)"]
-    D["WorldModel\n(RK4 physics)"]
-    E["SymbolicRegression\n(GP equation search)"]
-    F["CausalGraph\nintervention / counterfactual"]
-    G["Expression AST\ndifferentiate / simplify"]
-
-    A --> B --> C
-    C --> D
-    C --> E
-    E --> G
-    G --> F
-    D --> F
-```
 
 ### 🔬 Key Capabilities
 
@@ -85,17 +53,69 @@ flowchart TD
 - 🎲 **Stochastic Enhancement**: synonym-bank word replacement (`--stochastic`) delivers unique output each run while preserving mathematical sentence structure.
 - 🎨 **Spectral Image Synthesis**: generate procedural PPM images from a text prompt by hashing it into Fourier wave components.
 
+## 🧮 TRAM: Text Reasoning and Applied Mathematics
+
+TRAM is LMM's default reasoning engine. All TRAM options are available directly at the top-level CLI command or via the explicit `tram` subcommand:
+
+```sh
+# Top-level direct execution (default TRAM mode):
+lmm -p "rust programming" --verbose
+lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
+lmm -p "stochastic determinism" -k ./papers -i 15 --probability=0.1 --verbose
+
+# Or via explicit subcommand (identical behavior):
+lmm tram -p "rust programming" --verbose
+lmm tram -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
+lmm tram -p "stochastic determinism" -k ./papers -i 15 --verbose
+```
+
+### ⚙️ Architecture
+
+```mermaid
+flowchart TD
+    A["User: lmm -p 'topic'"] --> B["handle_tram()"]
+    B --> B1["prefetch_web_inner()"]
+    B1 --> B1a["DDG IA: abstract_text + definition + answer"]
+    B1 --> B1b["DDG Lite: title+snippet chunks"]
+    B1a & B1b --> B1c["Filter: skip disambiguation fragments < 10 words"]
+    B1c --> IDX["KnowledgeIndex"]
+
+    B --> TL["ThinkLoop.run()"]
+    TL --> TL1["Reflector.formulate_query()"]
+    TL1 --> TL2["SearchOracle.fetch()"]
+    TL2 --> TL3["CognitionSignal: recall-based error"]
+    TL3 --> TL4{"error < 0.70?"}
+    TL4 -- yes --> TL5["converged = true"]
+    TL4 -- no --> TL6{"observation empty?"}
+    TL6 -- yes --> TL7["stall_streak++"]
+    TL6 -- no --> TL8["stall_streak = 0"]
+    TL7 & TL8 --> TL1
+
+    TL5 --> COLD["ColdStore: memory chunks → KB"]
+    COLD --> IDX
+
+    IDX --> KA["KnowledgeIndex.answer(prompt, top_k=5-10)"]
+    KA --> SUM["TextSummarizer: 4-7 sentences (randomized)"]
+    SUM --> QUAL{"is_quality_answer?"}
+    QUAL -- yes --> PARA["Paragraph assembler: 1-3 paragraphs\nwith discourse connectors"]
+    QUAL -- no --> SYM["ParagraphGenerator: time-seeded\n2-6 sentences per para"]
+
+    PARA --> STOCH["StochasticEnhancer: prob=user/auto"]
+    SYM --> STOCH
+    STOCH --> OUT["Output: unique, natural, varied"]
+```
+
 ## 📦 Installation
 
 The `lmm` crate ships the following Cargo features:
 
-| Feature        | Description                                             |
-| -------------- | ------------------------------------------------------- |
-| `rust-binary`  | Enables the standalone `lmm` terminal CLI executable    |
-| `cli`          | Core CLI scaffolding (subsets of `rust-binary`)         |
-| `net`          | Internet-aware `ask` command via DuckDuckGo search      |
-| `python`       | Python extension module via `pyo3` / maturin            |
-| `node`         | Node.js native add-on via `napi-derive`                 |
+| Feature       | Description                                          |
+| ------------- | ---------------------------------------------------- |
+| `rust-binary` | Enables the standalone `lmm` terminal CLI executable |
+| `cli`         | Core CLI scaffolding (subsets of `rust-binary`)      |
+| `net`         | Internet-aware `ask` command via DuckDuckGo search   |
+| `python`      | Python extension module via `pyo3` / maturin         |
+| `node`        | Node.js native add-on via `napi-derive`              |
 
 ## 🦀 Rust
 
@@ -129,12 +149,12 @@ For CORS considerations, build steps, and usage details, see the **[WASM usage g
 
 The `lmm-agent` crate extends LMM with a fully autonomous, equation-based agent layer; no LLM, no API key, no training data.
 
-| Document | Description |
-| -------- | ----------- |
-| **[AGENT.md](AGENT.md)** | Architecture, quick-start, types, and async API reference |
-| **[DERIVE.md](DERIVE.md)** | `#[derive(Auto)]` macro: generated traits and field contract |
-| **[lmm-agent README](lmm-agent/README.md)** | Crate-level API reference, builder, and example |
-| **[lmm-derive README](lmm-derive/README.md)** | Macro crate details and field rules |
+| Document                                      | Description                                                  |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| **[AGENT.md](AGENT.md)**                      | Architecture, quick-start, types, and async API reference    |
+| **[DERIVE.md](DERIVE.md)**                    | `#[derive(Auto)]` macro: generated traits and field contract |
+| **[lmm-agent README](lmm-agent/README.md)**   | Crate-level API reference, builder, and example              |
+| **[lmm-derive README](lmm-derive/README.md)** | Macro crate details and field rules                          |
 
 ## 📰 Publications & Research
 

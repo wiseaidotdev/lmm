@@ -25,12 +25,12 @@
 //! ## Quick start
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::engine::LearningEngine;
-//! use lmm_agent::cognition::learning::config::LearningConfig;
-//! use lmm_agent::cognition::learning::q_table::{ActionKey, QTable};
-//! use lmm_agent::cognition::signal::CognitionSignal;
-//! use lmm_agent::cognition::memory::ColdStore;
-//! use lmm_agent::cognition::knowledge::KnowledgeIndex;
+//! use lmm::cognition::learning::engine::LearningEngine;
+//! use lmm::cognition::learning::config::LearningConfig;
+//! use lmm::cognition::learning::q_table::{ActionKey, QTable};
+//! use lmm::cognition::signal::CognitionSignal;
+//! use lmm::cognition::memory::ColdStore;
+//! use lmm::cognition::knowledge::KnowledgeIndex;
 //!
 //! let mut engine = LearningEngine::new(LearningConfig::default());
 //!

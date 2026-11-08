@@ -33,7 +33,7 @@
 /// # Examples
 ///
 /// ```
-/// use lmm_agent::cognition::drive::DriveSignal;
+/// use lmm::cognition::drive::DriveSignal;
 ///
 /// let sig = DriveSignal::Curiosity(0.85);
 /// assert_eq!(sig.magnitude(), 0.85);
@@ -55,7 +55,7 @@ impl DriveSignal {
     /// # Examples
     ///
     /// ```
-    /// use lmm_agent::cognition::drive::DriveSignal;
+    /// use lmm::cognition::drive::DriveSignal;
     /// assert!((DriveSignal::CoherenceSeeking(0.4).magnitude() - 0.4).abs() < 1e-9);
     /// ```
     pub fn magnitude(&self) -> f64 {
@@ -79,7 +79,7 @@ impl DriveSignal {
 /// # Examples
 ///
 /// ```
-/// use lmm_agent::cognition::drive::{DriveSignal, DriveState};
+/// use lmm::cognition::drive::{DriveSignal, DriveState};
 ///
 /// let state = DriveState {
 ///     signals: vec![
@@ -102,7 +102,7 @@ impl DriveState {
     /// # Examples
     ///
     /// ```
-    /// use lmm_agent::cognition::drive::{DriveSignal, DriveState};
+    /// use lmm::cognition::drive::{DriveSignal, DriveState};
     ///
     /// let state = DriveState { signals: vec![DriveSignal::Curiosity(0.5)] };
     /// assert!(state.dominant_drive().is_some());
@@ -139,7 +139,7 @@ impl DriveState {
 /// # Examples
 ///
 /// ```
-/// use lmm_agent::cognition::drive::InternalDrive;
+/// use lmm::cognition::drive::InternalDrive;
 ///
 /// let mut drive = InternalDrive::new(1.0, 10.0, 5);
 /// drive.record_residual(0.8);
@@ -173,7 +173,7 @@ impl InternalDrive {
     /// # Examples
     ///
     /// ```
-    /// use lmm_agent::cognition::drive::InternalDrive;
+    /// use lmm::cognition::drive::InternalDrive;
     ///
     /// let drive = InternalDrive::new(1.0, 5.0, 3);
     /// assert_eq!(drive.residual_scale, 1.0);
@@ -194,7 +194,7 @@ impl InternalDrive {
     /// # Examples
     ///
     /// ```
-    /// use lmm_agent::cognition::drive::InternalDrive;
+    /// use lmm::cognition::drive::InternalDrive;
     ///
     /// let mut d = InternalDrive::new(1.0, 1.0, 1);
     /// d.record_residual(0.5);
@@ -222,7 +222,7 @@ impl InternalDrive {
     /// # Examples
     ///
     /// ```
-    /// use lmm_agent::cognition::drive::InternalDrive;
+    /// use lmm::cognition::drive::InternalDrive;
     ///
     /// let mut d = InternalDrive::new(2.0, 5.0, 10);
     /// d.record_residual(2.5);

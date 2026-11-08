@@ -7,7 +7,7 @@
 
 //! Unit tests for `cognition::goal` - `GoalEvaluator`.
 
-use lmm_agent::cognition::goal::GoalEvaluator;
+use lmm::cognition::goal::GoalEvaluator;
 
 #[test]
 fn default_threshold_is_025() {

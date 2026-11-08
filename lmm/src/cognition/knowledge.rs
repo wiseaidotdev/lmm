@@ -26,13 +26,13 @@
 //! 2. Score every indexed [`DocumentChunk`] with IDF-weighted token overlap.
 //! 3. Take the top-k chunks and concatenate their text.
 //! 4. Feed the concatenated corpus + the original question into
-//!    [`lmm::text::TextSummarizer::summarize_with_query`] to produce a short
+//!    [`crate::text::TextSummarizer::summarize_with_query`] to produce a short
 //!    extractive answer.
 //!
 //! ## Quick example
 //!
 //! ```rust
-//! use lmm_agent::cognition::knowledge::{KnowledgeIndex, KnowledgeSource};
+//! use lmm::cognition::knowledge::{KnowledgeIndex, KnowledgeSource};
 //!
 //! let mut index = KnowledgeIndex::new();
 //! index.ingest_text("my-doc", "Rust gives you control over memory without a garbage collector. \
@@ -41,8 +41,8 @@
 //! assert!(answer.is_some());
 //! ```
 
+use crate::text::TextSummarizer;
 use anyhow::{Result, anyhow};
-use lmm::text::TextSummarizer;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -95,7 +95,7 @@ impl DocumentChunk {
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::knowledge::KnowledgeIndex;
+/// use lmm::cognition::knowledge::KnowledgeIndex;
 ///
 /// let mut idx = KnowledgeIndex::new();
 /// idx.ingest_text(
@@ -192,6 +192,10 @@ impl KnowledgeIndex {
     /// The top-`top_k` chunks are concatenated and passed to
     /// [`lmm::text::TextSummarizer`] with the original question as a relevance
     /// hint. The summariser selects the sentences most likely to answer the question.
+    ///
+    /// The number of sentences extracted is randomised per call (4-7) using
+    /// the sub-second nanosecond clock, so repeated identical queries produce
+    /// different answer lengths.
     pub fn answer(&self, question: &str, top_k: usize) -> Option<String> {
         let hits = self.query(question, top_k);
         if hits.is_empty() {
@@ -202,7 +206,12 @@ impl KnowledgeIndex {
             .map(|c| c.text.as_str())
             .collect::<Vec<_>>()
             .join(" ");
-        let summariser = TextSummarizer::new(3, 4, 2);
+        let run_nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .subsec_nanos() as usize;
+        let n_sentences = 4 + (run_nanos % 4);
+        let summariser = TextSummarizer::new(n_sentences, 4, 2);
         summariser
             .summarize_with_query(&corpus, question)
             .ok()

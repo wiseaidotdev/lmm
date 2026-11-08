@@ -17,8 +17,8 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::reflect::Reflector;
-//! use lmm_agent::cognition::memory::{HotStore, MemoryEntry};
+//! use lmm::cognition::reflect::Reflector;
+//! use lmm::cognition::memory::{HotStore, MemoryEntry};
 //!
 //! let mut hot = HotStore::new(10);
 //! hot.push(MemoryEntry::new("Rust ownership semantics".into(), 0.9, 0));
@@ -45,8 +45,8 @@ impl Reflector {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::reflect::Reflector;
-    /// use lmm_agent::cognition::memory::{HotStore, MemoryEntry};
+    /// use lmm::cognition::reflect::Reflector;
+    /// use lmm::cognition::memory::{HotStore, MemoryEntry};
     ///
     /// let mut hot = HotStore::new(5);
     /// hot.push(MemoryEntry::new("ownership model borrow checker".into(), 0.8, 0));
@@ -79,8 +79,8 @@ impl Reflector {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::reflect::Reflector;
-    /// use lmm_agent::cognition::memory::{HotStore, ColdStore, MemoryEntry};
+    /// use lmm::cognition::reflect::Reflector;
+    /// use lmm::cognition::memory::{HotStore, ColdStore, MemoryEntry};
     ///
     /// let mut hot = HotStore::new(10);
     /// hot.push(MemoryEntry::new("val".into(), 0.9, 0));

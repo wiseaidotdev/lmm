@@ -8,28 +8,51 @@
 //! # Stochastic Text Enhancement
 //!
 //! This module provides [`StochasticEnhancer`] and [`SynonymBank`], which together
-//! implement controllable word-level variation for generated text.
+//! implement controllable, multi-language word-level variation for generated text.
 //!
-//! ## Key Optimisation: Compile-time PHF Synonym Table
+//! ## Multi-language Support
 //!
-//! The curated synonym table is stored as a `phf::Map` with `&'static [&'static str]`
-//! values, compiled into the binary at build time. This replaces the previous
-//! `build_curated_table()` function - a runtime `HashMap` that was rebuilt on every
-//! call to `SynonymBank::new()` - with a **zero-allocation, O(1)** lookup.
+//! Five synonym tables are compiled into the binary at build time:
+//!
+//! | Language | Source                        | Entries |
+//! |----------|-------------------------------|---------|
+//! | English  | Moby Thesaurus II (Grady Ward) | ~25 k   |
+//! | Arabic   | Curated modern-standard Arabic | ~22     |
+//! | French   | Curated French vocabulary      | ~27     |
+//! | German   | Curated German vocabulary      | ~32     |
+//! | Spanish  | Curated Spanish vocabulary     | ~33     |
+//!
+//! The active table is selected automatically via [`detect::detect_language`] or
+//! may be overridden by passing a [`detect::LanguageHint`] explicitly.
+//!
+//! ## Key Optimisation: Compile-time PHF Synonym Tables
+//!
+//! Every synonym table is a `phf::Map` compiled into the binary at build time.
+//! This replaces any runtime `HashMap` construction with **zero-allocation, O(1)**
+//! lookups.
 //!
 //! ## Stop-word Detection
 //!
-//! Stop words are stored as a compile-time [`phf::Set`], replacing the previous O(n)
-//! linear scan over a static `&[&str]`.
+//! English stop words are stored as a compile-time [`phf::Set`], replacing any
+//! O(n) linear scan.
 //!
 //! ## Enhancement Pipeline
 //!
-//! For each non-stop word in the input text, [`StochasticEnhancer`] samples a uniform
-//! Bernoulli draw with probability `p` (default 0.5). On a "hit", the curated table
-//! is consulted first; if no entry exists, a same-length word from the system wordlist
-//! is substituted. Case is preserved.
+//! For each non-stop token in the input text, [`StochasticEnhancer`] samples a
+//! uniform Bernoulli draw with probability `p` (default 0.5).  On a "hit", the
+//! language-specific synonym table is consulted first; if no entry exists, a
+//! same-length word from the system wordlist is substituted.  Case style
+//! (ALL_CAPS, Capitalised, lowercase) is mirror-copied to the substituted word.
 
-use phf::{Map, Set, phf_map, phf_set};
+pub mod arabic;
+pub mod detect;
+pub mod english;
+pub mod french;
+pub mod german;
+pub mod spanish;
+
+use detect::{LanguageHint, detect_language, synonyms_for};
+use phf::{Set, phf_set};
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
@@ -55,136 +78,127 @@ static SYSTEM_DICT_PATHS: &[&str] = &[
     "/usr/dict/words",
 ];
 
+/// A compile-time perfect-hash set of words that must **never** be substituted.
+///
+/// These are common English words that the curated synonym table maps to
+/// semantically incorrect alternatives in technical or factual contexts.
+/// For example, `"language"` → `"afrikaans"` and `"safety"` → `"fender"`
+/// are valid thesaurus links for poetic writing but corrupt factual KB answers.
+///
+/// Any word in this set is treated as a stop word by the stochastic engine,
+/// regardless of the `curated_only` setting.
+static PROTECTED_WORDS: Set<&'static str> = phf_set! {
+    "language", "languages", "programming", "program", "programs",
+    "safety", "performance", "concurrency", "type",
+    "types", "system", "systems", "compiler", "runtime", "toolchain",
+    "library", "libraries", "package", "crate", "crates", "module",
+    "modules", "trait", "traits", "struct", "enum", "closure",
+    "ownership", "borrow", "borrowing", "lifetime", "lifetimes",
+    "reference", "references", "pointer", "pointers", "thread",
+    "threads", "async", "await", "future", "futures", "iterator",
+    "iterators", "generic", "generics", "macro", "macros",
+    "inference", "entropy", "information", "probability", "quantum",
+    "neural", "network", "networks", "model", "models", "training",
+    "gradient", "tensor", "tensors", "matrix", "vector", "vectors",
+    "algorithm", "algorithms", "data", "function", "functions",
+    "variable", "variables", "integer", "boolean", "floating",
+    "binary", "decimal", "hexadecimal", "octal", "unicode", "ascii",
+    "syntax", "semantics", "grammar", "parsing", "tokenization",
+    "compilation", "execution", "linkage", "linker",
+    "memory", "computer", "processor", "register", "registers",
+    "hardware", "software", "operating", "kernel", "process",
+    "open", "source", "license", "version", "release", "stable",
+    "general", "purpose", "paradigm", "paradigms", "functional",
+    "object", "oriented", "imperative", "declarative", "concurrent",
+    "learning", "deep", "study", "field", "research", "science",
+    "artificial", "intelligence", "approach", "approaches",
+    "statistical", "distribution", "distributions", "dataset",
+    "classification", "regression", "clustering", "optimization",
+    "supervised", "unsupervised", "reinforcement", "architecture",
+    "layer", "layers", "weight", "weights", "activation", "loss",
+    "accuracy", "precision", "recall", "feature", "features",
+    "input", "output", "prediction", "predictions", "label", "labels",
+    "epoch", "batch", "sample", "samples", "class", "classes",
+    "allowed", "enables", "provide", "provides", "support", "supports",
+    "describe", "describes", "include", "includes", "contain", "contains",
+    "require", "requires", "return", "returns", "create", "creates",
+    "define", "defines", "implement", "implements", "extend", "extends",
+    "allow", "enable", "prevent", "prevents", "ensure", "ensures",
+    "improve", "improves", "reduce", "reduces", "increase", "increases",
+    "develop", "developed", "design", "designed", "build", "built",
+    "solve", "solves", "apply", "applied", "measure", "measures",
+    "perform", "performs", "performed", "execute", "executed", "run", "runs",
+    "compute", "computes", "computed", "processes", "processed",
+    "generate", "generates", "generated", "produce", "produces", "produced",
+    "represent", "represents", "represented", "classify", "classifies",
+    "train", "trains", "trained", "evaluate", "evaluates", "evaluated",
+    "optimize", "optimizes", "optimized", "converge", "converges",
+    "generalize", "generalizes", "predict", "predicts", "predicted",
+    "surpass", "surpasses", "exceed", "exceeds", "achieve", "achieves",
+    "determinism", "stochastic", "thermodynamic", "probabilistic",
+    "mathematical", "symbolic", "axiomatic", "theoretical", "empirical",
+    "computational", "recursive", "iterative", "convergent", "divergent",
+    "successor", "predecessor", "inspired", "official",
+    "introduce", "introduces", "introduced", "framework", "frameworks",
+    "structure", "structures", "diversity", "variation", "variety",
+    "correct", "pure", "explicit", "explicitly", "continuous",
+    "collection", "collections", "high", "broad", "large", "small",
+    "unique", "distinct", "underlying", "controlled", "repeated",
+    "common", "basic", "advanced", "modern", "classic", "original",
+    "primary", "secondary", "standard", "typical", "specific", "particular",
+    "effective", "efficient", "reliable", "robust", "scalable",
+    "learn", "learns", "learned",
+    "unseen", "previous", "earlier", "prior",
+    "approximately", "probably", "exact", "exactly",
+    "new", "old", "current", "existing", "following", "given",
+    "task", "tasks", "goal", "goals", "objective", "objectives",
+    "result", "results", "outcome", "outcomes",
+    "without", "within", "across", "between", "among", "through",
+    "use", "used", "using", "user", "users",
+    "based", "known", "shown", "found", "called", "named",
+    "rust", "python", "java", "javascript", "typescript", "golang", "swift",
+    "kotlin", "scala", "haskell", "ocaml", "erlang", "elixir", "clojure",
+    "lisp", "scheme", "prolog", "fortran", "cobol", "pascal", "delphi",
+    "assembly", "assembler", "bytecode", "webassembly", "wasm",
+    "linux", "windows", "macos", "android", "ios", "unix", "posix",
+    "docker", "kubernetes", "terraform", "ansible",
+    "pytorch", "tensorflow", "keras", "numpy", "pandas", "scipy",
+    "github", "gitlab", "bitbucket", "cargo", "npm", "pip", "gradle",
+    "malloc", "dealloc", "alloc", "allocator", "allocators", "heap", "stack",
+    "garbage", "collector", "checker", "dispatcher",
+    "dynamic", "static", "typed", "typing", "backward", "forward",
+    "compatible", "compatibility", "conventional",
+    "parallel", "distributed", "embedded", "compiled", "interpreted",
+    "strongly", "weakly", "statically", "dynamically",
+    "implicitly", "automatically", "manually", "natively", "virtually",
+    "complete", "completely", "major", "minor", "critical", "optional",
+    "abstract", "concrete", "mutable", "immutable", "nullable",
+    "tracking",
+};
+
 /// A compile-time perfect-hash set of English stop words.
 ///
-/// Membership is tested in O(1) via a generated perfect hash - no heap allocation.
+/// Membership is tested in O(1) via a generated perfect hash, no heap allocation.
 static STOP_WORDS: Set<&'static str> = phf_set! {
     "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
     "by", "is", "are", "was", "were", "be", "been", "have", "has", "had", "do", "does",
     "did", "will", "would", "could", "should", "may", "might", "shall", "its", "it",
     "this", "that", "these", "those", "not", "no", "nor", "so", "yet", "both", "also",
     "as", "if", "than", "then", "from", "into", "through", "during", "before", "after",
-    "above", "below", "between", "each", "every", "any"
-};
-
-/// The curated synonym table compiled into the binary as a perfect hash map.
-///
-/// Each verb/noun maps to a `&'static [&'static str]` slice of semantically related
-/// alternatives drawn from the LMM conceptual vocabulary.
-///
-/// Lookups are O(1) and require no heap allocation.
-static CURATED_SYNONYMS: Map<&'static str, &'static [&'static str]> = phf_map! {
-    "enables"       => &["allows", "permits", "empowers", "facilitates", "supports"],
-    "represents"    => &["embodies", "symbolizes", "denotes", "signifies", "captures"],
-    "describes"     => &["illustrates", "portrays", "articulates", "characterizes"],
-    "manifests"     => &["reveals", "expresses", "demonstrates", "exhibits"],
-    "connects"      => &["links", "unifies", "bridges", "binds", "joins"],
-    "encodes"       => &["captures", "compresses", "maps", "stores", "embeds"],
-    "defines"       => &["specifies", "determines", "establishes", "delineates"],
-    "produces"      => &["generates", "yields", "creates", "constructs", "forms"],
-    "transforms"    => &["converts", "shifts", "alters", "reconfigures", "reshapes"],
-    "reveals"       => &["uncovers", "exposes", "discloses", "illuminates", "shows"],
-    "governs"       => &["controls", "regulates", "directs", "commands", "shapes"],
-    "expresses"     => &["articulates", "conveys", "communicates", "transmits"],
-    "unveils"       => &["discloses", "reveals", "exposes", "uncovers", "presents"],
-    "illuminates"   => &["clarifies", "enlightens", "elucidates", "reveals", "shows"],
-    "shapes"        => &["molds", "forms", "structures", "defines", "guides"],
-    "compresses"    => &["condenses", "distills", "reduces", "encapsulates"],
-    "captures"      => &["encompasses", "embodies", "encapsulates", "reflects"],
-    "generates"     => &["produces", "creates", "yields", "synthesizes", "builds"],
-    "determines"    => &["establishes", "dictates", "defines", "resolves", "fixes"],
-    "remains"       => &["persists", "endures", "abides", "continues", "stands"],
-    "reflects"      => &["embodies", "mirrors", "represents", "signifies", "echoes"],
-    "underlies"     => &["supports", "grounds", "anchors", "sustains", "informs"],
-    "emerges"       => &["arises", "surfaces", "appears", "originates", "unfolds"],
-    "constrains"    => &["limits", "bounds", "restricts", "confines", "regulates"],
-    "encapsulates"  => &["contains", "embodies", "summarizes", "condenses"],
-    "preserves"     => &["maintains", "sustains", "conserves", "upholds", "keeps"],
-    "separates"     => &["divides", "partitions", "distinguishes", "isolates"],
-    "truth"         => &["reality", "fact", "knowledge", "verity", "actuality"],
-    "reality"       => &["existence", "actuality", "world", "nature", "truth"],
-    "knowledge"     => &["understanding", "wisdom", "insight", "cognition", "learning"],
-    "pattern"       => &["structure", "design", "configuration", "arrangement", "form"],
-    "structure"     => &["framework", "organization", "architecture", "arrangement"],
-    "symmetry"      => &["balance", "harmony", "proportion", "regularity", "order"],
-    "entropy"       => &["disorder", "chaos", "uncertainty", "complexity", "randomness"],
-    "energy"        => &["power", "force", "dynamics", "vitality", "potential"],
-    "complexity"    => &["intricacy", "depth", "sophistication", "richness"],
-    "harmony"       => &["balance", "coherence", "unity", "symmetry", "accord"],
-    "balance"       => &["equilibrium", "harmony", "poise", "stability", "proportion"],
-    "motion"        => &["movement", "dynamics", "flow", "trajectory", "progression"],
-    "order"         => &["structure", "organization", "coherence", "arrangement"],
-    "chaos"         => &["disorder", "turbulence", "randomness", "entropy", "flux"],
-    "dimension"     => &["axis", "aspect", "realm", "domain", "magnitude"],
-    "infinity"      => &["boundlessness", "endlessness", "vastness", "eternity"],
-    "perception"    => &["awareness", "insight", "observation", "cognition", "sense"],
-    "meaning"       => &["significance", "substance", "essence", "purpose", "value"],
-    "existence"     => &["being", "reality", "presence", "life", "manifestation"],
-    "universe"      => &["cosmos", "world", "reality", "existence", "totality"],
-    "mathematics"   => &["algebra", "geometry", "calculus", "arithmetic", "analysis"],
-    "equation"      => &["formula", "expression", "relationship", "model", "identity"],
-    "frequency"     => &["resonance", "oscillation", "wavelength", "rhythm", "rate"],
-    "resonance"     => &["harmony", "vibration", "coherence", "synchrony", "accord"],
-    "evolution"     => &["transformation", "progression", "development", "dynamics"],
-    "boundary"      => &["limit", "threshold", "barrier", "edge", "frontier"],
-    "trajectory"    => &["path", "course", "orbit", "direction", "arc"],
-    "causality"     => &["determinism", "consequence", "mechanism", "logic", "reason"],
-    "logic"         => &["reasoning", "rationality", "inference", "deduction", "thought"],
-    "force"         => &["energy", "power", "influence", "dynamics", "pressure"],
-    "space"         => &["realm", "domain", "expanse", "field", "region"],
-    "time"          => &["moment", "epoch", "duration", "continuity", "period"],
-    "field"         => &["domain", "region", "space", "realm", "expanse"],
-    "wave"          => &["oscillation", "vibration", "ripple", "undulation", "pulse"],
-    "signal"        => &["indicator", "marker", "pattern", "trace", "message"],
-    "computation"   => &["calculation", "processing", "evaluation", "analysis"],
-    "simulation"    => &["modeling", "emulation", "representation", "approximation"],
-    "prediction"    => &["forecast", "projection", "estimation", "inference"],
-    "discovery"     => &["revelation", "finding", "insight", "breakthrough", "perception"],
-    "foundation"    => &["basis", "grounding", "core", "bedrock", "principle"],
-    "principle"     => &["law", "rule", "axiom", "tenet", "doctrine"],
-    "intelligence"  => &["cognition", "awareness", "reasoning", "understanding"],
-    "consciousness" => &["awareness", "perception", "cognition", "sentience"],
-    "mathematical"  => &["symbolic", "geometric", "algebraic", "analytical", "formal"],
-    "deterministic" => &["predictable", "systematic", "causal", "precise", "exact"],
-    "probabilistic" => &["stochastic", "statistical", "uncertain", "random", "variable"],
-    "infinite"      => &["boundless", "endless", "vast", "immeasurable", "limitless"],
-    "fundamental"   => &["essential", "core", "primary", "foundational", "elemental"],
-    "dynamic"       => &["evolving", "fluid", "active", "continuous", "adaptive"],
-    "abstract"      => &["symbolic", "conceptual", "theoretical", "pure", "ideal"],
-    "continuous"    => &["unbroken", "flowing", "perpetual", "sustained", "smooth"],
-    "discrete"      => &["distinct", "separate", "finite", "quantized", "isolated"],
-    "invariant"     => &["constant", "stable", "fixed", "unchanging", "conserved"],
-    "coherent"      => &["unified", "consistent", "structured", "harmonious", "ordered"],
-    "structural"    => &["architectural", "organizational", "systematic", "formal"],
-    "axiomatic"     => &["foundational", "self-evident", "primary", "elemental"],
-    "bounded"       => &["finite", "constrained", "limited", "contained", "restricted"],
-    "symmetric"     => &["balanced", "regular", "uniform", "proportional", "equal"],
-    "elegant"       => &["refined", "sophisticated", "beautiful", "graceful", "pure"],
-    "precise"       => &["exact", "accurate", "rigorous", "meticulous", "definite"],
-    "universal"     => &["general", "global", "absolute", "total", "pervasive"],
-    "recursive"     => &["iterative", "self-referential", "repetitive", "cyclic"],
-    "emergent"      => &["arising", "evolving", "developing", "unfolding", "appearing"],
-    "complex"       => &["intricate", "sophisticated", "multifaceted", "rich", "deep"],
-    "simple"        => &["elementary", "basic", "pure", "direct", "minimal"],
-    "ancient"       => &["primordial", "prehistoric", "archaic", "classical", "timeless"],
-    "sacred"        => &["divine", "revered", "hallowed", "eternal", "transcendent"],
-    "cosmic"        => &["universal", "celestial", "infinite", "vast", "transcendent"],
-    "hidden"        => &["concealed", "latent", "underlying", "subtle", "implicit"],
-    "deeper"        => &["profound", "fundamental", "underlying", "essential", "core"],
-    "new"           => &["novel", "emerging", "fresh", "modern", "innovative"],
-    "pure"          => &["exact", "unadulterated", "precise", "fundamental", "essential"],
-    "true"          => &["genuine", "authentic", "real", "valid", "accurate"],
-    "great"         => &["profound", "vast", "significant", "remarkable", "extraordinary"],
-    "vast"          => &["immense", "expansive", "boundless", "infinite", "enormous"],
-    "known"         => &["established", "recognized", "understood", "observed", "verified"],
-    "seen"          => &["observed", "perceived", "recognized", "witnessed", "noted"],
-    "made"          => &["constructed", "formed", "created", "built", "composed"],
-    "called"        => &["named", "termed", "labeled", "designated", "referred"],
+    "above", "below", "between", "each", "every", "any", "all"
 };
 
 /// Loads the system word list, grouped by word length, for same-length substitution.
 ///
 /// Falls back to an empty map on WASM targets or when no dictionary file is found.
+///
+/// # Time Complexity
+///
+/// O(|dict|): linear over the dictionary file size.
+///
+/// # Space Complexity
+///
+/// O(|dict|): stores all filtered words in buckets.
 #[cfg(not(target_arch = "wasm32"))]
 fn load_wordlist_by_length() -> HashMap<usize, Vec<String>> {
     let mut by_length: HashMap<usize, Vec<String>> = HashMap::new();
@@ -210,15 +224,30 @@ fn load_wordlist_by_length() -> HashMap<usize, Vec<String>> {
     HashMap::new()
 }
 
-/// A two-tier synonym lookup bank.
+/// Statistics and metadata returned by [`StochasticEnhancer::enhance_detailed`].
 ///
-/// - **Tier 1**: Compile-time `CURATED_SYNONYMS` PHF map - O(1), zero allocation.
-/// - **Tier 2**: Runtime wordlist grouped by word length - O(1) bucket, O(k) sample.
+/// Carries the enhanced text together with diagnostic counters and the
+/// detected (or overridden) language so callers can log or assert on them.
+#[derive(Debug, Clone)]
+pub struct EnhanceOutput {
+    /// The enhanced text after synonym substitution.
+    pub text: String,
+
+    /// Number of words successfully substituted.
+    pub substitutions: usize,
+
+    /// The language detected (or forced) for this enhancement pass.
+    pub language: LanguageHint,
+}
+
+/// A two-tier synonym lookup bank with multi-language support.
+///
+/// - **Tier 1**: Language-specific compile-time PHF map, O(1), zero allocation.
+/// - **Tier 2**: Runtime system wordlist grouped by word length, O(1) bucket, O(k) sample.
 ///
 /// # Examples
 ///
 /// ```
-/// use lmm::traits::Simulatable;
 /// use lmm::stochastic::SynonymBank;
 ///
 /// let bank = SynonymBank::new();
@@ -231,7 +260,7 @@ pub struct SynonymBank {
 impl SynonymBank {
     /// Creates a new [`SynonymBank`], loading the system wordlist at construction time.
     ///
-    /// The curated synonyms come from a compile-time PHF map (no runtime build cost).
+    /// The curated synonym tables come from compile-time PHF maps (no runtime build cost).
     ///
     /// # Examples
     ///
@@ -246,38 +275,44 @@ impl SynonymBank {
         }
     }
 
-    /// Samples a random synonym for `word`.
+    /// Samples a random synonym for `word` using the specified language table.
     ///
-    /// Tier 1 (curated PHF map) is tried first; if the word is not in the curated table,
-    /// Tier 2 (same-length wordlist) is used.
+    /// Tier 1 (language PHF map) is tried first; if the word is not in the curated
+    /// table, Tier 2 (same-length wordlist) is used.
     ///
     /// # Arguments
     ///
-    /// * `word` - The word to replace (case-insensitive lookup).
-    /// * `rng` - A mutable random number generator.
+    /// * `word`: The word to replace (case-insensitive lookup).
+    /// * `rng`: A mutable random number generator.
+    /// * `hint`: The language table to consult.
     ///
     /// # Returns
     ///
-    /// (`Option<String>`): A synonym, or `None` when no alternative is available.
+    /// `Some(String)` containing a synonym, or `None` when no alternative is available.
     ///
     /// # Time Complexity
     ///
     /// O(1) amortised for the PHF lookup; O(k) for sampling from the wordlist bucket.
     ///
+    /// # Space Complexity
+    ///
+    /// O(1) for the lookup itself; the returned `String` is O(|synonym|).
+    ///
     /// # Examples
     ///
     /// ```
-    /// use lmm::stochastic::SynonymBank;
+    /// use lmm::stochastic::{SynonymBank, detect::LanguageHint};
     ///
     /// let bank = SynonymBank::new();
     /// let mut rng = rand::rng();
-    /// let syn = bank.candidate("chaos", &mut rng);
-    /// assert!(syn.is_some()); // "chaos" is in curated table
+    /// let syn = bank.candidate("chaos", &mut rng, LanguageHint::English);
+    /// assert!(syn.is_some());
     /// ```
-    pub fn candidate<R: Rng>(&self, word: &str, rng: &mut R) -> Option<String> {
+    pub fn candidate<R: Rng>(&self, word: &str, rng: &mut R, hint: LanguageHint) -> Option<String> {
         let lower = word.to_lowercase();
+        let table = synonyms_for(hint);
 
-        if let Some(syns) = CURATED_SYNONYMS.get(lower.as_str())
+        if let Some(syns) = table.get(lower.as_str())
             && !syns.is_empty()
         {
             let idx = rng.random_range(0..syns.len());
@@ -294,7 +329,61 @@ impl SynonymBank {
         None
     }
 
-    /// Returns the number of entries in the curated synonym table.
+    /// Samples a curated synonym for `word` **without** the system-wordlist fallback.
+    ///
+    /// Unlike [`candidate`](Self::candidate), this method returns `None` when the
+    /// word is absent from the language-specific PHF table, ensuring that generated
+    /// or domain-specific vocabulary is never replaced with an arbitrary dictionary
+    /// word of the same length.
+    ///
+    /// # Arguments
+    ///
+    /// * `word`: The word to replace (case-insensitive lookup).
+    /// * `rng` : A mutable random number generator.
+    /// * `hint`: The language table to consult.
+    ///
+    /// # Returns
+    ///
+    /// `Some(String)` when a curated synonym exists, `None` otherwise.
+    ///
+    /// # Time Complexity
+    ///
+    /// O(1): single PHF map lookup.
+    ///
+    /// # Space Complexity
+    ///
+    /// O(1) for the lookup; O(|synonym|) for the returned value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lmm::stochastic::{SynonymBank, detect::LanguageHint};
+    ///
+    /// let bank = SynonymBank::new();
+    /// let mut rng = rand::rng();
+    /// let syn = bank.curated_candidate("chaos", &mut rng, LanguageHint::English);
+    /// assert!(syn.is_some());
+    /// let none = bank.curated_candidate("zzzzzzzzz", &mut rng, LanguageHint::English);
+    /// assert!(none.is_none());
+    /// ```
+    pub fn curated_candidate<R: Rng>(
+        &self,
+        word: &str,
+        rng: &mut R,
+        hint: LanguageHint,
+    ) -> Option<String> {
+        let lower = word.to_lowercase();
+        let table = synonyms_for(hint);
+        if let Some(syns) = table.get(lower.as_str())
+            && !syns.is_empty()
+        {
+            let idx = rng.random_range(0..syns.len());
+            return Some(syns[idx].to_string());
+        }
+        None
+    }
+
+    /// Returns the number of entries in the English curated synonym table.
     ///
     /// # Examples
     ///
@@ -303,7 +392,7 @@ impl SynonymBank {
     /// assert!(SynonymBank::new().curated_count() > 50);
     /// ```
     pub fn curated_count(&self) -> usize {
-        CURATED_SYNONYMS.len()
+        english::CURATED_SYNONYMS.len()
     }
 
     /// Returns the total number of words in the loaded system wordlist.
@@ -325,17 +414,21 @@ impl Default for SynonymBank {
     }
 }
 
-/// A probabilistic word-substitution engine for stochastic text variation.
+/// A probabilistic, multi-language word-substitution engine for stochastic text variation.
 ///
 /// At each token, a Bernoulli trial with probability `p` determines whether to
-/// substitute the word. Stop words (from the compile-time `STOP_WORDS` PHF set)
-/// are always preserved. Case style (ALL_CAPS, Capitalised, lowercase) is mirror-copied
-/// to the substituted word.
+/// substitute the word.  Stop words (from the compile-time `STOP_WORDS` PHF set)
+/// are always preserved.  Case style (ALL_CAPS, Capitalised, lowercase) is
+/// mirror-copied to the substituted word.
+///
+/// When `curated_only` is `true`, the random system-wordlist fallback is disabled:
+/// a word is only replaced when a **curated synonym** exists in the language table.
+/// This prevents technical or generated vocabulary (e.g. "structural", "recursive")
+/// from being replaced with unrelated dictionary words.
 ///
 /// # Examples
 ///
 /// ```
-/// use lmm::traits::Simulatable;
 /// use lmm::stochastic::StochasticEnhancer;
 ///
 /// let enhancer = StochasticEnhancer::with_default_probability();
@@ -345,6 +438,8 @@ impl Default for SynonymBank {
 pub struct StochasticEnhancer {
     bank: SynonymBank,
     probability: f64,
+    /// When `true`, only substitutes words that have a curated synonym entry.
+    curated_only: bool,
 }
 
 impl StochasticEnhancer {
@@ -354,7 +449,7 @@ impl StochasticEnhancer {
     ///
     /// # Arguments
     ///
-    /// * `probability` - Per-word substitution probability.
+    /// * `probability`: Per-word substitution probability.
     ///
     /// # Examples
     ///
@@ -367,6 +462,7 @@ impl StochasticEnhancer {
         Self {
             bank: SynonymBank::new(),
             probability: probability.clamp(0.0, 1.0),
+            curated_only: false,
         }
     }
 
@@ -382,6 +478,37 @@ impl StochasticEnhancer {
         Self::new(DEFAULT_REPLACEMENT_PROBABILITY)
     }
 
+    /// Enables curated-only mode: only substitute words that have a curated synonym entry.
+    ///
+    /// When enabled, the random system-wordlist fallback is disabled so technical
+    /// or generated vocabulary (e.g. "structural", "recursive") is never replaced
+    /// with an unrelated dictionary word of the same length.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lmm::stochastic::StochasticEnhancer;
+    /// let e = StochasticEnhancer::new(0.4).curated_only();
+    /// assert!(e.is_curated_only());
+    /// ```
+    pub fn curated_only(mut self) -> Self {
+        self.curated_only = true;
+        self
+    }
+
+    /// Returns `true` when curated-only mode is active.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lmm::stochastic::StochasticEnhancer;
+    /// assert!(!StochasticEnhancer::new(0.3).is_curated_only());
+    /// assert!(StochasticEnhancer::new(0.3).curated_only().is_curated_only());
+    /// ```
+    pub fn is_curated_only(&self) -> bool {
+        self.curated_only
+    }
+
     /// Returns the configured substitution probability.
     pub fn probability(&self) -> f64 {
         self.probability
@@ -389,36 +516,109 @@ impl StochasticEnhancer {
 
     /// Enhances all lines of `text` by stochastic synonym substitution.
     ///
-    /// Line breaks are preserved. Each line is processed independently.
+    /// The language is auto-detected via [`detect_language`]; use
+    /// [`enhance_with_hint`](Self::enhance_with_hint) to override.
     ///
     /// # Arguments
     ///
-    /// * `text` - Input text (may contain newlines).
+    /// * `text`: Input text (may contain newlines).
     ///
     /// # Returns
     ///
-    /// (`String`): Enhanced text with the same line structure.
+    /// Enhanced `String` with the same line structure as `text`.
     ///
     /// # Examples
     ///
     /// ```
     /// use lmm::stochastic::StochasticEnhancer;
     ///
-    /// let e = StochasticEnhancer::new(1.0); // always substitute when possible
+    /// let e = StochasticEnhancer::new(1.0);
     /// let out = e.enhance("chaos\nenergy");
-    /// // Line structure preserved
     /// assert_eq!(out.lines().count(), 2);
     /// ```
     pub fn enhance(&self, text: &str) -> String {
+        let hint = detect_language(text);
+        self.enhance_with_hint(text, hint)
+    }
+
+    /// Enhances `text` using a caller-supplied [`LanguageHint`].
+    ///
+    /// Identical to [`enhance`](Self::enhance) but skips language detection.
+    ///
+    /// # Arguments
+    ///
+    /// * `text`: Input text (may contain newlines).
+    /// * `hint`: The language table to use.
+    ///
+    /// # Time Complexity
+    ///
+    /// O(|text|): processes every token once.
+    ///
+    /// # Space Complexity
+    ///
+    /// O(|text|): builds the output string.
+    pub fn enhance_with_hint(&self, text: &str, hint: LanguageHint) -> String {
         let mut rng = rand::rng();
         text.split('\n')
-            .map(|line| self.enhance_line(line, &mut rng))
+            .map(|line| self.enhance_line(line, &mut rng, hint))
             .collect::<Vec<_>>()
             .join("\n")
     }
 
-    /// Enhances a single line by processing tokens left-to-right.
-    fn enhance_line<R: Rng>(&self, line: &str, rng: &mut R) -> String {
+    /// Enhances `text` and returns an [`EnhanceOutput`] with diagnostic metadata.
+    ///
+    /// The language is auto-detected.  The returned [`EnhanceOutput`] carries the
+    /// enhanced text, the substitution count, and the detected language.
+    ///
+    /// # Arguments
+    ///
+    /// * `text`: Input text (may contain newlines).
+    ///
+    /// # Returns
+    ///
+    /// An [`EnhanceOutput`] struct.
+    ///
+    /// # Time Complexity
+    ///
+    /// O(|text|): processes every token once.
+    ///
+    /// # Space Complexity
+    ///
+    /// O(|text|): builds the output string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lmm::stochastic::StochasticEnhancer;
+    ///
+    /// let e = StochasticEnhancer::new(1.0);
+    /// let out = e.enhance_detailed("mathematics governs the cosmos");
+    /// assert!(out.substitutions > 0 || out.text.len() > 0);
+    /// ```
+    pub fn enhance_detailed(&self, text: &str) -> EnhanceOutput {
+        let language = detect_language(text);
+        let mut rng = rand::rng();
+        let mut substitutions: usize = 0;
+        let enhanced = text
+            .split('\n')
+            .map(|line| self.enhance_line_counted(line, &mut rng, language, &mut substitutions))
+            .collect::<Vec<_>>()
+            .join("\n");
+        EnhanceOutput {
+            text: enhanced,
+            substitutions,
+            language,
+        }
+    }
+
+    /// Enhances a single line, counting substitutions into `counter`.
+    fn enhance_line_counted<R: Rng>(
+        &self,
+        line: &str,
+        rng: &mut R,
+        hint: LanguageHint,
+        counter: &mut usize,
+    ) -> String {
         let mut result: Vec<String> = Vec::new();
         let mut is_first = true;
 
@@ -432,10 +632,22 @@ impl StochasticEnhancer {
                 .map(|c| c.is_uppercase())
                 .unwrap_or(false);
             let was_all_caps = !core.is_empty() && core.chars().all(|c| c.is_uppercase());
+            let is_proper_noun = was_capitalized && !is_first;
 
-            let replacement = if !is_stop && !core.is_empty() && rng.random_bool(self.probability) {
-                match self.bank.candidate(&lower, rng) {
+            let replacement = if !is_stop
+                && !is_proper_noun
+                && !PROTECTED_WORDS.contains(lower.as_str())
+                && !core.is_empty()
+                && rng.random_bool(self.probability)
+            {
+                let candidate = if self.curated_only {
+                    self.bank.curated_candidate(&lower, rng, hint)
+                } else {
+                    self.bank.candidate(&lower, rng, hint)
+                };
+                match candidate {
                     Some(syn) => {
+                        *counter += 1;
                         if was_all_caps {
                             syn.to_uppercase()
                         } else if was_capitalized || is_first {
@@ -456,19 +668,34 @@ impl StochasticEnhancer {
 
         result.join(" ")
     }
+
+    /// Enhances a single line without counting substitutions.
+    fn enhance_line<R: Rng>(&self, line: &str, rng: &mut R, hint: LanguageHint) -> String {
+        let mut counter: usize = 0;
+        self.enhance_line_counted(line, rng, hint, &mut counter)
+    }
 }
 
 /// Splits a raw token `"(word,"` into `("(", "word", ",")`.
 ///
-/// Strips leading punctuation/symbols into `prefix` and trailing punctuation into `suffix`.
+/// Strips leading punctuation/symbols into `prefix` and trailing punctuation into
+/// `suffix`.
 ///
 /// # Arguments
 ///
-/// * `raw` - A whitespace-separated token.
+/// * `raw`: A whitespace-separated token.
 ///
 /// # Returns
 ///
-/// (`(&str, &str, &str)`): `(prefix, core, suffix)` where `core` is the alphabetic run.
+/// `(&str, &str, &str)`: `(prefix, core, suffix)` where `core` is the alphabetic run.
+///
+/// # Time Complexity
+///
+/// O(|raw|).
+///
+/// # Space Complexity
+///
+/// O(1): returns sub-slices of `raw`.
 fn split_token(raw: &str) -> (&str, &str, &str) {
     let prefix_end = raw.find(|c: char| c.is_alphabetic()).unwrap_or(raw.len());
     let content_start = prefix_end;
@@ -496,10 +723,17 @@ fn split_token(raw: &str) -> (&str, &str, &str) {
 
 /// Uppercases the first character and leaves the rest unchanged.
 ///
+/// # Arguments
+///
+/// * `s`: The input string to capitalise.
+///
+/// # Returns
+///
+/// A new `String` with only the first character uppercased.
+///
 /// # Examples
 ///
 /// ```
-/// use lmm::traits::Simulatable;
 /// use lmm::stochastic::capitalize;
 ///
 /// assert_eq!(capitalize("hello"), "Hello");
@@ -513,18 +747,17 @@ pub fn capitalize(s: &str) -> String {
     }
 }
 
-/// Returns `true` when `word` is a stop word according to the compile-time PHF set.
+/// Returns `true` when `word` is an English stop word according to the compile-time PHF set.
 ///
 /// The lookup is O(1) with no heap allocation.
 ///
 /// # Arguments
 ///
-/// * `word` - A lowercase word (case-sensitive lookup against the PHF set).
+/// * `word`: A lowercase word (case-sensitive lookup against the PHF set).
 ///
 /// # Examples
 ///
 /// ```
-/// use lmm::traits::Simulatable;
 /// use lmm::stochastic::is_stop_word;
 ///
 /// assert!(is_stop_word("the"));
@@ -533,10 +766,3 @@ pub fn capitalize(s: &str) -> String {
 pub fn is_stop_word(word: &str) -> bool {
     STOP_WORDS.contains(word)
 }
-
-// Copyright 2026 Mahmoud Harmouch.
-//
-// Licensed under the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.

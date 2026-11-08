@@ -23,7 +23,6 @@
 - **Symbolic generation**: `AsyncFunctions::generate` uses `TextPredictor`, a symbolic regression engine that fits tone and rhythm trajectories to produce text. No neural model, no weights.
 - **Intelligence Primitives**: five structural properties that go beyond pattern interpolation, see [Intelligence Primitives](#-intelligence-primitives).
 
-
 ## 👷🏻‍♀️ Agent Architecture
 
 ```mermaid
@@ -189,22 +188,22 @@ async fn main() {
 
 ## 🧠 Core Concepts
 
-| Concept              | Description                                                                |
-| -------------------- | -------------------------------------------------------------------------- |
-| `persona`            | The agent's identity / role label (e.g. `"Research Agent"`)               |
-| `behavior`           | The agent's mission or goal description                                    |
-| `LmmAgent`           | Core struct holding all state (memory, tools, planner, knowledge, profile) |
-| `Message`            | A single chat-style message (`role` + `content`)                           |
-| `Status`             | `Idle` → `Active` → `Completed` (or `InUnitTesting`, `Thinking`)          |
-| `Auto`               | Derive macro that auto-implements `Agent`, `Functions`, `AsyncFunctions`   |
-| `Executor`           | The only trait you must implement, contains your custom task logic         |
-| `AutoAgent`          | The orchestrator that runs a pool of `Executor`s                           |
-| `ThinkLoop`          | PI-controller feedback loop that drives iterative multi-step reasoning     |
-| `KnowledgeIndex`     | Inverted, IDF-weighted index over ingested document chunks                 |
-| `KnowledgeSource`    | Enum of ingestion origins: `File`, `Dir`, `Url`, `RawText`                 |
-| `CausalAttributor`   | Counterfactual attribution via Pearl do-calculus                           |
-| `HypothesisGenerator`| Ranks candidate new causal edges by explanatory power                     |
-| `InternalDrive`      | Emits `DriveSignal` (Curiosity / CoherenceSeeking / ContradictionResolution) each tick |
+| Concept               | Description                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `persona`             | The agent's identity / role label (e.g. `"Research Agent"`)                            |
+| `behavior`            | The agent's mission or goal description                                                |
+| `LmmAgent`            | Core struct holding all state (memory, tools, planner, knowledge, profile)             |
+| `Message`             | A single chat-style message (`role` + `content`)                                       |
+| `Status`              | `Idle` → `Active` → `Completed` (or `InUnitTesting`, `Thinking`)                       |
+| `Auto`                | Derive macro that auto-implements `Agent`, `Functions`, `AsyncFunctions`               |
+| `Executor`            | The only trait you must implement, contains your custom task logic                     |
+| `AutoAgent`           | The orchestrator that runs a pool of `Executor`s                                       |
+| `ThinkLoop`           | PI-controller feedback loop that drives iterative multi-step reasoning                 |
+| `KnowledgeIndex`      | Inverted, IDF-weighted index over ingested document chunks                             |
+| `KnowledgeSource`     | Enum of ingestion origins: `File`, `Dir`, `Url`, `RawText`                             |
+| `CausalAttributor`    | Counterfactual attribution via Pearl do-calculus                                       |
+| `HypothesisGenerator` | Ranks candidate new causal edges by explanatory power                                  |
+| `InternalDrive`       | Emits `DriveSignal` (Curiosity / CoherenceSeeking / ContradictionResolution) each tick |
 
 ## 🔧 LmmAgent Builder API
 
@@ -225,30 +224,30 @@ let agent = LmmAgent::builder()
 
 ## 📚 Knowledge Acquisition
 
-| Feature flag      | What it enables              |
-| ----------------- | ---------------------------- |
-| *(none)*          | `.txt` and `.md` ingestion   |
-| `knowledge`       | `.pdf` ingestion via `lopdf` |
-| `net`             | URL ingestion via `reqwest`  |
+| Feature flag | What it enables              |
+| ------------ | ---------------------------- |
+| _(none)_     | `.txt` and `.md` ingestion   |
+| `knowledge`  | `.pdf` ingestion via `lopdf` |
+| `net`        | URL ingestion via `reqwest`  |
 
 ### Key methods
 
-| Method                              | Description                                                |
-| ----------------------------------- | ---------------------------------------------------------- |
-| `agent.ingest(source)`              | Parse and index a `KnowledgeSource`; returns chunk count   |
-| `agent.query_knowledge(q, top_k)`  | Return top-k raw passage strings                           |
-| `agent.answer_from_knowledge(q)`   | Retrieve + summarise; returns `Option<String>`             |
-| `agent.generate(prompt)`           | Consults index first, then DDG/symbolic fallback           |
+| Method                            | Description                                              |
+| --------------------------------- | -------------------------------------------------------- |
+| `agent.ingest(source)`            | Parse and index a `KnowledgeSource`; returns chunk count |
+| `agent.query_knowledge(q, top_k)` | Return top-k raw passage strings                         |
+| `agent.answer_from_knowledge(q)`  | Retrieve + summarise; returns `Option<String>`           |
+| `agent.generate(prompt)`          | Consults index first, then DDG/symbolic fallback         |
 
 ## 📡 AsyncFunctions Trait
 
-| Method             | Description                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `generate(prompt)` | Knowledge-grounded → DDG factual → symbolic (`TextPredictor`) in that priority order      |
-| `search(query)`    | DuckDuckGo web search (`--features net`). Returns real sentences when available            |
-| `save_ltm(msg)`    | Persist a message to the agent's long-term memory store                                    |
-| `get_ltm()`        | Retrieve all LTM messages as a `Vec<Message>`                                              |
-| `ltm_context()`    | Format LTM as a single context string                                                      |
+| Method             | Description                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `generate(prompt)` | Knowledge-grounded → DDG factual → symbolic (`TextPredictor`) in that priority order |
+| `search(query)`    | DuckDuckGo web search (`--features net`). Returns real sentences when available      |
+| `save_ltm(msg)`    | Persist a message to the agent's long-term memory store                              |
+| `get_ltm()`        | Retrieve all LTM messages as a `Vec<Message>`                                        |
+| `ltm_context()`    | Format LTM as a single context string                                                |
 
 ## 🔬 How Generation Works
 
@@ -264,20 +263,20 @@ HELM is the in-environment learning engine built directly into `LmmAgent`. It op
 
 ### Architecture
 
-| Sub-module | Paradigm | Mechanism |
-|---|---|---|
-| `q_table` | Tabular Bellman TD(0) | `HashMap<u64, HashMap<ActionKey, f64>>` |
-| `meta` | Prototype meta-adaptation | Jaccard similarity on token sets |
-| `distill` | Knowledge distillation | top-K ColdStore → KnowledgeIndex by reward×IDF |
-| `federated` | Self-federated aggregation | Weighted Q-table merging without a central server |
-| `elastic` | Elastic memory guard | Activation-count pinning (Fisher-analog importance) |
-| `informal` | Invisible PMI learning | Co-occurrence mining from high-reward observations |
+| Sub-module  | Paradigm                   | Mechanism                                           |
+| ----------- | -------------------------- | --------------------------------------------------- |
+| `q_table`   | Tabular Bellman TD(0)      | `HashMap<u64, HashMap<ActionKey, f64>>`             |
+| `meta`      | Prototype meta-adaptation  | Jaccard similarity on token sets                    |
+| `distill`   | Knowledge distillation     | top-K ColdStore → KnowledgeIndex by reward×IDF      |
+| `federated` | Self-federated aggregation | Weighted Q-table merging without a central server   |
+| `elastic`   | Elastic memory guard       | Activation-count pinning (Fisher-analog importance) |
+| `informal`  | Invisible PMI learning     | Co-occurrence mining from high-reward observations  |
 
 ### Quick Start with HELM
 
 ```rust
 use lmm_agent::prelude::*;
-use lmm_agent::cognition::learning::{LearningConfig, LearningEngine};
+use lmm::cognition::learning::{LearningConfig, LearningEngine};
 
 let mut agent = LmmAgent::builder()
     .persona("Lifelong Learner")
@@ -326,13 +325,13 @@ let cfg = LearningConfig::builder()
 
 These five structural properties replace statistical pattern matching with auditable, causal, and motivated cognition.
 
-| # | Primitive | Key Type | Description |
-|---|-----------|----------|-------------|
-| 1 | Calibrated Bayesian Uncertainty | `lmm::uncertainty::BeliefDistribution` | Gaussian beliefs with Bayesian fusion and Brier-score calibration |
-| 2 | Compositional Axiomatic Reasoning | `lmm::reasoner::DeductionEngine` | Forward-chaining axioms to auditable proofs |
-| 3 | Causal Counterfactual Attribution | `CausalAttributor` | do-calculus interventions to attribute outcomes to root causes |
-| 4 | Hypothesis Formation | `HypothesisGenerator` | Propose new causal edges that explain unexplained residuals |
-| 5 | Internalized Motivational Drives | `InternalDrive` | Intrinsic signals (Curiosity, CoherenceSeeking, ContradictionResolution) |
+| #   | Primitive                         | Key Type                               | Description                                                              |
+| --- | --------------------------------- | -------------------------------------- | ------------------------------------------------------------------------ |
+| 1   | Calibrated Bayesian Uncertainty   | `lmm::uncertainty::BeliefDistribution` | Gaussian beliefs with Bayesian fusion and Brier-score calibration        |
+| 2   | Compositional Axiomatic Reasoning | `lmm::reasoner::DeductionEngine`       | Forward-chaining axioms to auditable proofs                              |
+| 3   | Causal Counterfactual Attribution | `CausalAttributor`                     | do-calculus interventions to attribute outcomes to root causes           |
+| 4   | Hypothesis Formation              | `HypothesisGenerator`                  | Propose new causal edges that explain unexplained residuals              |
+| 5   | Internalized Motivational Drives  | `InternalDrive`                        | Intrinsic signals (Curiosity, CoherenceSeeking, ContradictionResolution) |
 
 ### Quick examples
 

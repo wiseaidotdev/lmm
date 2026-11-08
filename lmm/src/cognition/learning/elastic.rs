@@ -29,7 +29,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use lmm_agent::cognition::learning::elastic::ElasticMemoryGuard;
+//! use lmm::cognition::learning::elastic::ElasticMemoryGuard;
 //!
 //! let mut guard = ElasticMemoryGuard::new(3, 0.5);
 //! let content = "rust ownership borrow checker".to_string();
@@ -47,7 +47,7 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```rust
-/// use lmm_agent::cognition::learning::elastic::ElasticMemoryGuard;
+/// use lmm::cognition::learning::elastic::ElasticMemoryGuard;
 ///
 /// let mut g = ElasticMemoryGuard::new(2, 0.5);
 /// g.observe_activation("key fact about ownership");
@@ -95,7 +95,7 @@ impl ElasticMemoryGuard {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::elastic::ElasticMemoryGuard;
+    /// use lmm::cognition::learning::elastic::ElasticMemoryGuard;
     ///
     /// let mut g = ElasticMemoryGuard::new(5, 1.0);
     /// g.observe_activation("Rust borrow checker enforces safety");
@@ -120,7 +120,7 @@ impl ElasticMemoryGuard {
     /// # Examples
     ///
     /// ```rust
-    /// use lmm_agent::cognition::learning::elastic::ElasticMemoryGuard;
+    /// use lmm::cognition::learning::elastic::ElasticMemoryGuard;
     ///
     /// let mut g = ElasticMemoryGuard::new(2, 0.5);
     /// g.observe_activation("data");
