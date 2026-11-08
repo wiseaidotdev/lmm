@@ -1,6 +1,6 @@
 [package]
 name = "arc-lmm-agent"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["Mahmoud Harmouch <oss@wiseai.dev>"]
 license = "MIT"
@@ -16,7 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 lmm-agent = { version = "0.2.0" }
-lmm = { version = "0.3.1" }
+lmm = { version = "0.3.2" }
 arc-agi-rs = { version = "0.1.0" }
 tokio = { version = "1.52.1", features = ["full"] }
 anyhow = "1.0.102"
