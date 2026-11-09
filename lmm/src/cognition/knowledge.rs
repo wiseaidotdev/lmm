@@ -206,10 +206,20 @@ impl KnowledgeIndex {
             .map(|c| c.text.as_str())
             .collect::<Vec<_>>()
             .join(" ");
+        #[cfg(not(target_arch = "wasm32"))]
         let run_nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .subsec_nanos() as usize;
+        #[cfg(target_arch = "wasm32")]
+        let run_nanos = {
+            let mut h: usize = 2_166_136_261;
+            for b in question.bytes() {
+                h ^= b as usize;
+                h = h.wrapping_mul(16_777_619);
+            }
+            h
+        };
         let n_sentences = 4 + (run_nanos % 4);
         let summariser = TextSummarizer::new(n_sentences, 4, 2);
         summariser

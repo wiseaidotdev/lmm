@@ -618,10 +618,13 @@ impl ParagraphGenerator {
     }
 
     pub fn generate(&self, seed: &str) -> Result<String> {
+        #[cfg(not(target_arch = "wasm32"))]
         let run_nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .subsec_nanos() as usize;
+        #[cfg(target_arch = "wasm32")]
+        let run_nanos = seed_hash(seed);
         let sentence_count = 2 + (run_nanos % 5);
         let base_gen = SentenceGenerator::new(self.iterations, self.depth);
         let keywords = keywords_from_text(seed, sentence_count.max(3));

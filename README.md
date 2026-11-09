@@ -175,6 +175,14 @@ The `lmm-agent` crate extends LMM with a fully autonomous, equation-based agent 
 The architecture, formal mathematics, and paradigm are fully documented in the official whitepaper:
 **[Read the Whitepaper (PDF)](papers/lmm.pdf)**.
 
+## 📂 Examples
+
+| Example                                     | Description                                                                                                                                                                                                                      |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [**chat**](examples/chat)                   | Interactive chat UI powered by all LMM generation modes: Ask (DuckDuckGo), Sentence, Paragraph, Essay, Summarize, Predict.                                                                                                       |
+| [**yap**](examples/yap)                     | Two LMM agents conversing non-stop using the full TRAM pipeline (KnowledgeIndex → RuleBase → InferenceEngine → ProseBuilder). Agent Alpha queries a topic, Agent Beta derives the next topic from the response and queries back. |
+| [**arc-lmm-agent**](examples/arc-lmm-agent) | Autonomous ARC-AGI-3 solver using LMM's episodic reasoning. WIP: Achieves 100% success across games with $0 cost and no external AI APIs.                                                                                        |
+
 ### Blog Posts
 
 - [LLMs are Useful. LMMs will Break Reality](https://wiseai.dev/blogs/llms-are-usefull-lmms-will-break-reality): the original post that started this project.
