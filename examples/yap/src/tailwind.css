@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-vect-bg text-vect-text font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-vect-border rounded-full;
+    transition: background 0.2s;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-vect-subtle;
+  }
+
+  ::selection {
+    @apply bg-vect-accent text-white;
+  }
+}
+
+@layer components {
+  .vect-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-vect-accent hover:bg-vect-accent-hover
+      text-white font-medium rounded-lg transition-all duration-200
+      focus:outline-none focus:ring-2 focus:ring-vect-accent focus:ring-offset-2 focus:ring-offset-vect-bg
+      active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .vect-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 bg-transparent hover:bg-vect-elevated
+      text-vect-muted hover:text-vect-text font-medium px-3 py-2 rounded-lg transition-all duration-200
+      focus:outline-none focus:ring-2 focus:ring-vect-accent;
+  }
+
+  .yap-btn-pause {
+    @apply inline-flex items-center justify-center gap-2 bg-yellow-600 hover:bg-yellow-500
+      text-white font-medium rounded-lg transition-all duration-200
+      focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-vect-bg
+      active:scale-95;
+  }
+
+  .yap-btn-reset {
+    @apply inline-flex items-center justify-center gap-2 bg-vect-elevated hover:bg-vect-border
+      text-vect-muted hover:text-vect-text font-medium rounded-lg transition-all duration-200
+      focus:outline-none focus:ring-2 focus:ring-vect-border focus:ring-offset-2 focus:ring-offset-vect-bg
+      active:scale-95;
+  }
+
+  .yap-topic-input {
+    @apply bg-vect-elevated border border-vect-border text-vect-text rounded-lg px-4 py-2
+      focus:outline-none focus:ring-2 focus:ring-vect-accent focus:border-vect-accent
+      transition-all duration-200 placeholder-vect-subtle w-full text-sm h-9;
+  }
+
+  .message-alpha {
+    @apply bg-vect-elevated text-vect-text rounded-2xl rounded-tl-sm px-4 py-3;
+  }
+
+  .message-beta {
+    @apply bg-yap-beta-bubble text-vect-text rounded-2xl rounded-tr-sm px-4 py-3;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md;
+  }
+}
