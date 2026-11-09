@@ -48,7 +48,13 @@ use crate::discovery::SymbolicRegression;
 #[cfg(feature = "cli")]
 use crate::encode::{decode_message, encode_text};
 #[cfg(feature = "cli")]
+use crate::expert::inference::InferenceEngine;
+#[cfg(feature = "cli")]
+use crate::expert::rule::RuleBase;
+#[cfg(feature = "cli")]
 use crate::field::Field;
+#[cfg(feature = "cli")]
+use crate::generation::prose::ProseBuilder;
 #[cfg(feature = "cli")]
 use crate::lexicon::Lexicon;
 #[cfg(feature = "cli")]
@@ -234,11 +240,13 @@ fn maybe_enhance(text: &str, stochastic: bool, probability: f64) -> String {
 ///
 /// # Arguments
 ///
-/// * `prompt`         - Natural-language question or task description.
-/// * `knowledge_base` - Optional filesystem path to a KB file or directory.
-/// * `probability`    - Optional per-word synonym-substitution probability [0.0, 1.0].
-/// * `verbose`        - Whether to emit rich diagnostic output.
-/// * `iterations`     - Maximum ThinkLoop iterations (default 10).
+/// * `prompt`          - Natural-language question or task description.
+/// * `knowledge_base`  - Optional filesystem path to a KB file or directory.
+/// * `probability`     - Optional per-word synonym-substitution probability [0.0, 1.0].
+/// * `verbose`         - Whether to emit rich diagnostic output.
+/// * `iterations`      - Maximum ThinkLoop iterations (default 10).
+/// * `inference_depth` - Backward-chaining depth limit for expert reasoning.
+/// * `cf_threshold`    - Minimum certainty factor threshold for expert inference.
 ///
 /// # Time Complexity
 ///
@@ -255,10 +263,16 @@ pub async fn handle_tram(
     probability: Option<f64>,
     verbose: bool,
     iterations: usize,
+    inference_depth: usize,
+    cf_threshold: f64,
 ) -> anyhow::Result<()> {
     banner("TRAM · Text Reasoning and Applied Mathematics", "🧮");
     info!("  ❓ Prompt    : {:?}", prompt);
     info!("  🔁 Iterations: {}", iterations);
+    info!(
+        "  🔍 Inference : depth={} CF≥{:.2}",
+        inference_depth, cf_threshold
+    );
 
     let mut index = KnowledgeIndex::new();
     let kb_provided = knowledge_base.is_some();
@@ -328,6 +342,12 @@ pub async fn handle_tram(
     divider("Knowledge Retrieval");
 
     let top_k = 5 + (run_seed % 6) as usize;
+    let kb_chunks: Vec<String> = index
+        .query(&prompt, top_k)
+        .into_iter()
+        .map(|c| c.text.clone())
+        .collect();
+
     let (answer_text, from_kb) = match index.answer(&prompt, top_k) {
         Some(answer) if is_quality_answer(&answer) => {
             info!("  ✅ KB answer found ({} chars)", answer.len());
@@ -344,6 +364,46 @@ pub async fn handle_tram(
             let text = build_symbolic_response(&prompt, &cold_corpus);
             (text, false)
         }
+    };
+
+    divider("Expert Inference");
+
+    info!(
+        "  ⚙️  Config      : depth={} CF≥{:.2}",
+        inference_depth, cf_threshold
+    );
+
+    let chunk_refs: Vec<&str> = kb_chunks.iter().map(|s| s.as_str()).collect();
+    let rule_base = RuleBase::from_chunks(&chunk_refs);
+    let engine = InferenceEngine::new(inference_depth, cf_threshold);
+    let expert_result = engine.reason(&prompt, &rule_base);
+
+    let answer_text = if let Some(ref result) = expert_result {
+        info!(
+            "  🧠 Inference: conclusion={:?} CF={:.2} depth={} rules={}",
+            result.conclusion,
+            result.certainty,
+            result.depth,
+            rule_base.rules.len()
+        );
+        info!("  📋 Explanation: {} steps", result.trace.len());
+        if verbose && !result.trace.is_empty() {
+            info!("  💬 {}", result.trace.to_prose());
+        }
+        let builder = ProseBuilder::new(2, 5);
+        let expert_prose = builder.build(result, &chunk_refs, run_seed);
+        if expert_prose.split_whitespace().count() >= 20 {
+            expert_prose + "\n\n" + &answer_text
+        } else {
+            answer_text
+        }
+    } else {
+        info!(
+            "  ℹ️  Expert inference: no conclusion (rules={}, threshold={:.2})",
+            rule_base.rules.len(),
+            cf_threshold
+        );
+        answer_text
     };
 
     divider("Stochastic Enhancement");
@@ -764,7 +824,7 @@ async fn prefetch_web_inner(
 
     if ingested > 0 {
         info!(
-            "  🌐 Instant Answer [{:?}]: {} fragment(s) — augmenting with Lite search",
+            "  🌐 Instant Answer [{:?}]: {} fragment(s), augmenting with Lite search",
             ia_winner.unwrap_or(topic_query.as_str()),
             ingested
         );
@@ -828,6 +888,8 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                 cli.probability,
                 cli.verbose,
                 cli.iterations,
+                cli.inference_depth,
+                cli.cf_threshold,
             )
             .await;
         }
@@ -840,8 +902,19 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             probability,
             iterations,
             depth: _,
+            inference_depth,
+            cf_threshold,
         } => {
-            handle_tram(prompt, knowledge_base, probability, cli.verbose, iterations).await?;
+            handle_tram(
+                prompt,
+                knowledge_base,
+                probability,
+                cli.verbose,
+                iterations,
+                inference_depth,
+                cf_threshold,
+            )
+            .await?;
         }
 
         Simulate { step, steps } => {

@@ -424,11 +424,11 @@ mod net_tests {
 }
 
 mod tram_tests {
+    use lmm::cognition::knowledge::KnowledgeSource;
     use lmm::predict::TextPredictor;
     use lmm::stochastic::{StochasticEnhancer, detect::LanguageHint};
     use lmm::text::TextSummarizer;
     use lmm_agent::agent::LmmAgent;
-    use lmm::cognition::knowledge::KnowledgeSource;
 
     #[tokio::test]
     async fn tram_agent_ingest_and_answer() {
@@ -461,7 +461,10 @@ mod tram_tests {
             .think("What is entropy in thermodynamics?")
             .await
             .unwrap();
-        assert!(result.steps > 0, "Think loop should execute at least one step");
+        assert!(
+            result.steps > 0,
+            "Think loop should execute at least one step"
+        );
         assert!(
             result.final_error >= 0.0 && result.final_error <= 1.0,
             "Jaccard error must be in [0, 1]"

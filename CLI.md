@@ -7,10 +7,10 @@ The `lmm` binary provides 16 subcommands covering TRAM reasoning, simulation, sy
 To enable the internet-aware `tram` and `ask` commands:
 
 ```sh
-cargo install lmm --features rust-binary   # rust-binary = cli + net + knowledge
+cargo install lmm --all-features   # cli + net + knowledge
 
 # or build from source:
-cargo build --release --features rust-binary
+cargo build --release --all-features
 ```
 
 The resulting binary is named `lmm`.
@@ -36,41 +36,47 @@ lmm tram -p "machine learning" --probability=0.1 --knowledge-base ./papers --ite
 
 ### Top-Level & TRAM Mode Flags:
 
-| Flag                       | Short | Default  | Description                                                                                |
-| -------------------------- | :---: | :------: | ------------------------------------------------------------------------------------------ |
-| `--prompt`                 | `-p`  | _(none)_ | Prompt for TRAM mode (default subcommand when no subcommand is given)                      |
-| `--knowledge-base`, `--kb` | `-k`  | _(none)_ | Optional path to a local KB file or directory to ingest                                    |
-| `--probability`            |   -   |  `0.05`  | Stochastic synonym-substitution rate [0.0 - 1.0] (default: 0.05 for KB, 0.12 for symbolic) |
-| `--iterations`             | `-i`  |   `10`   | ThinkLoop reasoning iteration budget                                                       |
-| `--depth`                  | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
-| `--verbose`                | `-v`  | `false`  | Show full banners, seeds, pipeline stages, and statistics                                  |
+| Flag                               | Short | Default  | Description                                                                                |
+| ---------------------------------- | :---: | :------: | ------------------------------------------------------------------------------------------ |
+| `--prompt`                         | `-p`  | _(none)_ | Prompt for TRAM mode (default subcommand when no subcommand is given)                      |
+| `--knowledge-base`, `--kb`         | `-k`  | _(none)_ | Optional path to a local KB file or directory to ingest                                    |
+| `--probability`                    |   -   |  `0.05`  | Stochastic synonym-substitution rate [0.0 - 1.0] (default: 0.05 for KB, 0.12 for symbolic) |
+| `--iterations`                     | `-i`  |   `10`   | ThinkLoop reasoning iteration budget                                                       |
+| `--depth`                          | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
+| `--inference-depth`, `--inf-depth` |   -   |   `3`    | Expert backward-chaining max search depth                                                  |
+| `--cf-threshold`, `--cf`           |   -   |  `0.30`  | Expert inference certainty-factor acceptance threshold [0.0 - 1.0]                         |
+| `--verbose`                        | `-v`  | `false`  | Show full banners, seeds, pipeline stages, and statistics                                  |
 
 ## 📖 Subcommand Reference
 
 ### 0. `tram` (default): Text Reasoning and Applied Mathematics
 
-The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API for now. We will add more search apis in the future.), closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
+The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API), closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, **expert-system inference** (backward-chaining rule engine with Prospector certainty factors), novel slot-filling prose generation, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
 
 ```sh
 # Short-form via top-level -p flag (auto-selects TRAM mode):
 lmm -p "rust programming" --verbose
 lmm -p "what is entropy" --verbose
 lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
+lmm -p "rust programming" --cf-threshold 0.35 --inference-depth 4 --verbose
 
 # Explicit subcommand:
 lmm tram -p "rust programming" --verbose
 lmm tram -p "stochastic determinism" --knowledge-base ./papers --verbose
 lmm tram -p "machine learning" --iterations 20 --verbose
+lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
 ```
 
-| Flag                       | Short | Default  | Description                                                                                |
-| -------------------------- | :---: | :------: | ------------------------------------------------------------------------------------------ |
-| `--prompt`                 | `-p`  | required | The question or query                                                                      |
-| `--knowledge-base`, `--kb` | `-k`  | _(none)_ | Path to a local KB file or directory                                                       |
-| `--probability`            |   -   |  `0.05`  | Stochastic synonym-substitution rate [0.0 - 1.0] (default: 0.05 for KB, 0.12 for symbolic) |
-| `--iterations`             | `-i`  |   `10`   | ThinkLoop reasoning iteration budget                                                       |
-| `--depth`                  | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
-| `--verbose`                | `-v`  | `false`  | Show pipeline stage banners and statistics                                                 |
+| Flag                               | Short | Default  | Description                                                                                |
+| ---------------------------------- | :---: | :------: | ------------------------------------------------------------------------------------------ |
+| `--prompt`                         | `-p`  | required | The question or query                                                                      |
+| `--knowledge-base`, `--kb`         | `-k`  | _(none)_ | Path to a local KB file or directory                                                       |
+| `--probability`                    |   -   |  `0.05`  | Stochastic synonym-substitution rate [0.0 - 1.0] (default: 0.05 for KB, 0.12 for symbolic) |
+| `--iterations`                     | `-i`  |   `10`   | ThinkLoop reasoning iteration budget                                                       |
+| `--depth`                          | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
+| `--inference-depth`, `--inf-depth` |   -   |   `3`    | Expert backward-chaining max search depth                                                  |
+| `--cf-threshold`, `--cf`           |   -   |  `0.30`  | Expert inference certainty-factor acceptance threshold [0.0 - 1.0]                         |
+| `--verbose`                        | `-v`  | `false`  | Show pipeline stage banners and statistics                                                 |
 
 **Pipeline stages (verbose output):**
 
@@ -94,13 +100,22 @@ lmm tram -p "machine learning" --iterations 20 --verbose
 -- Knowledge Retrieval -----------------------
   ✅ KB answer found (597 chars)
 
+-- Expert Inference --------------------------
+  🧠 Inference: conclusion="rust is multi-paradigm programming language" CF=0.40 depth=1 rules=5
+  📋 Explanation: 2 steps
+  💬 Based on observed knowledge (rust is multi-paradigm programming language). rule_2 establishes that rust is multi-paradigm programming language with moderate confidence (CF=0.40).
+
 -- Stochastic Enhancement --------------------
-  🎲 substitutions=0 language=English prob=0.05
+  🎲 substitutions=1 language=English prob=0.05
 
 -- TRAM Response -----------------------------
-  Rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety. Outline of the Rust programming language - The following outline is provided as an overview of and topical guide to Rust: Rust is a multi-paradigm programming language emphasizing performance, memory safety, and concurrency.
+Outline of the Rust programming language - The following outline is provided as an overview of and topical guide to Rust: Rust is a multi-paradigm programming language emphasizing performance, memory safety, and concurrency. It follows from the available evidence that rust is multi-paradigm programming language. Drawing on the ingested knowledge corpus, rust is multi-paradigm programming language.
 
-Furthermore, rust supports multiple programming paradigms. Rust (programming language) Category History of programming languages - The history of programming languages spans from documentation of early mechanical computers to modern tools for software development.
+In practice, the relationship between rust and multi-paradigm programming language reveals that rust is multi-paradigm programming language. Rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety. Rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety.
+
+Rust (programming language) Category History of programming languages - The correspondence of programming languages spans from documentation of early mechanical computers to modern tools for software development. Outline of the Rust programming language - The following outline is provided as an overview of and topical guide to Rust: Rust is a multi-paradigm programming language emphasizing performance, memory safety, and concurrency.
+
+At its core, rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety. Rust supports multiple programming paradigms.
 ```
 
 > [!NOTE]

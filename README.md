@@ -26,7 +26,7 @@
 | :---------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------: |
 |       ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png)        |          ![lmm-windows](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png)           | ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png) |
 | [Download `lmm` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm) | [Download `lmm.exe` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm.exe) |                         `docker pull wiseaidev/lmm`                          |
-|                        `cargo install lmm --features rust-binary`                         |                            `cargo install lmm --features rust-binary`                             |                        `docker run -it wiseaidev/lmm`                        |
+|                            `cargo install lmm --all-features`                             |                                `cargo install lmm --all-features`                                 |                        `docker run -it wiseaidev/lmm`                        |
 |                                   `lmm` ← launches CLI                                    |                                       `lmm` ← launches CLI                                        |  [Read DOCKER.md](https://github.com/wiseaidotdev/lmm/blob/main/DOCKER.md)   |
 
 </div>
@@ -52,6 +52,8 @@ The following demonstrates the symbolic prediction engine generating coherent En
 - 🔮 **Symbolic Prediction**: equation-native text continuation using sliding-window GP regression and vocabulary anchoring.
 - 🎲 **Stochastic Enhancement**: synonym-bank word replacement (`--stochastic`) delivers unique output each run while preserving mathematical sentence structure.
 - 🎨 **Spectral Image Synthesis**: generate procedural PPM images from a text prompt by hashing it into Fourier wave components.
+- 🧠 **Expert System**: IF-THEN production rules auto-derived from KB chunks at runtime; backward-chaining inference engine with Prospector-model certainty factors; how/why explanation facility; slot-filling `ProseBuilder` that constructs novel paragraphs, never copies verbatim.
+- 🔀 **Coherence Scoring**: greedy nearest-neighbour sentence reordering by token overlap maximises topical flow across generated paragraphs.
 
 ## 🧮 TRAM: Text Reasoning and Applied Mathematics
 
@@ -62,11 +64,13 @@ TRAM is LMM's default reasoning engine. All TRAM options are available directly 
 lmm -p "rust programming" --verbose
 lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
 lmm -p "stochastic determinism" -k ./papers -i 15 --probability=0.1 --verbose
+lmm -p "rust programming" --cf-threshold 0.35 --inference-depth 4 --verbose
 
 # Or via explicit subcommand (identical behavior):
 lmm tram -p "rust programming" --verbose
 lmm tram -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
 lmm tram -p "stochastic determinism" -k ./papers -i 15 --verbose
+lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
 ```
 
 ### ⚙️ Architecture
@@ -78,12 +82,12 @@ flowchart TD
     B1 --> B1a["DDG IA: abstract_text + definition + answer"]
     B1 --> B1b["DDG Lite: title+snippet chunks"]
     B1a & B1b --> B1c["Filter: skip disambiguation fragments < 10 words"]
-    B1c --> IDX["KnowledgeIndex"]
+    B1c --> IDX["KnowledgeIndex (IDF-weighted)"]
 
-    B --> TL["ThinkLoop.run()"]
+    B --> TL["ThinkLoop.run(): PID-style error controller"]
     TL --> TL1["Reflector.formulate_query()"]
     TL1 --> TL2["SearchOracle.fetch()"]
-    TL2 --> TL3["CognitionSignal: recall-based error"]
+    TL2 --> TL3["CognitionSignal: Jaccard error"]
     TL3 --> TL4{"error < 0.70?"}
     TL4 -- yes --> TL5["converged = true"]
     TL4 -- no --> TL6{"observation empty?"}
@@ -95,14 +99,24 @@ flowchart TD
     COLD --> IDX
 
     IDX --> KA["KnowledgeIndex.answer(prompt, top_k=5-10)"]
-    KA --> SUM["TextSummarizer: 4-7 sentences (randomized)"]
+    KA --> SUM["TextSummarizer: 4-7 sentences, randomised"]
     SUM --> QUAL{"is_quality_answer?"}
     QUAL -- yes --> PARA["Paragraph assembler: 1-3 paragraphs\nwith discourse connectors"]
     QUAL -- no --> SYM["ParagraphGenerator: time-seeded\n2-6 sentences per para"]
 
-    PARA --> STOCH["StochasticEnhancer: prob=user/auto"]
-    SYM --> STOCH
-    STOCH --> OUT["Output: unique, natural, varied"]
+    IDX --> RULES["RuleBase.from_chunks()\nIF-THEN production rules"]
+    RULES --> INFER["InferenceEngine\nBackward chaining, max_depth=3"]
+    INFER --> CF{"CF ≥ 0.30?"}
+    CF -- yes --> PROSE["ProseBuilder\nSlot-filling paragraph synthesis\n+ CoherenceScorer"]
+    CF -- no --> PROSE_SKIP["Skip expert path"]
+
+    PARA --> MRG["Merge expert + extractive prose"]
+    SYM --> MRG
+    PROSE --> MRG
+    PROSE_SKIP --> MRG
+
+    MRG --> STOCH["StochasticEnhancer\nProspector-weighted synonym substitution\nprob = --probability or auto (0.05/0.12)"]
+    STOCH --> OUT["Output: novel, grounded, unique per run"]
 ```
 
 ## 📦 Installation
@@ -125,7 +139,7 @@ The `lmm` library is available on [crates.io](https://crates.io/crates/lmm). For
 
 The `lmm` binary supports 15 subcommands spanning simulation, discovery, encoding, prediction, summarisation, and rich text generation: all powered by pure equations.
 
-For the full option reference and usage examples, see the **[CLI documentation](https://github.com/wiseaidotdev/lmm/blob/main/CLI.md)** or run `lmm --help` after installing with `cargo install lmm --features rust-binary`.
+For the full option reference and usage examples, see the **[CLI documentation](https://github.com/wiseaidotdev/lmm/blob/main/CLI.md)** or run `lmm --help` after installing with `cargo install lmm --all-features`.
 
 ## 🐍 Python
 
