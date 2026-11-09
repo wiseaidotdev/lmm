@@ -10,7 +10,7 @@ Pulled in automatically with `lmm-agent`. No manual dependency needed.
 
 ### Required struct shape
 
-```rust
+```rust ,ignore
 use lmm_agent::prelude::*;
 use async_trait::async_trait;
 
@@ -77,7 +77,7 @@ impl AsyncFunctions for MyAgent {
 
 Fields beyond the five required ones are ignored by `Auto`. You can freely add domain-specific data:
 
-```rust
+```rust ,ignore
 use lmm_agent::prelude::*;
 use std::collections::HashMap;
 

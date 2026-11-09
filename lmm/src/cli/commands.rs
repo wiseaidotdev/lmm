@@ -131,6 +131,35 @@ pub struct Cli {
     )]
     pub depth: usize,
 
+    /// Expert inference backward-chaining depth limit.
+    ///
+    /// Controls how many rule-application steps the `InferenceEngine` explores
+    /// before giving up. Higher values find deeper conclusions but are slower.
+    /// Applied when using the top-level `-p` shortcut (default TRAM mode).
+    #[arg(
+        long,
+        alias = "inf-depth",
+        global = false,
+        default_value_t = 3,
+        help = "Expert inference backward-chaining max depth (default: 3)"
+    )]
+    pub inference_depth: usize,
+
+    /// Expert inference certainty-factor threshold [0.0, 1.0].
+    ///
+    /// A derived conclusion is accepted only when its combined Prospector
+    /// certainty factor meets or exceeds this value. Lower values make the
+    /// engine more permissive; higher values require stronger evidence.
+    /// Applied when using the top-level `-p` shortcut (default TRAM mode).
+    #[arg(
+        long,
+        alias = "cf",
+        global = false,
+        default_value_t = 0.30,
+        help = "Expert inference certainty-factor threshold [0.0, 1.0] (default: 0.30)"
+    )]
+    pub cf_threshold: f64,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -166,6 +195,12 @@ pub enum Commands {
         /// GP expression-tree depth limit.
         #[arg(short, long, default_value_t = 3)]
         depth: usize,
+        /// Expert inference backward-chaining max depth.
+        #[arg(long, alias = "inf-depth", default_value_t = 3)]
+        inference_depth: usize,
+        /// Expert inference certainty-factor threshold [0.0, 1.0].
+        #[arg(long, alias = "cf", default_value_t = 0.30)]
+        cf_threshold: f64,
     },
     #[command(about = "Simulate continuous logical pathways")]
     Simulate {
