@@ -63,6 +63,7 @@ pub mod memory;
 pub mod reflect;
 pub mod search;
 pub mod signal;
+pub mod thought;
 pub mod types;
 
 pub use attribution::{AttributionReport, CausalAttributor};
@@ -79,4 +80,9 @@ pub use memory::{ColdStore, HotStore, MemoryEntry};
 pub use reflect::Reflector;
 pub use search::SearchOracle;
 pub use signal::{CognitionSignal, error_from_texts};
+pub use thought::belief::BeliefInterval;
+pub use thought::classifier::{InputClassifier, ReasoningMode};
+pub use thought::critic::{CritiqueResult, InternalCritic};
+pub use thought::decompose::GoalDecomposer;
+pub use thought::{AdaptiveThoughtEngine, StepMode, ThoughtChain, ThoughtChainResult, ThoughtStep};
 pub use types::ThinkResult;

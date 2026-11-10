@@ -109,6 +109,25 @@ impl SearchOracle {
         self.cache.clear();
     }
 
+    /// Seeds the in-process cache with a pre-fetched observation for `query`.
+    ///
+    /// This avoids redundant network round-trips when the caller has already
+    /// fetched content for a topic and wants the ATE or ThinkLoop oracle to
+    /// reuse it.  Only inserts if the query is not already cached.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::cognition::search::SearchOracle;
+    /// let mut oracle = SearchOracle::new(5);
+    /// oracle.seed_cache("rust", "Rust is a general-purpose systems programming language.");
+    /// ```
+    pub fn seed_cache(&mut self, query: &str, observation: &str) {
+        self.cache
+            .entry(query.to_string())
+            .or_insert_with(|| observation.to_string());
+    }
+
     /// Issues the actual DuckDuckGo request (only compiled when `net` or `wasm-net` is on).
     ///
     /// Strategy:

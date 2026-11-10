@@ -79,7 +79,60 @@ let state = sim.rk4_step(&osc, osc.state()).unwrap();
 println!("{:?}", state.data);
 ```
 
-### Text → Symbolic equation (lossless round-trip)
+### Adaptive Thought Engine (ATE)
+
+The `AdaptiveThoughtEngine` is an optional pre-reasoning layer that classifies a prompt into a reasoning mode, decomposes it into typed sub-goals, and iterates through symbolic thought steps before the main TRAM pipeline runs. It is activated via `--think` / `-t` on the CLI, or directly from Rust:
+
+```rust
+#[tokio::main]
+async fn main() {
+    use lmm::cognition::thought::AdaptiveThoughtEngine;
+    use lmm::cognition::search::SearchOracle;
+
+    let mut oracle = SearchOracle::new(5);
+    let ate = AdaptiveThoughtEngine::new(
+        6,     // max thought steps
+        0.55,  // confidence threshold (stops early when reached)
+        2,     // stall patience (steps with no gain before stopping)
+    );
+
+    let result = ate.run("why does Rust not have a garbage collector?", &mut oracle).await;
+
+    println!("Mode        : {}", result.chain.mode.label());
+    println!("Steps       : {}", result.chain.steps.len());
+    println!("Confidence  : {:.3}", result.confidence);
+    println!("Insight     : {}", result.factual_insight);
+    println!("Top query   : {:?}", result.prioritized_queries.first());
+
+    for step in &result.chain.steps {
+        println!("[{}] {}: {}", step.index + 1, step.mode.label(), step.reasoning);
+    }
+}
+```
+
+**Key types:**
+
+| Type / Field                             | Description                                                                         |
+| ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| `AdaptiveThoughtEngine::new(s, t, p)`    | Constructor: `s` = max steps, `t` = confidence threshold, `p` = stall patience      |
+| `ThoughtChainResult.chain`               | The full `ThoughtChain` with reasoning mode and all steps                           |
+| `ThoughtChainResult.confidence`          | Final confidence score [0.0 - 1.0] after all steps                                  |
+| `ThoughtChainResult.factual_insight`     | Raw oracle prose (≥ 6 words per step), safe for KB ingestion, no meta-template text |
+| `ThoughtChainResult.prioritized_queries` | Sub-goals sorted by uncertainty; `[0]` becomes the ThinkLoop goal                   |
+| `ThoughtChain.mode`                      | Classified reasoning mode: `Factual`, `Causal`, `Procedural`, `Analogical`, etc.    |
+| `ThoughtChain.steps`                     | Vec of `ThoughtStep`: `.index`, `.mode`, `.reasoning`, `.evidence_text`             |
+| `SearchOracle::seed_cache(q, text)`      | Pre-seeds the oracle cache with existing KB content to avoid redundant web requests |
+
+**Reasoning modes** (auto-classified by `ThoughtClassifier`):
+
+| Mode          | Triggered by                              | Thought focus                               |
+| ------------- | ----------------------------------------- | ------------------------------------------- |
+| `factual`     | "what is", "define", "who is"             | definition → history → properties           |
+| `causal`      | "why does", "how does", "what causes"     | mechanism → factors → effects               |
+| `procedural`  | "how to", "steps to", "how do I"          | prerequisites → guide → verification        |
+| `analogical`  | "vs", "compared to", "difference between" | shared properties → differences → use-cases |
+| `comparative` | explicit comparison markers               | side-by-side analysis                       |
+| `exploratory` | single words, general topics              | overview → history → notable aspects        |
 
 ```rust
 use lmm::encode::{encode_text, decode_message};
@@ -168,6 +221,9 @@ flowchart TD
 | `HarmonicOscillator`, `LorenzSystem`, `Pendulum`, `SIRModel`      | Physics models; all implement `Simulatable`                                    |
 | `Simulator`                                                       | `.euler_step_osc()`, `.rk4_step_osc()`, `.rk45_adaptive()`                     |
 | `SymbolicRegression`                                              | GP regressor; `.fit(inputs, targets) → String`                                 |
+| `AdaptiveThoughtEngine::new(steps, threshold, patience)`          | ATE pre-reasoner; `.run(prompt, oracle) → ThoughtChainResult`                  |
+| `ThoughtChainResult`                                              | `.chain`, `.confidence`, `.factual_insight`, `.prioritized_queries`            |
+| `SearchOracle::new(limit)`                                        | Web oracle with in-process cache; `.fetch(query)`, `.seed_cache(query, text)`  |
 | `TextPredictor`                                                   | `.predict_continuation(text, length) → PredictionResult`                       |
 | `SentenceGenerator`                                               | `.generate(seed) → String`                                                     |
 | `ParagraphGenerator`                                              | `.generate(seed) → String`                                                     |

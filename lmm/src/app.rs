@@ -38,6 +38,7 @@ use {
             knowledge::{KnowledgeIndex, KnowledgeSource, ingest as cognition_ingest},
             r#loop::ThinkLoop,
             search::SearchOracle,
+            thought::AdaptiveThoughtEngine,
         },
         consciousness::Consciousness,
         discovery::SymbolicRegression,
@@ -238,13 +239,17 @@ fn maybe_enhance(text: &str, stochastic: bool, probability: f64) -> String {
 ///
 /// # Arguments
 ///
-/// * `prompt`          - Natural-language question or task description.
-/// * `knowledge_base`  - Optional filesystem path to a KB file or directory.
-/// * `probability`     - Optional per-word synonym-substitution probability [0.0, 1.0].
-/// * `verbose`         - Whether to emit rich diagnostic output.
-/// * `iterations`      - Maximum ThinkLoop iterations (default 10).
-/// * `inference_depth` - Backward-chaining depth limit for expert reasoning.
-/// * `cf_threshold`    - Minimum certainty factor threshold for expert inference.
+/// * `prompt`           - Natural-language question or task description.
+/// * `knowledge_base`   - Optional filesystem path to a KB file or directory.
+/// * `probability`      - Optional per-word synonym-substitution probability [0.0, 1.0].
+/// * `verbose`          - Whether to emit rich diagnostic output.
+/// * `iterations`       - Maximum ThinkLoop iterations (default 10).
+/// * `inference_depth`  - Backward-chaining depth limit for expert reasoning.
+/// * `cf_threshold`     - Minimum certainty factor threshold for expert inference.
+/// * `think`            - Whether to run the Adaptive Thought Engine pre-pass (off by default).
+/// * `think_steps`      - Maximum thought steps for ATE (only used when `think` is `true`).
+/// * `think_threshold`  - DS-belief midpoint early-stop threshold for ATE [0, 1].
+/// * `think_patience`   - Consecutive non-improving steps before ATE flags stagnation.
 ///
 /// # Time Complexity
 ///
@@ -255,6 +260,7 @@ fn maybe_enhance(text: &str, stochastic: bool, probability: f64) -> String {
 ///
 /// O(|KB| + |hot_store|) for the in-memory knowledge index.
 #[cfg(feature = "cli")]
+#[allow(clippy::too_many_arguments)]
 pub async fn handle_tram(
     prompt: String,
     knowledge_base: Option<String>,
@@ -263,6 +269,10 @@ pub async fn handle_tram(
     iterations: usize,
     inference_depth: usize,
     cf_threshold: f64,
+    think: bool,
+    think_steps: usize,
+    think_threshold: f64,
+    think_patience: usize,
 ) -> anyhow::Result<()> {
     banner("TRAM · Text Reasoning and Applied Mathematics", "🧮");
     info!("  ❓ Prompt    : {:?}", prompt);
@@ -295,21 +305,73 @@ pub async fn handle_tram(
 
     prefetch_web(&prompt, &mut index, kb_provided, verbose).await;
 
-    divider("ThinkLoop Reasoning");
-
     let run_seed: u64 = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .subsec_nanos() as u64;
 
     let mut oracle = SearchOracle::new(5);
+
+    if !index.is_empty() {
+        let topic_query = extract_topic(&prompt);
+        let kb_corpus: String = index
+            .query(&topic_query, 8)
+            .into_iter()
+            .map(|c| c.text.clone())
+            .collect::<Vec<_>>()
+            .join(" ");
+        if !kb_corpus.is_empty() {
+            oracle.seed_cache(&topic_query, &kb_corpus);
+            oracle.seed_cache(&prompt, &kb_corpus);
+        }
+    }
+
+    let ate_goal: String = if think {
+        divider("Adaptive Thought Engine");
+
+        let ate = AdaptiveThoughtEngine::new(think_steps, think_threshold, think_patience);
+        let thought_result = ate.run(&prompt, &mut oracle).await;
+
+        info!(
+            "  🧠 ATE: mode={} steps={} confidence={:.3}",
+            thought_result.chain.mode.label(),
+            thought_result.chain.steps.len(),
+            thought_result.confidence
+        );
+
+        if verbose {
+            for step in &thought_result.chain.steps {
+                info!(
+                    "  💬 Thought {} [{}]: {}",
+                    step.index + 1,
+                    step.mode.label(),
+                    step.reasoning
+                );
+            }
+        }
+
+        if !thought_result.factual_insight.is_empty() {
+            index.ingest_text("ate-insight", &thought_result.factual_insight);
+        }
+
+        thought_result
+            .prioritized_queries
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| prompt.clone())
+    } else {
+        prompt.clone()
+    };
+
+    divider("ThinkLoop Reasoning");
+
     let convergence_threshold = 0.60;
     let think_iterations = if index.is_empty() {
         iterations
     } else {
         iterations.min(4)
     };
-    let mut lp = ThinkLoop::builder(&prompt)
+    let mut lp = ThinkLoop::builder(ate_goal)
         .max_iterations(think_iterations)
         .convergence_threshold(convergence_threshold)
         .build();
@@ -392,7 +454,7 @@ pub async fn handle_tram(
         let expert_prose = builder.build(result, &chunk_refs, run_seed);
         if expert_prose.split_whitespace().count() >= 30 {
             let deduplicator = GlobalDeduplicator::new(0.65);
-            let merged = format!("{}\n\n{}", expert_prose, answer_text);
+            let merged = format!("{}\n\n{}", answer_text, expert_prose);
             let deduped = deduplicator.deduplicate_text(&merged);
             assemble_paragraphs_for(&deduped, run_seed, &prompt)
         } else {
@@ -508,13 +570,66 @@ fn is_quality_answer(answer: &str) -> bool {
 /// that open with an off-topic proper noun not related to `topic`.
 #[cfg(feature = "cli")]
 fn assemble_paragraphs_for(text: &str, run_seed: u64, topic: &str) -> String {
-    let topic_word: String = topic
+    let topic_cleaned = extract_topic(topic);
+    let topic_ref = if topic_cleaned.is_empty() {
+        topic
+    } else {
+        topic_cleaned.as_str()
+    };
+    let topic_word: String = topic_ref
         .split_whitespace()
         .find(|w| {
             w.len() > 3
                 && !matches!(
                     *w,
-                    "what" | "does" | "how" | "the" | "and" | "for" | "with" | "about"
+                    "what"
+                        | "does"
+                        | "how"
+                        | "the"
+                        | "and"
+                        | "for"
+                        | "with"
+                        | "about"
+                        | "install"
+                        | "make"
+                        | "build"
+                        | "create"
+                        | "setup"
+                        | "configure"
+                        | "learn"
+                        | "understand"
+                        | "explain"
+                        | "describe"
+                        | "find"
+                        | "show"
+                        | "tell"
+                        | "give"
+                        | "help"
+                        | "work"
+                        | "works"
+                        | "working"
+                        | "used"
+                        | "using"
+                        | "uses"
+                        | "need"
+                        | "needs"
+                        | "want"
+                        | "that"
+                        | "this"
+                        | "into"
+                        | "from"
+                        | "have"
+                        | "been"
+                        | "will"
+                        | "would"
+                        | "could"
+                        | "should"
+                        | "when"
+                        | "where"
+                        | "which"
+                        | "who"
+                        | "why"
+                        | "also"
                 )
         })
         .unwrap_or("")
@@ -524,6 +639,20 @@ fn assemble_paragraphs_for(text: &str, run_seed: u64, topic: &str) -> String {
         .into_iter()
         .map(strip_discourse_connector)
         .filter(|s| SentenceFilter::is_acceptable(s))
+        .filter(|s| {
+            static DANGLING_PREPOSITIONS: &[&str] = &[
+                "in", "at", "of", "to", "for", "on", "by", "with", "from", "into", "onto", "upon",
+                "about", "over", "under", "between", "among", "through", "within", "without",
+                "during", "and", "or", "but", "the", "a", "an",
+            ];
+            let last = s
+                .trim_end_matches(['.', '!', '?'])
+                .split_whitespace()
+                .last()
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            !DANGLING_PREPOSITIONS.contains(&last.as_str())
+        })
         .filter(|s| {
             if topic_word.is_empty() {
                 return true;
@@ -610,12 +739,23 @@ fn strip_discourse_connector(sentence: String) -> String {
         "On the technical side, ",
         "From a practical standpoint, ",
         "In this context, ",
-        "In addition, ",
         "Also, ",
         "However, ",
         "Therefore, ",
         "Thus, ",
         "Hence, ",
+        "More precisely, ",
+        "This is because ",
+        "To be specific, ",
+        "It is well established that ",
+        "At its core, ",
+        "Put simply, ",
+        "Broadly speaking, ",
+        "In technical terms, ",
+        "By design, ",
+        "In essence, ",
+        "Based on observed knowledge ",
+        "To elaborate on this, ",
     ];
     for prefix in CONNECTOR_PREFIXES {
         if let Some(rest) = sentence.strip_prefix(prefix) {
@@ -721,8 +861,9 @@ fn split_sentences_with_punct(text: &str) -> Vec<String> {
 /// Builds a topic-aware symbolic response when no KB answer is available.
 ///
 /// First attempts to summarise the ThinkLoop cold-memory corpus. If that
-/// corpus is too thin, falls back to `ParagraphGenerator` which uses
-/// `keywords_from_text` to anchor sentences to the actual prompt topic.
+/// corpus is too thin, returns a graceful "no information available" message
+/// grounded in the topic extracted from the prompt, rather than producing
+/// mathematical word-salad from `ParagraphGenerator`.
 ///
 /// # Arguments
 ///
@@ -743,10 +884,18 @@ fn build_symbolic_response(prompt: &str, cold_corpus: &str) -> String {
             }
         }
     }
-    let para_gen = ParagraphGenerator::new(4, 20, 3);
-    para_gen
-        .generate(prompt)
-        .unwrap_or_else(|_| prompt.to_string())
+    let topic = extract_topic(prompt);
+    let topic_display = if topic.is_empty() {
+        prompt
+    } else {
+        topic.as_str()
+    };
+    format!(
+        "No detailed information was found for \"{topic_display}\". \
+         This may be because the topic is very specific, the web query returned no results, \
+         or the knowledge base does not yet contain content on this subject. \
+         Try rephrasing your query or adding more context."
+    )
 }
 
 /// Extracts a clean topic keyword phrase from a natural-language prompt by
@@ -777,6 +926,7 @@ fn extract_topic(prompt: &str) -> String {
         "how do ",
         "how is ",
         "how are ",
+        "how to ",
         "explain ",
         "describe ",
         "define ",
@@ -787,6 +937,8 @@ fn extract_topic(prompt: &str) -> String {
         "who was ",
         "why is ",
         "why are ",
+        "why does ",
+        "why do ",
         "where is ",
         "when is ",
         "give me information about ",
@@ -795,12 +947,23 @@ fn extract_topic(prompt: &str) -> String {
     let lower = prompt.to_lowercase();
     for prefix in FILLER_PREFIXES {
         if lower.starts_with(prefix) {
-            let raw = prompt[prefix.len()..].trim();
+            let raw = prompt[prefix.len()..]
+                .trim()
+                .trim_end_matches('?')
+                .trim_end_matches('.')
+                .trim_end_matches('!')
+                .trim();
             let stripped = strip_leading_articles(raw);
-            return strip_trailing_verb(stripped);
+            return strip_trailing_verb(trim_predicate(&stripped));
         }
     }
-    strip_leading_articles(prompt.trim())
+    let clean = prompt
+        .trim()
+        .trim_end_matches('?')
+        .trim_end_matches('.')
+        .trim_end_matches('!')
+        .trim();
+    strip_leading_articles(clean)
 }
 
 /// Strips a leading article ("a", "an", "the") from a noun phrase.
@@ -817,6 +980,39 @@ fn strip_leading_articles(s: &str) -> String {
         }
     }
     s.to_string()
+}
+
+/// Trims a topic string at the first predicate word, keeping only the subject noun phrase.
+///
+/// When a question like `"why does Rust not have a garbage collector"` is stripped
+/// of its question prefix, the remainder `"Rust not have a garbage collector"` still
+/// contains the predicate.  This function truncates at the first auxiliary, negation,
+/// or main-verb word so only `"Rust"` is returned, a far better search term.
+///
+/// Only applies when the input has 3 or more words to avoid over-truncating short topics.
+///
+/// # Time Complexity
+///
+/// O(|s|)
+#[cfg(feature = "cli")]
+fn trim_predicate(s: &str) -> String {
+    static PREDICATE_WORDS: &[&str] = &[
+        "not", "no", "never", "have", "has", "had", "is", "are", "was", "were", "do", "does",
+        "did", "will", "would", "could", "should", "can", "cannot", "work", "works", "make",
+        "makes", "use", "uses", "need", "needs", "allow", "allows", "prevent", "prevents",
+        "require", "requires", "cause", "causes",
+    ];
+    let words: Vec<&str> = s.split_whitespace().collect();
+    if words.len() < 3 {
+        return s.to_string();
+    }
+    let cut = words
+        .iter()
+        .skip(1)
+        .position(|w| PREDICATE_WORDS.contains(&w.to_ascii_lowercase().as_str()))
+        .map(|i| i + 1)
+        .unwrap_or(words.len());
+    words[..cut].join(" ")
 }
 
 /// Strips a trailing common verb from a topic string extracted from a question.
@@ -899,7 +1095,13 @@ async fn prefetch_web_inner(
     let topic_library = format!("{} library", topic_query);
     let topic_framework = format!("{} framework", topic_query);
 
-    let ia_candidates: &[&str] = &[
+    let topic_words: Vec<String> = topic_query
+        .split_whitespace()
+        .filter(|w| w.len() >= 3)
+        .map(|w| format!("{} programming language", w))
+        .collect();
+
+    let mut ia_candidates: Vec<&str> = vec![
         topic_query.as_str(),
         topic_lang.as_str(),
         topic_lang2.as_str(),
@@ -908,6 +1110,11 @@ async fn prefetch_web_inner(
         topic_what.as_str(),
         prompt,
     ];
+    for tw in &topic_words {
+        if !ia_candidates.contains(&tw.as_str()) {
+            ia_candidates.push(tw.as_str());
+        }
+    }
 
     let mut ia_winner: Option<&str> = None;
     for query in ia_candidates.iter().copied() {
@@ -981,12 +1188,20 @@ async fn prefetch_web_inner(
     }
 
     let mut lite_snippets_found = 0usize;
-    let mut lite_q_list: Vec<&str> = vec![prompt];
+    let mut lite_q_list: Vec<String> = vec![prompt.to_string()];
     if topic_query.as_str() != prompt {
-        lite_q_list.push(topic_query.as_str());
+        lite_q_list.push(topic_query.clone());
     }
-    'lite: for lite_q in lite_q_list {
-        match browser.lite_search(lite_q, "wt-wt", Some(15), ua).await {
+    for word in topic_query.split_whitespace() {
+        if word.len() >= 3 && !lite_q_list.iter().any(|q| q == word) {
+            lite_q_list.push(word.to_string());
+        }
+    }
+    'lite: for lite_q in &lite_q_list {
+        match browser
+            .lite_search(lite_q.as_str(), "wt-wt", Some(15), ua)
+            .await
+        {
             Ok(results) if !results.is_empty() => {
                 for r in &results {
                     let snippet = r.snippet.trim();
@@ -999,13 +1214,14 @@ async fn prefetch_web_inner(
                 }
                 if lite_snippets_found == 0 {
                     info!(
-                        "  🌐 Lite search: {} results (titles only - no snippets)",
+                        "  🌐 Lite search [{:?}]: {} results (titles only - no snippets)",
+                        lite_q.as_str(),
                         results.len()
                     );
                 } else {
                     info!(
                         "  🌐 Lite search [{:?}]: {} result(s), {} snippet chunk(s) ingested",
-                        lite_q,
+                        lite_q.as_str(),
                         results.len(),
                         ingested
                     );
@@ -1014,12 +1230,12 @@ async fn prefetch_web_inner(
             }
             Ok(_) => {
                 if verbose {
-                    info!("  🌐 Lite search [{:?}]: no results", lite_q);
+                    info!("  🌐 Lite search [{:?}]: no results", lite_q.as_str());
                 }
             }
             Err(e) => {
                 if verbose {
-                    info!("  ⚠️  Lite search [{:?}] error: {e}", lite_q);
+                    info!("  ⚠️  Lite search [{:?}] error: {e}", lite_q.as_str());
                 }
             }
         }
@@ -1051,6 +1267,10 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                 cli.iterations,
                 cli.inference_depth,
                 cli.cf_threshold,
+                cli.think,
+                cli.think_steps,
+                cli.think_threshold,
+                cli.think_patience,
             )
             .await;
         }
@@ -1065,6 +1285,10 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             depth: _,
             inference_depth,
             cf_threshold,
+            think,
+            think_steps,
+            think_threshold,
+            think_patience,
         } => {
             handle_tram(
                 prompt,
@@ -1074,6 +1298,10 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                 iterations,
                 inference_depth,
                 cf_threshold,
+                think,
+                think_steps,
+                think_threshold,
+                think_patience,
             )
             .await?;
         }
