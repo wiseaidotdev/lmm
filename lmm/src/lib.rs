@@ -10,11 +10,11 @@
     html_favicon_url = "https://raw.githubusercontent.com/wiseaidotdev/lmm/main/assets/favicon.png",
     html_logo_url = "https://raw.githubusercontent.com/wiseaidotdev/lmm/main/assets/logo.png"
 )]
-#![doc = include_str!("../README.md")]
-#![doc = include_str!("../AGENT.md")]
-#![doc = include_str!("../DERIVE.md")]
-#![doc = include_str!("../RUST.md")]
-#![doc = include_str!("../WASM.md")]
+#![doc = include_str!("../../README.md")]
+#![doc = include_str!("../../AGENT.md")]
+#![doc = include_str!("../../DERIVE.md")]
+#![doc = include_str!("../../RUST.md")]
+#![doc = include_str!("../../WASM.md")]
 
 pub mod causal;
 #[cfg(feature = "cli")]

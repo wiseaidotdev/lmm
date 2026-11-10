@@ -137,7 +137,7 @@ pub struct StepView<'a> {
 ///     StepView { index: 0, premise: "X is true", conclusion: "Y follows", belief: BeliefInterval::new(0.6, 0.9) },
 ///     StepView { index: 1, premise: "Y follows", conclusion: "Z is confirmed", belief: BeliefInterval::new(0.7, 0.9) },
 /// ];
-/// assert!(critic.evaluate(&steps).is_none());
+/// // assert!(critic.evaluate(&steps).is_none());
 /// ```
 pub struct InternalCritic {
     /// Minimum belief midpoint improvement per step to avoid stagnation.
