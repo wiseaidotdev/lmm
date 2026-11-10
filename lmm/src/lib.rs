@@ -6,6 +6,10 @@
 // except according to those terms.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(
+    html_favicon_url = "https://raw.githubusercontent.com/wiseaidotdev/lmm/main/assets/favicon.png",
+    html_logo_url = "https://raw.githubusercontent.com/wiseaidotdev/lmm/main/assets/logo.png"
+)]
 #![doc = include_str!("../../README.md")]
 #![doc = include_str!("../../AGENT.md")]
 #![doc = include_str!("../../DERIVE.md")]
@@ -51,14 +55,16 @@ pub mod app;
 pub mod python;
 
 #[cfg(all(feature = "python", not(feature = "rust-binary")))]
-use pyo3::prelude::*;
+use {
+    app::run_cli_entry, pyo3::prelude::*, python::register_python_module, std::io::Error as IoError,
+};
 
 #[cfg(all(feature = "python", not(feature = "rust-binary")))]
 #[pyfunction]
 fn run_cli(args: Vec<String>) -> PyResult<()> {
     tokio::runtime::Runtime::new()
-        .map_err(|e: std::io::Error| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
-        .block_on(crate::app::run_cli_entry(args))
+        .map_err(|e: IoError| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
+        .block_on(run_cli_entry(args))
         .map_err(|e: anyhow::Error| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
@@ -67,7 +73,7 @@ fn run_cli(args: Vec<String>) -> PyResult<()> {
 fn _lmm(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_function(wrap_pyfunction!(run_cli, m)?)?;
-    crate::python::register_python_module(py, m)?;
+    register_python_module(py, m)?;
     Ok(())
 }
 
@@ -75,7 +81,7 @@ fn _lmm(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 pub mod node;
 
 #[cfg(all(feature = "node", not(feature = "rust-binary")))]
-use napi_derive::napi;
+use {app::run_cli_entry, napi_derive::napi, std::process::exit as process_exit};
 
 #[cfg(all(feature = "node", not(feature = "rust-binary")))]
 #[napi]
@@ -83,9 +89,9 @@ pub fn run_cli(args: Vec<String>) {
     tokio::runtime::Runtime::new()
         .expect("tokio runtime")
         .block_on(async move {
-            if let Err(e) = crate::app::run_cli_entry(args).await {
+            if let Err(e) = run_cli_entry(args).await {
                 eprintln!("Error: {}", e);
-                std::process::exit(1);
+                process_exit(1);
             }
         });
 }

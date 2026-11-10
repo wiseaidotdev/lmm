@@ -56,15 +56,15 @@ fn coherence_reorder_groups_topically_related_sentences() {
 }
 
 #[test]
-fn coherence_reorder_preserves_order_above_eight_sentences() {
+fn coherence_reorder_preserves_order_above_twelve_sentences() {
     let scorer = CoherenceScorer;
-    let input: Vec<String> = (0..10)
+    let input: Vec<String> = (0..13)
         .map(|i| format!("Sentence number {i} with some unique content."))
         .collect();
     let result = scorer.reorder(&input);
     assert_eq!(
         result, input,
-        "Above 8 sentences, order should be preserved"
+        "Above 12 sentences, order should be preserved"
     );
 }
 

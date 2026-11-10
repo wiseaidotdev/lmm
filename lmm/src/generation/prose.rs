@@ -36,22 +36,30 @@
 
 use crate::expert::inference::InferenceResult;
 use crate::generation::coherence::CoherenceScorer;
+use crate::generation::filter::SentenceFilter;
+use std::collections::HashSet;
 
 /// Paragraph templates.  `{subject}`, `{predicate}`, `{object}`, and
 /// `{conclusion}` are replaced with tokens from the inference result.
+///
+/// All templates that inline `{conclusion}` directly (as a raw noun phrase)
+/// have been removed to prevent ungrammatical output such as
+/// _"Goal Webassembly is facilitate high-performance applications, which..."_.
+/// Instead, `{subject}`, `{predicate}`, and `{object}` are used in
+/// structured clauses that read naturally regardless of the raw extraction.
 static TEMPLATES: &[&str] = &[
-    "{conclusion}, which is a defining characteristic that sets it apart.",
-    "The relationship between {subject} and {object} reveals that {conclusion}.",
-    "Evidence from the knowledge base confirms that {conclusion}.",
-    "Analysis of the available knowledge shows that {subject} {predicate} {object}.",
-    "One key insight from the reasoning process is that {conclusion}.",
-    "It follows from the available evidence that {conclusion}.",
-    "The inference engine determined, with measurable confidence, that {conclusion}.",
-    "The domain knowledge clearly supports the view that {subject} {predicate} {object}.",
-    "Reasoning from first principles, {conclusion}.",
-    "Drawing on the ingested knowledge corpus, {conclusion}.",
-    "The rule-based derivation establishes that {conclusion}.",
-    "Upon systematic analysis, it becomes clear that {subject} {predicate} {object}.",
+    "In practice, {subject} {predicate} {object}.",
+    "More precisely, {subject} {predicate} {object}.",
+    "This is because {subject} {predicate} {object}.",
+    "To be specific, {subject} {predicate} {object}.",
+    "It is well established that {subject} {predicate} {object}.",
+    "At its core, {subject} {predicate} {object}.",
+    "Notably, {subject} {predicate} {object}.",
+    "Put simply, {subject} {predicate} {object}.",
+    "Broadly speaking, {subject} {predicate} {object}.",
+    "In technical terms, {subject} {predicate} {object}.",
+    "By design, {subject} {predicate} {object}.",
+    "In essence, {subject} {predicate} {object}.",
 ];
 
 /// Discourse connector phrases prepended to non-first paragraphs.
@@ -62,12 +70,12 @@ static CONNECTORS: &[&str] = &[
     "Moreover,",
     "As a result,",
     "In practice,",
-    "By extension,",
     "Interestingly,",
-    "At its core,",
     "Consequently,",
     "Building on this,",
     "To elaborate,",
+    "More specifically,",
+    "On the technical side,",
 ];
 
 /// Builds novel, topic-grounded paragraphs from inference results and KB chunks.
@@ -121,6 +129,11 @@ impl ProseBuilder {
 
     /// Builds novel prose from an inference result and KB chunks.
     ///
+    /// Templates are sampled without replacement within a single `build` call,
+    /// so the same boilerplate sentence structure never appears twice in one
+    /// output.  Near-duplicate sentences (identical conclusions expressed in
+    /// different templates) are also filtered before assembly.
+    ///
     /// # Arguments
     ///
     /// * `result`     - The inference result with proof trace and CF.
@@ -142,41 +155,75 @@ impl ProseBuilder {
         let para_count = 1 + (lcg_next(&mut seed) % (self.target_paragraphs as u64)) as usize;
 
         let mut all_sentences: Vec<String> = Vec::new();
+        let mut used_templates: HashSet<usize> = HashSet::new();
+        let mut seen_conclusions: HashSet<String> = HashSet::new();
 
         let (subj, pred, obj) = extract_spo(&result.conclusion);
 
         for step in &result.trace.steps {
-            if !step.conclusion.is_empty() {
-                let sentence = fill_template(
-                    pick_template(&mut seed),
-                    &subj,
-                    &pred,
-                    &obj,
-                    &step.conclusion,
-                );
-                all_sentences.push(capitalise(sentence));
+            if step.conclusion.is_empty() {
+                continue;
+            }
+            let conc_key = step
+                .conclusion
+                .split_whitespace()
+                .take(5)
+                .collect::<Vec<_>>()
+                .join(" ")
+                .to_ascii_lowercase();
+            if seen_conclusions.contains(&conc_key) {
+                continue;
+            }
+            seen_conclusions.insert(conc_key);
+            let tmpl_idx = pick_template_unique(&mut seed, &used_templates);
+            used_templates.insert(tmpl_idx);
+            let (step_subj, step_pred, step_obj) = extract_spo(&step.conclusion);
+            let sentence = fill_template(
+                TEMPLATES[tmpl_idx],
+                &step_subj,
+                &step_pred,
+                &step_obj,
+                &step.conclusion,
+            );
+            let capped = capitalise(sentence);
+            if !capped.is_empty() {
+                all_sentences.push(capped);
             }
         }
 
-        let conclusion_sentence = fill_template(
-            pick_template(&mut seed),
-            &subj,
-            &pred,
-            &obj,
-            &result.conclusion,
-        );
-        all_sentences.push(capitalise(conclusion_sentence));
+        let conc_key = result
+            .conclusion
+            .split_whitespace()
+            .take(5)
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_ascii_lowercase();
+        if !seen_conclusions.contains(&conc_key) {
+            let tmpl_idx = pick_template_unique(&mut seed, &used_templates);
+            used_templates.insert(tmpl_idx);
+            let conclusion_sentence =
+                fill_template(TEMPLATES[tmpl_idx], &subj, &pred, &obj, &result.conclusion);
+            let capped = capitalise(conclusion_sentence);
+            if !capped.is_empty() {
+                all_sentences.push(capped);
+            }
+        }
 
         for chunk in kb_chunks.iter().take(4) {
             for raw_sent in chunk.split(['.', '!', '?']) {
                 let trimmed = raw_sent.trim();
-                if trimmed.split_whitespace().count() >= 6 {
+                if trimmed.split_whitespace().count() >= 4 {
                     let sent = if trimmed.ends_with(['.', '!', '?']) {
                         trimmed.to_string()
                     } else {
                         format!("{trimmed}.")
                     };
-                    all_sentences.push(capitalise(sent));
+                    if !SentenceFilter::is_metadata_line(&sent)
+                        && !SentenceFilter::is_header_fragment(&sent)
+                        && !SentenceFilter::is_disambiguation_fragment(&sent)
+                    {
+                        all_sentences.push(capitalise(sent));
+                    }
                 }
             }
         }
@@ -186,8 +233,12 @@ impl ProseBuilder {
         let scorer = CoherenceScorer;
         let ordered = scorer.reorder(&all_sentences);
 
-        let total = ordered.len().min(sentence_count * para_count);
-        let sentences = &ordered[..total.max(1)];
+        if ordered.is_empty() {
+            return String::new();
+        }
+
+        let total = ordered.len().min(sentence_count * para_count).max(1);
+        let sentences = &ordered[..total];
 
         let per_para = (sentences.len() / para_count).max(1);
         let mut paragraphs: Vec<String> = Vec::new();
@@ -266,6 +317,10 @@ fn extract_spo(conclusion: &str) -> (String, String, String) {
 
 /// Fills a template string by replacing slot markers.
 ///
+/// The `{conclusion}` slot is normalised via [`normalise_conclusion`] before
+/// insertion so inference engine output (which is lowercase and may lack
+/// articles) reads naturally inside a sentence.
+///
 /// # Time Complexity
 ///
 /// O(|template|)
@@ -276,21 +331,75 @@ fn fill_template(
     object: &str,
     conclusion: &str,
 ) -> String {
+    let norm_conc = normalise_conclusion(conclusion);
     template
         .replace("{subject}", subject)
         .replace("{predicate}", predicate)
         .replace("{object}", object)
-        .replace("{conclusion}", conclusion)
+        .replace("{conclusion}", &norm_conc)
 }
 
-/// Picks a template pseudo-randomly using the LCG seed.
+/// Normalises an inference-engine conclusion string for use inside a prose sentence.
+///
+/// Inference conclusions are produced in lowercase without articles
+/// (e.g. `"borrow checker is core component"`).  This function:
+///
+/// 1. Capitalises every word that looks like a known proper noun or brand name.
+/// 2. Does **not** insert articles, the template wording already supplies
+///    enough context for the sentence to read naturally.
 ///
 /// # Time Complexity
 ///
-/// O(1)
-fn pick_template(seed: &mut u64) -> &'static str {
-    let idx = (lcg_next(seed) as usize) % TEMPLATES.len();
-    TEMPLATES[idx]
+/// O(|conclusion|)
+fn normalise_conclusion(conclusion: &str) -> String {
+    static PROPER_NOUNS: phf::Set<&'static str> = phf::phf_set! {
+        "rust", "python", "java", "javascript", "typescript", "golang", "swift",
+        "kotlin", "scala", "haskell", "ocaml", "erlang", "elixir", "clojure",
+        "linux", "windows", "macos", "android", "ios", "unix",
+        "mozilla", "google", "microsoft", "apple", "amazon", "meta",
+        "tokio", "cargo", "wasm", "webassembly",
+        "stackoverflow",
+    };
+    conclusion
+        .split_whitespace()
+        .map(|word| {
+            let lower = word.to_ascii_lowercase();
+            let clean: String = lower.chars().filter(|c| c.is_ascii_alphabetic()).collect();
+            if PROPER_NOUNS.contains(clean.as_str()) {
+                let mut chars = word.chars();
+                match chars.next() {
+                    None => String::new(),
+                    Some(c) => {
+                        let up: String = c.to_uppercase().collect();
+                        up + chars.as_str()
+                    }
+                }
+            } else {
+                word.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Picks a template index not already in `used`, falling back to any index when
+/// all templates have been exhausted.
+///
+/// This prevents the same boilerplate structure from appearing twice within a
+/// single `ProseBuilder::build` call.
+///
+/// # Time Complexity
+///
+/// O(|TEMPLATES|)
+fn pick_template_unique(seed: &mut u64, used: &HashSet<usize>) -> usize {
+    let start = (lcg_next(seed) as usize) % TEMPLATES.len();
+    for offset in 0..TEMPLATES.len() {
+        let idx = (start + offset) % TEMPLATES.len();
+        if !used.contains(&idx) {
+            return idx;
+        }
+    }
+    start
 }
 
 /// Minimal LCG pseudo-random number generator step.

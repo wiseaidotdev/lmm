@@ -1,6 +1,6 @@
 # LMM WebAssembly Guide 🌐
 
-LMM natively targets `wasm32-unknown-unknown`. Because the HTTP client (`reqwest`) automatically switches to the browser `fetch` API on WASM targets, you can deploy LMM inside Rust frontend frameworks without any additional glue code.
+LMM natively targets `wasm32-unknown-unknown` and runs the full **TRAM** (Text Reasoning and Applied Mathematics) pipeline entirely in the browser, no server, no GPU, no API key.
 
 ## Supported Frameworks
 
@@ -27,10 +27,16 @@ trunk serve
 
 ## 🌍 CORS Considerations
 
-DuckDuckGo's endpoints set permissive CORS headers on most responses, but the behaviour can vary by endpoint and region. If you encounter CORS errors:
+LMM's WASM networking layer chains multiple data sources with graceful fallback:
 
-- Use a server-side proxy to forward requests from your own origin.
-- Use the `wt-wt` (worldwide) region which tends to have the broadest CORS coverage.
+1. **DuckDuckGo Instant Answer API**: returns a structured abstract for most topics.
+1. **CORS proxy → Wikipedia** (`origin=*`): full article text fetched via a configurable proxy when DuckDuckGo returns insufficient content.
+1. **Wikipedia direct** (`origin=*`): fallback when no proxy is configured.
+
+DuckDuckGo's endpoints set permissive CORS headers on most responses, but behaviour can vary by endpoint and region. If you encounter CORS errors:
+
+- Use a server-side proxy to forward requests from your own origin (configure via `DDG_CORS_PROXY_URL` in `.cargo/config.toml`).
+- Use the `wt-wt` (worldwide) region, which tends to have the broadest CORS coverage.
 - Consider caching results server-side and serving them from your own API.
 
 ## 🔬 Feature Flags for WASM

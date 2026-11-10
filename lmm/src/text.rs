@@ -25,6 +25,9 @@
 use crate::error::{LmmError, Result};
 use crate::lexicon::word_tone;
 use phf::{Set, phf_set};
+use std::collections::HashSet;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Compile-time perfect-hash set of words that are **not** useful keywords.
 static NON_KEYWORD_WORDS: Set<&'static str> = phf_set! {
@@ -256,7 +259,7 @@ fn split_into_sentences(text: &str) -> Vec<String> {
 }
 
 fn keywords_from_text(text: &str, n: usize) -> Vec<String> {
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = HashSet::new();
     let mut word_tones: Vec<(f64, String)> = text
         .split_whitespace()
         .filter_map(|w| {
@@ -587,7 +590,7 @@ impl TextSummarizer {
 }
 
 fn deduplicate_sentences(sentences: Vec<String>) -> Vec<String> {
-    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut seen: HashSet<String> = HashSet::new();
     sentences
         .into_iter()
         .filter(|s| {
@@ -619,8 +622,8 @@ impl ParagraphGenerator {
 
     pub fn generate(&self, seed: &str) -> Result<String> {
         #[cfg(not(target_arch = "wasm32"))]
-        let run_nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let run_nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .subsec_nanos() as usize;
         #[cfg(target_arch = "wasm32")]

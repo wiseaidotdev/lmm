@@ -38,7 +38,7 @@
 //! * [Cognitive architecture - Wikipedia](https://en.wikipedia.org/wiki/Cognitive_architecture)
 //! * [Memory - Wikipedia](https://en.wikipedia.org/wiki/Memory_(psychology))
 
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
 /// A single entry in either tier of agent memory.
 ///
@@ -150,7 +150,7 @@ impl HotStore {
     /// assert_eq!(top[0].content, "Rust ownership model");
     /// ```
     pub fn relevant(&self, query: &str, top_n: usize) -> Vec<&MemoryEntry> {
-        let query_tokens: std::collections::HashSet<String> = query
+        let query_tokens: HashSet<String> = query
             .split_whitespace()
             .map(|w| w.to_ascii_lowercase())
             .collect();
@@ -159,7 +159,7 @@ impl HotStore {
             .entries
             .iter()
             .map(|e| {
-                let entry_tokens: std::collections::HashSet<String> = e
+                let entry_tokens: HashSet<String> = e
                     .content
                     .split_whitespace()
                     .map(|w| w.to_ascii_lowercase())
@@ -274,7 +274,7 @@ impl ColdStore {
     /// assert_eq!(top[0].content, "Rust ownership facts recent");
     /// ```
     pub fn recall(&self, query: &str, top_n: usize) -> Vec<&MemoryEntry> {
-        let query_tokens: std::collections::HashSet<String> = query
+        let query_tokens: HashSet<String> = query
             .split_whitespace()
             .map(|w| w.to_ascii_lowercase())
             .collect();
@@ -285,7 +285,7 @@ impl ColdStore {
             .iter()
             .enumerate()
             .map(|(i, e)| {
-                let entry_tokens: std::collections::HashSet<String> = e
+                let entry_tokens: HashSet<String> = e
                     .content
                     .split_whitespace()
                     .map(|w| w.to_ascii_lowercase())

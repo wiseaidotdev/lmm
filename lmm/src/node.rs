@@ -10,6 +10,22 @@
 //! This module exposes the LMM core engine to Node.js via [`napi-derive`].
 //! Every type and function is gated behind the `node` cargo feature.
 
+use crate::causal::CausalGraph;
+use crate::compression::{
+    aic_score as comp_aic, bic_score as comp_bic, compute_mse as comp_mse, mdl_score as comp_mdl,
+    r_squared as comp_r2,
+};
+use crate::consciousness::Consciousness;
+use crate::discovery::SymbolicRegression;
+use crate::encode::{EncodedMessage, decode_message as enc_decode, encode_text as enc_encode};
+use crate::equation::Expression;
+use crate::imagen::{ImagenParams, render as imagen_render};
+use crate::physics::HarmonicOscillator;
+use crate::predict::TextPredictor;
+use crate::simulation::Simulator;
+use crate::stochastic::StochasticEnhancer;
+use crate::tensor::Tensor;
+use crate::text::{ParagraphGenerator, SentenceGenerator, TextSummarizer};
 use crate::traits::Causal;
 use napi_derive::napi;
 use std::collections::HashMap;
@@ -17,7 +33,7 @@ use std::collections::HashMap;
 /// An n-dimensional dense array of f64 values.
 #[napi(js_name = "Tensor")]
 pub struct NapiTensor {
-    inner: crate::tensor::Tensor,
+    inner: Tensor,
 }
 
 #[napi]
@@ -26,7 +42,7 @@ impl NapiTensor {
     #[napi(constructor)]
     pub fn new(shape: Vec<u32>, data: Vec<f64>) -> napi::Result<Self> {
         let shape: Vec<usize> = shape.into_iter().map(|x| x as usize).collect();
-        crate::tensor::Tensor::new(shape, data)
+        Tensor::new(shape, data)
             .map(|inner| Self { inner })
             .map_err(|e| napi::Error::from_reason(e.to_string()))
     }
@@ -71,7 +87,7 @@ impl NapiTensor {
 /// A symbolic mathematical expression tree.
 #[napi(js_name = "Expression")]
 pub struct NapiExpression {
-    inner: crate::equation::Expression,
+    inner: Expression,
 }
 
 #[napi]
@@ -79,7 +95,7 @@ impl NapiExpression {
     /// Parse an expression string, e.g. ``"(x * 2)"``.
     #[napi(factory)]
     pub fn parse(s: String) -> napi::Result<Self> {
-        s.parse::<crate::equation::Expression>()
+        s.parse::<Expression>()
             .map(|inner| Self { inner })
             .map_err(|e| napi::Error::from_reason(e.to_string()))
     }
@@ -118,7 +134,7 @@ impl NapiExpression {
 /// Directed acyclic causal graph.
 #[napi(js_name = "CausalGraph")]
 pub struct NapiCausalGraph {
-    inner: crate::causal::CausalGraph,
+    inner: CausalGraph,
 }
 
 #[napi]
@@ -126,7 +142,7 @@ impl NapiCausalGraph {
     #[napi(constructor)]
     pub fn new() -> Self {
         Self {
-            inner: crate::causal::CausalGraph::new(),
+            inner: CausalGraph::new(),
         }
     }
 
@@ -184,7 +200,7 @@ impl NapiCausalGraph {
 /// 1-D harmonic oscillator. State: ``[x, x_dot]``.
 #[napi(js_name = "HarmonicOscillator")]
 pub struct NapiHarmonicOscillator {
-    inner: crate::physics::HarmonicOscillator,
+    inner: HarmonicOscillator,
 }
 
 #[napi]
@@ -192,7 +208,7 @@ impl NapiHarmonicOscillator {
     /// Create with ``omega`` (rad/s), ``x0`` (displacement), ``v0`` (velocity).
     #[napi(constructor)]
     pub fn new(omega: f64, x0: f64, v0: f64) -> napi::Result<Self> {
-        crate::physics::HarmonicOscillator::new(omega, x0, v0)
+        HarmonicOscillator::new(omega, x0, v0)
             .map(|inner| Self { inner })
             .map_err(|e| napi::Error::from_reason(e.to_string()))
     }
@@ -216,7 +232,7 @@ impl NapiHarmonicOscillator {
 /// Numeric ODE integrator.
 #[napi(js_name = "Simulator")]
 pub struct NapiSimulator {
-    inner: crate::simulation::Simulator,
+    inner: Simulator,
 }
 
 #[napi]
@@ -224,7 +240,7 @@ impl NapiSimulator {
     #[napi(constructor)]
     pub fn new(step_size: f64) -> Self {
         Self {
-            inner: crate::simulation::Simulator { step_size },
+            inner: Simulator { step_size },
         }
     }
 
@@ -258,7 +274,7 @@ impl NapiSimulator {
 /// Genetic-programming symbolic regressor.
 #[napi(js_name = "SymbolicRegression")]
 pub struct NapiSymbolicRegression {
-    inner: crate::discovery::SymbolicRegression,
+    inner: SymbolicRegression,
 }
 
 #[napi]
@@ -270,7 +286,7 @@ impl NapiSymbolicRegression {
         iterations: Option<u32>,
         population_size: Option<u32>,
     ) -> Self {
-        let mut sr = crate::discovery::SymbolicRegression::new(
+        let mut sr = SymbolicRegression::new(
             max_depth.unwrap_or(3) as usize,
             iterations.unwrap_or(50) as usize,
         );
@@ -307,7 +323,7 @@ pub fn encode_text(
     iterations: Option<u32>,
     depth: Option<u32>,
 ) -> napi::Result<EncodeResult> {
-    let msg = crate::encode::encode_text(
+    let msg = enc_encode(
         &text,
         iterations.unwrap_or(40) as usize,
         depth.unwrap_or(3) as usize,
@@ -328,23 +344,23 @@ pub fn decode_message(
     residuals: Vec<i64>,
 ) -> napi::Result<String> {
     let eq = expression
-        .parse::<crate::equation::Expression>()
+        .parse::<Expression>()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-    let msg = crate::encode::EncodedMessage {
+    let msg = EncodedMessage {
         equation: eq,
         length: length as usize,
         residuals,
     };
-    crate::encode::decode_message(&msg).map_err(|e| napi::Error::from_reason(e.to_string()))
+    enc_decode(&msg).map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
 /// MDL score for an expression over ``(inputs, targets)``.
 #[napi]
 pub fn mdl_score(expr_str: String, inputs: Vec<Vec<f64>>, targets: Vec<f64>) -> napi::Result<f64> {
     let expr = expr_str
-        .parse::<crate::equation::Expression>()
+        .parse::<Expression>()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-    Ok(crate::compression::mdl_score(&expr, &inputs, &targets))
+    Ok(comp_mdl(&expr, &inputs, &targets))
 }
 
 /// MSE of expression over ``(inputs, targets)``.
@@ -355,30 +371,30 @@ pub fn compute_mse(
     targets: Vec<f64>,
 ) -> napi::Result<f64> {
     let expr = expr_str
-        .parse::<crate::equation::Expression>()
+        .parse::<Expression>()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-    Ok(crate::compression::compute_mse(&expr, &inputs, &targets))
+    Ok(comp_mse(&expr, &inputs, &targets))
 }
 
 /// R² of expression over ``(inputs, targets)``.
 #[napi]
 pub fn r_squared(expr_str: String, inputs: Vec<Vec<f64>>, targets: Vec<f64>) -> napi::Result<f64> {
     let expr = expr_str
-        .parse::<crate::equation::Expression>()
+        .parse::<Expression>()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-    Ok(crate::compression::r_squared(&expr, &inputs, &targets))
+    Ok(comp_r2(&expr, &inputs, &targets))
 }
 
 /// AIC: ``2k - 2 ln(L)``.
 #[napi]
 pub fn aic_score(n_params: u32, log_likelihood: f64) -> f64 {
-    crate::compression::aic_score(n_params as usize, log_likelihood)
+    comp_aic(n_params as usize, log_likelihood)
 }
 
 /// BIC: ``k ln(n) - 2 ln(L)``.
 #[napi]
 pub fn bic_score(n_params: u32, n_samples: u32, log_likelihood: f64) -> f64 {
-    crate::compression::bic_score(n_params as usize, n_samples as usize, log_likelihood)
+    comp_bic(n_params as usize, n_samples as usize, log_likelihood)
 }
 
 /// Return type for ``TextPredictor.predict``.
@@ -393,7 +409,7 @@ pub struct PredictionResult {
 /// Symbolic-trajectory text continuation predictor.
 #[napi(js_name = "TextPredictor")]
 pub struct NapiTextPredictor {
-    inner: crate::predict::TextPredictor,
+    inner: TextPredictor,
 }
 
 #[napi]
@@ -401,7 +417,7 @@ impl NapiTextPredictor {
     #[napi(constructor)]
     pub fn new(window_size: Option<u32>, iterations: Option<u32>, depth: Option<u32>) -> Self {
         Self {
-            inner: crate::predict::TextPredictor::new(
+            inner: TextPredictor::new(
                 window_size.unwrap_or(20) as usize,
                 iterations.unwrap_or(30) as usize,
                 depth.unwrap_or(3) as usize,
@@ -431,7 +447,7 @@ impl NapiTextPredictor {
 /// Probabilistic word-substitution enhancer.
 #[napi(js_name = "StochasticEnhancer")]
 pub struct NapiStochasticEnhancer {
-    inner: crate::stochastic::StochasticEnhancer,
+    inner: StochasticEnhancer,
 }
 
 #[napi]
@@ -439,7 +455,7 @@ impl NapiStochasticEnhancer {
     #[napi(constructor)]
     pub fn new(p: f64) -> Self {
         Self {
-            inner: crate::stochastic::StochasticEnhancer::new(p),
+            inner: StochasticEnhancer::new(p),
         }
     }
 
@@ -452,7 +468,7 @@ impl NapiStochasticEnhancer {
 /// Sentence generator.
 #[napi(js_name = "SentenceGenerator")]
 pub struct NapiSentenceGenerator {
-    inner: crate::text::SentenceGenerator,
+    inner: SentenceGenerator,
 }
 
 #[napi]
@@ -460,7 +476,7 @@ impl NapiSentenceGenerator {
     #[napi(constructor)]
     pub fn new(iterations: Option<u32>, depth: Option<u32>) -> Self {
         Self {
-            inner: crate::text::SentenceGenerator::new(
+            inner: SentenceGenerator::new(
                 iterations.unwrap_or(20) as usize,
                 depth.unwrap_or(3) as usize,
             ),
@@ -478,7 +494,7 @@ impl NapiSentenceGenerator {
 /// Paragraph generator.
 #[napi(js_name = "ParagraphGenerator")]
 pub struct NapiParagraphGenerator {
-    inner: crate::text::ParagraphGenerator,
+    inner: ParagraphGenerator,
 }
 
 #[napi]
@@ -486,7 +502,7 @@ impl NapiParagraphGenerator {
     #[napi(constructor)]
     pub fn new(sentence_count: Option<u32>, iterations: Option<u32>, depth: Option<u32>) -> Self {
         Self {
-            inner: crate::text::ParagraphGenerator::new(
+            inner: ParagraphGenerator::new(
                 sentence_count.unwrap_or(5) as usize,
                 iterations.unwrap_or(20) as usize,
                 depth.unwrap_or(3) as usize,
@@ -505,7 +521,7 @@ impl NapiParagraphGenerator {
 /// Text summarizer.
 #[napi(js_name = "TextSummarizer")]
 pub struct NapiTextSummarizer {
-    inner: crate::text::TextSummarizer,
+    inner: TextSummarizer,
 }
 
 #[napi]
@@ -513,7 +529,7 @@ impl NapiTextSummarizer {
     #[napi(constructor)]
     pub fn new(sentence_count: Option<u32>, iterations: Option<u32>, depth: Option<u32>) -> Self {
         Self {
-            inner: crate::text::TextSummarizer::new(
+            inner: TextSummarizer::new(
                 sentence_count.unwrap_or(3) as usize,
                 iterations.unwrap_or(20) as usize,
                 depth.unwrap_or(3) as usize,
@@ -534,16 +550,16 @@ impl NapiTextSummarizer {
 /// Global Workspace consciousness module.
 #[napi(js_name = "Consciousness")]
 pub struct NapiConsciousness {
-    inner: crate::consciousness::Consciousness,
+    inner: Consciousness,
 }
 
 #[napi]
 impl NapiConsciousness {
     #[napi(constructor)]
     pub fn new(state_len: u32, lookahead: Option<u32>, step_size: Option<f64>) -> Self {
-        let initial = crate::tensor::Tensor::zeros(vec![state_len as usize]);
+        let initial = Tensor::zeros(vec![state_len as usize]);
         Self {
-            inner: crate::consciousness::Consciousness::new(
+            inner: Consciousness::new(
                 initial,
                 lookahead.unwrap_or(5) as usize,
                 step_size.unwrap_or(0.01),
@@ -576,7 +592,7 @@ pub fn render_image(
         .as_deref()
         .and_then(|s| s.parse().ok())
         .unwrap_or_default();
-    let params = crate::imagen::ImagenParams {
+    let params = ImagenParams {
         prompt,
         width: width.unwrap_or(512),
         height: height.unwrap_or(512),
@@ -585,7 +601,7 @@ pub fn render_image(
         palette_name: palette.unwrap_or_default(),
         output: output.unwrap_or_else(|| "output.ppm".to_string()),
     };
-    crate::imagen::render(&params).map_err(|e| napi::Error::from_reason(e.to_string()))
+    imagen_render(&params).map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
 // Copyright 2026 Mahmoud Harmouch.

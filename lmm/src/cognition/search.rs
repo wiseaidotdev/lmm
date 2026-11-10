@@ -44,7 +44,7 @@
 
 use std::collections::HashMap;
 
-#[cfg(feature = "net")]
+#[cfg(any(feature = "net", feature = "wasm-net"))]
 use duckduckgo::browser::Browser;
 #[cfg(feature = "net")]
 use duckduckgo::user_agents::get as get_ua;
@@ -109,28 +109,35 @@ impl SearchOracle {
         self.cache.clear();
     }
 
-    /// Issues the actual DuckDuckGo request (only compiled when `net` is on).
+    /// Issues the actual DuckDuckGo request (only compiled when `net` or `wasm-net` is on).
     ///
     /// Strategy:
     /// 1. Try `get_api_response` (Instant Answer API) → `abstract_text` + related topics.
     /// 2. If that yields nothing, try `lite_search` → title + snippet pairs.
+    ///    (Lite search is skipped in WASM builds as it is blocked by CORS.)
     ///
     /// # Time Complexity
     ///
     /// O(1) network round-trips; O(|result|) string concatenation.
-    #[cfg(feature = "net")]
+    #[cfg(any(feature = "net", feature = "wasm-net"))]
     async fn fetch_live(&self, query: &str) -> String {
         let browser = Browser::new();
-        let ua = get_ua("firefox").unwrap_or("Mozilla/5.0");
 
         if let Some(text) = instant_answer(&browser, query).await {
             return text;
         }
 
-        lite_snippets(&browser, query, ua, self.limit).await
+        #[cfg(feature = "net")]
+        {
+            let ua = get_ua("firefox").unwrap_or("Mozilla/5.0");
+            return lite_snippets(&browser, query, ua, self.limit).await;
+        }
+
+        #[cfg(not(feature = "net"))]
+        String::new()
     }
 
-    #[cfg(not(feature = "net"))]
+    #[cfg(not(any(feature = "net", feature = "wasm-net")))]
     async fn fetch_live(&self, _query: &str) -> String {
         String::new()
     }
@@ -142,7 +149,7 @@ impl SearchOracle {
 /// # Time Complexity
 ///
 /// O(|query|)
-#[cfg(feature = "net")]
+#[cfg(any(feature = "net", feature = "wasm-net"))]
 fn url_encode_query(query: &str) -> String {
     query
         .chars()
@@ -159,10 +166,14 @@ fn url_encode_query(query: &str) -> String {
 ///
 /// Returns `None` when the response carries no usable text.
 ///
+/// In WASM builds, `get_api_response` automatically falls back through public
+/// CORS proxies and finally the Wikipedia API, so this always has a network
+/// source available.
+///
 /// # Time Complexity
 ///
 /// O(|related_topics|): linear over the topic list.
-#[cfg(feature = "net")]
+#[cfg(any(feature = "net", feature = "wasm-net"))]
 async fn instant_answer(browser: &Browser, query: &str) -> Option<String> {
     let encoded = url_encode_query(query);
     let path = format!("?q={}&ia=web", encoded);
@@ -196,6 +207,8 @@ async fn instant_answer(browser: &Browser, query: &str) -> Option<String> {
 /// Calls DuckDuckGo Lite and assembles title + snippet pairs into a corpus.
 ///
 /// Returns an empty string on error or when no results are returned.
+///
+/// **Not available in WASM** (`lite.duckduckgo.com` returns CORS errors in browsers).
 ///
 /// # Time Complexity
 ///

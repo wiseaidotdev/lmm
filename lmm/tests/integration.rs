@@ -517,4 +517,80 @@ mod tram_tests {
             "At least 2 of 5 TRAM-enhanced runs should differ"
         );
     }
+
+    #[test]
+    fn tram_assembly_filters_metadata_artifacts() {
+        use lmm::generation::filter::SentenceFilter;
+        let noisy_sentences = vec![
+            "Category History of programming languages - The history spans from early computers.",
+            "Outline of the Rust programming language - The following outline is a topical guide.",
+            "Rust is a general-purpose programming language emphasizing performance and memory safety.",
+            "See also the disambiguation page for alternate meanings of this term.",
+            "The borrow checker prevents memory errors by tracking reference lifetimes at compile time.",
+        ];
+        let clean: Vec<&str> = noisy_sentences
+            .into_iter()
+            .filter(|s| SentenceFilter::is_acceptable(s))
+            .collect();
+        assert!(
+            clean.len() == 2,
+            "only 2 quality sentences should survive: got {}: {:?}",
+            clean.len(),
+            clean
+        );
+        for s in &clean {
+            assert!(
+                !s.contains("Category") && !s.contains("Outline") && !s.contains("See also"),
+                "metadata artifact leaked into clean output: {s}"
+            );
+        }
+    }
+
+    #[test]
+    fn tram_assembly_produces_reasonable_paragraph_count() {
+        use lmm::generation::dedup::GlobalDeduplicator;
+        use lmm::generation::shaper::ParagraphShaper;
+        let sentences: Vec<String> = vec![
+            "Rust is a general-purpose programming language emphasizing performance and type safety.",
+            "The borrow checker prevents data races by tracking reference lifetimes at compile time.",
+            "Cargo is the official package manager and build tool for the Rust ecosystem.",
+            "Traits in Rust enable polymorphism without inheritance through shared behaviour contracts.",
+            "Pattern matching provides exhaustive, expressive control flow across all data variants.",
+            "Iterators are lazy and compose efficiently through zero-cost adapter chains.",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        let deduplicator = GlobalDeduplicator::new(0.68);
+        let deduped = deduplicator.deduplicate(sentences);
+        let shaper = ParagraphShaper::new(2, 2, 5, 40, 120);
+        let output = shaper.shape(&deduped, 42);
+        let paragraph_count = output
+            .split("\n\n")
+            .filter(|p| !p.trim().is_empty())
+            .count();
+        assert!(
+            (1..=2).contains(&paragraph_count),
+            "expected 1-2 paragraphs, got {paragraph_count}"
+        );
+    }
+
+    #[test]
+    fn tram_deduplicator_removes_near_duplicate_kb_sentences() {
+        use lmm::generation::dedup::GlobalDeduplicator;
+        let sentences = vec![
+            "Rust is a general-purpose programming language that emphasizes performance, type safety, and memory safety.".to_string(),
+            "Rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety.".to_string(),
+            "Python is a high-level scripting language well known for its readable and concise syntax.".to_string(),
+        ];
+        let deduplicator = GlobalDeduplicator::new(0.68);
+        let result = deduplicator.deduplicate(sentences);
+        assert!(
+            result.len() <= 2,
+            "near-duplicate Rust sentences should collapse to one: got {}",
+            result.len()
+        );
+        let has_python = result.iter().any(|s| s.contains("Python"));
+        assert!(has_python, "distinct Python sentence must survive dedup");
+    }
 }

@@ -31,6 +31,8 @@
 //! * [Intelligent agent - Wikipedia](https://en.wikipedia.org/wiki/Intelligent_agent)
 //! * [Convergence (mathematics) - Wikipedia](https://en.wikipedia.org/wiki/Convergence#Mathematics)
 
+use crate::cognition::signal::error_from_texts;
+
 /// Decides when the `ThinkLoop` has converged on a satisfactory answer.
 ///
 /// # Examples
@@ -94,7 +96,7 @@ impl GoalEvaluator {
     /// assert_eq!(GoalEvaluator::error("foo", "bar"), 1.0);
     /// ```
     pub fn error(goal: &str, observation: &str) -> f64 {
-        crate::cognition::signal::error_from_texts(goal, observation)
+        error_from_texts(goal, observation)
     }
 
     /// Returns a progress percentage (0-100) given an error value.

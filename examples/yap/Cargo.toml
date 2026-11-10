@@ -9,7 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 input-rs = { version = "0.2.6", features = ["yew"] }
-lmm = { version = "0.3.4", features = ["wasm-net"] }
+lmm = { version = "0.3.5", features = ["wasm-net"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.104", default-features = false }
 uuid = { version = "1.29.2", features = ["v4", "js"] }

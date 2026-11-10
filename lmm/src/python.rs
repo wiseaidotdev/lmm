@@ -10,6 +10,24 @@
 //! This module exposes the LMM core engine to Python via [`pyo3`].
 //! Every type and function is gated behind the `python` cargo feature.
 
+use crate::causal::CausalGraph;
+use crate::compression::{
+    aic_score as comp_aic, bic_score as comp_bic, compute_mse as comp_mse, mdl_score as comp_mdl,
+    r_squared as comp_r2,
+};
+use crate::consciousness::Consciousness;
+use crate::discovery::SymbolicRegression;
+use crate::encode::{EncodedMessage, decode_message as enc_decode, encode_text as enc_encode};
+use crate::equation::Expression;
+use crate::field::Field;
+use crate::imagen::{ImagenParams, render as imagen_render};
+use crate::operator::NeuralOperator;
+use crate::physics::{HarmonicOscillator, LorenzSystem, Pendulum, SIRModel};
+use crate::predict::TextPredictor;
+use crate::simulation::Simulator;
+use crate::stochastic::StochasticEnhancer;
+use crate::tensor::Tensor;
+use crate::text::{ParagraphGenerator, SentenceGenerator, TextSummarizer};
 use crate::traits::Causal;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
@@ -20,7 +38,7 @@ use std::collections::HashMap;
 #[pyclass(name = "Tensor", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyTensor {
-    inner: crate::tensor::Tensor,
+    inner: Tensor,
 }
 
 #[pymethods]
@@ -32,7 +50,7 @@ impl PyTensor {
     ///     data:  flat list of float values in row-major order.
     #[new]
     pub fn new(shape: Vec<usize>, data: Vec<f64>) -> PyResult<Self> {
-        crate::tensor::Tensor::new(shape, data)
+        Tensor::new(shape, data)
             .map(|inner| Self { inner })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -87,7 +105,7 @@ impl PyTensor {
 #[pyclass(name = "Expression", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyExpression {
-    inner: crate::equation::Expression,
+    inner: Expression,
 }
 
 #[pymethods]
@@ -95,7 +113,7 @@ impl PyExpression {
     /// Parse a symbolic expression string, e.g. ``"(x * 2)"`` or ``"sin(x)"``.
     #[staticmethod]
     pub fn parse(s: &str) -> PyResult<Self> {
-        s.parse::<crate::equation::Expression>()
+        s.parse::<Expression>()
             .map(|inner| Self { inner })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -133,7 +151,7 @@ impl PyExpression {
 /// A directed acyclic causal graph supporting interventions and counterfactuals.
 #[pyclass(name = "CausalGraph")]
 pub struct PyCausalGraph {
-    inner: crate::causal::CausalGraph,
+    inner: CausalGraph,
 }
 
 #[pymethods]
@@ -141,7 +159,7 @@ impl PyCausalGraph {
     #[new]
     pub fn new() -> Self {
         Self {
-            inner: crate::causal::CausalGraph::new(),
+            inner: CausalGraph::new(),
         }
     }
 
@@ -187,7 +205,7 @@ impl PyCausalGraph {
 /// Numeric ODE integrator (Euler, RK4, Leapfrog).
 #[pyclass(name = "Simulator")]
 pub struct PySimulator {
-    inner: crate::simulation::Simulator,
+    inner: Simulator,
 }
 
 #[pymethods]
@@ -196,7 +214,7 @@ impl PySimulator {
     #[new]
     pub fn new(step_size: f64) -> Self {
         Self {
-            inner: crate::simulation::Simulator { step_size },
+            inner: Simulator { step_size },
         }
     }
 
@@ -233,7 +251,7 @@ impl PySimulator {
 /// 1-D harmonic oscillator. State: ``[x, x_dot]``.
 #[pyclass(name = "HarmonicOscillator")]
 pub struct PyHarmonicOscillator {
-    inner: crate::physics::HarmonicOscillator,
+    inner: HarmonicOscillator,
 }
 
 #[pymethods]
@@ -241,7 +259,7 @@ impl PyHarmonicOscillator {
     /// Args: omega (rad/s), x0 (initial displacement), v0 (initial velocity).
     #[new]
     pub fn new(omega: f64, x0: f64, v0: f64) -> PyResult<Self> {
-        crate::physics::HarmonicOscillator::new(omega, x0, v0)
+        HarmonicOscillator::new(omega, x0, v0)
             .map(|inner| Self { inner })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -266,14 +284,14 @@ impl PyHarmonicOscillator {
 /// Lorenz chaotic attractor. State: ``[x, y, z]``.
 #[pyclass(name = "LorenzSystem")]
 pub struct PyLorenzSystem {
-    inner: crate::physics::LorenzSystem,
+    inner: LorenzSystem,
 }
 
 #[pymethods]
 impl PyLorenzSystem {
     #[new]
     pub fn new(sigma: f64, rho: f64, beta: f64, x0: f64, y0: f64, z0: f64) -> PyResult<Self> {
-        crate::physics::LorenzSystem::new(sigma, rho, beta, x0, y0, z0)
+        LorenzSystem::new(sigma, rho, beta, x0, y0, z0)
             .map(|inner| Self { inner })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -287,7 +305,7 @@ impl PyLorenzSystem {
 /// A pendulum (angle, angular-velocity). ``Pendulum::new(g, l, theta0, omega0)``.
 #[pyclass(name = "Pendulum")]
 pub struct PyPendulum {
-    inner: crate::physics::Pendulum,
+    inner: Pendulum,
 }
 
 #[pymethods]
@@ -295,7 +313,7 @@ impl PyPendulum {
     /// Args: g (gravity m/s²), l (length m), theta0 (rad), omega0 (rad/s).
     #[new]
     pub fn new(g: f64, l: f64, theta0: f64, omega0: f64) -> PyResult<Self> {
-        crate::physics::Pendulum::new(g, l, theta0, omega0)
+        Pendulum::new(g, l, theta0, omega0)
             .map(|inner| Self { inner })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -309,14 +327,14 @@ impl PyPendulum {
 /// SIR epidemiological model. State: ``[S, I, R]``.
 #[pyclass(name = "SIRModel")]
 pub struct PySIRModel {
-    inner: crate::physics::SIRModel,
+    inner: SIRModel,
 }
 
 #[pymethods]
 impl PySIRModel {
     #[new]
     pub fn new(beta: f64, gamma: f64, s0: f64, i0: f64, r0: f64) -> PyResult<Self> {
-        crate::physics::SIRModel::new(beta, gamma, s0, i0, r0)
+        SIRModel::new(beta, gamma, s0, i0, r0)
             .map(|inner| Self { inner })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -343,7 +361,7 @@ pub fn encode_text(
     iterations: Option<usize>,
     depth: Option<usize>,
 ) -> PyResult<Py<PyDict>> {
-    let msg = crate::encode::encode_text(text, iterations.unwrap_or(40), depth.unwrap_or(3))
+    let msg = enc_encode(text, iterations.unwrap_or(40), depth.unwrap_or(3))
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     let d = PyDict::new(py);
     d.set_item("expression", format!("{}", msg.equation))?;
@@ -361,14 +379,14 @@ pub fn encode_text(
 #[pyfunction]
 pub fn decode_message(expression: &str, length: usize, residuals: Vec<i64>) -> PyResult<String> {
     let eq = expression
-        .parse::<crate::equation::Expression>()
+        .parse::<Expression>()
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let msg = crate::encode::EncodedMessage {
+    let msg = EncodedMessage {
         equation: eq,
         length,
         residuals,
     };
-    crate::encode::decode_message(&msg).map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    enc_decode(&msg).map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Minimum Description Length score for a symbolic expression over data.
@@ -380,45 +398,45 @@ pub fn decode_message(expression: &str, length: usize, residuals: Vec<i64>) -> P
 #[pyfunction]
 pub fn mdl_score(expr_str: &str, inputs: Vec<Vec<f64>>, targets: Vec<f64>) -> PyResult<f64> {
     let expr = expr_str
-        .parse::<crate::equation::Expression>()
+        .parse::<Expression>()
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    Ok(crate::compression::mdl_score(&expr, &inputs, &targets))
+    Ok(comp_mdl(&expr, &inputs, &targets))
 }
 
 /// Mean-squared error of an expression over (inputs, targets).
 #[pyfunction]
 pub fn compute_mse(expr_str: &str, inputs: Vec<Vec<f64>>, targets: Vec<f64>) -> PyResult<f64> {
     let expr = expr_str
-        .parse::<crate::equation::Expression>()
+        .parse::<Expression>()
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    Ok(crate::compression::compute_mse(&expr, &inputs, &targets))
+    Ok(comp_mse(&expr, &inputs, &targets))
 }
 
 /// R² of an expression over (inputs, targets).
 #[pyfunction]
 pub fn r_squared(expr_str: &str, inputs: Vec<Vec<f64>>, targets: Vec<f64>) -> PyResult<f64> {
     let expr = expr_str
-        .parse::<crate::equation::Expression>()
+        .parse::<Expression>()
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    Ok(crate::compression::r_squared(&expr, &inputs, &targets))
+    Ok(comp_r2(&expr, &inputs, &targets))
 }
 
 /// Akaike Information Criterion: ``2k - 2 ln(L)``.
 #[pyfunction]
 pub fn aic_score(n_params: usize, log_likelihood: f64) -> f64 {
-    crate::compression::aic_score(n_params, log_likelihood)
+    comp_aic(n_params, log_likelihood)
 }
 
 /// Bayesian Information Criterion: ``k ln(n) - 2 ln(L)``.
 #[pyfunction]
 pub fn bic_score(n_params: usize, n_samples: usize, log_likelihood: f64) -> f64 {
-    crate::compression::bic_score(n_params, n_samples, log_likelihood)
+    comp_bic(n_params, n_samples, log_likelihood)
 }
 
 /// Genetic-programming symbolic regressor.
 #[pyclass(name = "SymbolicRegression")]
 pub struct PySymbolicRegression {
-    inner: crate::discovery::SymbolicRegression,
+    inner: SymbolicRegression,
 }
 
 #[pymethods]
@@ -436,10 +454,7 @@ impl PySymbolicRegression {
         population_size: Option<usize>,
         var_names: Option<Vec<String>>,
     ) -> Self {
-        let mut sr = crate::discovery::SymbolicRegression::new(
-            max_depth.unwrap_or(3),
-            iterations.unwrap_or(50),
-        );
+        let mut sr = SymbolicRegression::new(max_depth.unwrap_or(3), iterations.unwrap_or(50));
         if let Some(p) = population_size {
             sr = sr.with_population(p);
         }
@@ -463,7 +478,7 @@ impl PySymbolicRegression {
 /// Sentence generator.
 #[pyclass(name = "SentenceGenerator")]
 pub struct PySentenceGenerator {
-    inner: crate::text::SentenceGenerator,
+    inner: SentenceGenerator,
 }
 
 #[pymethods]
@@ -475,10 +490,7 @@ impl PySentenceGenerator {
     #[pyo3(signature = (iterations=None, depth=None))]
     pub fn new(iterations: Option<usize>, depth: Option<usize>) -> Self {
         Self {
-            inner: crate::text::SentenceGenerator::new(
-                iterations.unwrap_or(20),
-                depth.unwrap_or(3),
-            ),
+            inner: SentenceGenerator::new(iterations.unwrap_or(20), depth.unwrap_or(3)),
         }
     }
 
@@ -493,7 +505,7 @@ impl PySentenceGenerator {
 /// Paragraph generator.
 #[pyclass(name = "ParagraphGenerator")]
 pub struct PyParagraphGenerator {
-    inner: crate::text::ParagraphGenerator,
+    inner: ParagraphGenerator,
 }
 
 #[pymethods]
@@ -510,7 +522,7 @@ impl PyParagraphGenerator {
         depth: Option<usize>,
     ) -> Self {
         Self {
-            inner: crate::text::ParagraphGenerator::new(
+            inner: ParagraphGenerator::new(
                 sentence_count.unwrap_or(5),
                 iterations.unwrap_or(20),
                 depth.unwrap_or(3),
@@ -529,7 +541,7 @@ impl PyParagraphGenerator {
 /// Text summarizer.
 #[pyclass(name = "TextSummarizer")]
 pub struct PyTextSummarizer {
-    inner: crate::text::TextSummarizer,
+    inner: TextSummarizer,
 }
 
 #[pymethods]
@@ -546,7 +558,7 @@ impl PyTextSummarizer {
         depth: Option<usize>,
     ) -> Self {
         Self {
-            inner: crate::text::TextSummarizer::new(
+            inner: TextSummarizer::new(
                 sentence_count.unwrap_or(3),
                 iterations.unwrap_or(20),
                 depth.unwrap_or(3),
@@ -566,7 +578,7 @@ impl PyTextSummarizer {
 /// Symbolic-trajectory text continuation predictor.
 #[pyclass(name = "TextPredictor")]
 pub struct PyTextPredictor {
-    inner: crate::predict::TextPredictor,
+    inner: TextPredictor,
 }
 
 #[pymethods]
@@ -583,7 +595,7 @@ impl PyTextPredictor {
         depth: Option<usize>,
     ) -> Self {
         Self {
-            inner: crate::predict::TextPredictor::new(
+            inner: TextPredictor::new(
                 window_size.unwrap_or(20),
                 iterations.unwrap_or(30),
                 depth.unwrap_or(3),
@@ -621,7 +633,7 @@ impl PyTextPredictor {
 /// Probabilistic word-substitution text enhancer.
 #[pyclass(name = "StochasticEnhancer")]
 pub struct PyStochasticEnhancer {
-    inner: crate::stochastic::StochasticEnhancer,
+    inner: StochasticEnhancer,
 }
 
 #[pymethods]
@@ -631,7 +643,7 @@ impl PyStochasticEnhancer {
     #[new]
     pub fn new(p: f64) -> Self {
         Self {
-            inner: crate::stochastic::StochasticEnhancer::new(p),
+            inner: StochasticEnhancer::new(p),
         }
     }
 
@@ -643,14 +655,14 @@ impl PyStochasticEnhancer {
 /// A physical field: a Tensor with spatial-grid semantics.
 #[pyclass(name = "Field")]
 pub struct PyField {
-    inner: crate::field::Field,
+    inner: Field,
 }
 
 #[pymethods]
 impl PyField {
     #[new]
     pub fn new(shape: Vec<usize>, values: &PyTensor) -> PyResult<Self> {
-        crate::field::Field::new(shape, values.inner.clone())
+        Field::new(shape, values.inner.clone())
             .map(|inner| Self { inner })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -674,7 +686,7 @@ impl PyField {
 /// Spatial convolution operator over a Field.
 #[pyclass(name = "NeuralOperator")]
 pub struct PyNeuralOperator {
-    inner: crate::operator::NeuralOperator,
+    inner: NeuralOperator,
 }
 
 #[pymethods]
@@ -682,7 +694,7 @@ impl PyNeuralOperator {
     #[new]
     pub fn new(n_kernel_modes: usize) -> Self {
         Self {
-            inner: crate::operator::NeuralOperator::new(n_kernel_modes),
+            inner: NeuralOperator::new(n_kernel_modes),
         }
     }
 
@@ -697,7 +709,7 @@ impl PyNeuralOperator {
 /// Global Workspace-inspired consciousness module.
 #[pyclass(name = "Consciousness")]
 pub struct PyConsciousness {
-    inner: crate::consciousness::Consciousness,
+    inner: Consciousness,
 }
 
 #[pymethods]
@@ -709,13 +721,9 @@ impl PyConsciousness {
     #[new]
     #[pyo3(signature = (state_len, lookahead=None, step_size=None))]
     pub fn new(state_len: usize, lookahead: Option<usize>, step_size: Option<f64>) -> Self {
-        let initial = crate::tensor::Tensor::zeros(vec![state_len]);
+        let initial = Tensor::zeros(vec![state_len]);
         Self {
-            inner: crate::consciousness::Consciousness::new(
-                initial,
-                lookahead.unwrap_or(5),
-                step_size.unwrap_or(0.01),
-            ),
+            inner: Consciousness::new(initial, lookahead.unwrap_or(5), step_size.unwrap_or(0.01)),
         }
     }
 
@@ -757,7 +765,7 @@ pub fn render_image(
         .as_deref()
         .and_then(|s| s.parse().ok())
         .unwrap_or_default();
-    let params = crate::imagen::ImagenParams {
+    let params = ImagenParams {
         prompt,
         width: width.unwrap_or(512),
         height: height.unwrap_or(512),
@@ -766,7 +774,7 @@ pub fn render_image(
         palette_name: palette.unwrap_or_default(),
         output: output.unwrap_or_else(|| "output.ppm".to_string()),
     };
-    crate::imagen::render(&params).map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    imagen_render(&params).map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Register all Python-exposed types and functions into the ``_lmm`` module.

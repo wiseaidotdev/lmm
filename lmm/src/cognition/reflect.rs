@@ -32,6 +32,7 @@
 //! * [Self-reflection - Wikipedia](https://en.wikipedia.org/wiki/Self-reflection)
 
 use crate::cognition::memory::{ColdStore, HotStore};
+use std::collections::HashSet;
 
 /// Stateless utility that formulates queries and consolidates memory.
 pub struct Reflector;
@@ -60,7 +61,7 @@ impl Reflector {
             words.extend(entry.content.split_whitespace().take(8));
         }
 
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = HashSet::new();
         let unique: Vec<&str> = words
             .into_iter()
             .filter(|&w| seen.insert(w.to_ascii_lowercase()))

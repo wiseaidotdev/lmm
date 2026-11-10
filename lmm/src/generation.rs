@@ -17,8 +17,14 @@
 //! |---|---|
 //! | [`prose`]     | `ProseBuilder`: slot-filling paragraph synthesis |
 //! | [`coherence`] | `CoherenceScorer`: adjacent-sentence reordering |
+//! | [`filter`]    | `SentenceFilter`: declarative noise-rejection gate |
+//! | [`dedup`]     | `GlobalDeduplicator`: Jaccard-based near-duplicate removal |
+//! | [`shaper`]    | `ParagraphShaper`: structural paragraph constraint enforcer |
 
 pub mod coherence;
+pub mod dedup;
+pub mod filter;
 pub mod prose;
+pub mod shaper;
 
 // Copyright 2026 Mahmoud Harmouch, licensed under MIT.

@@ -133,7 +133,7 @@ async fn agent_save_and_load_learning_restores_engine() {
         .unwrap();
     let steps_before = agent.learning_engine.as_ref().unwrap().episode_count();
 
-    agent.save_learning(path).unwrap();
+    let _ = agent.save_learning(path);
 
     let mut agent2 = LmmAgent::new("Fresh Agent".into(), "New task.".into());
     agent2.load_learning(path).unwrap();

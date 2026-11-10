@@ -12,6 +12,7 @@ struct Shared {
     running: bool,
     generation: u64,
     next_id: usize,
+    domain_topic: String,
     pending_topic: String,
     alpha_messages: Vec<AgentMessage>,
     beta_messages: Vec<AgentMessage>,
@@ -23,6 +24,7 @@ impl Shared {
             running: false,
             generation: 0,
             next_id: 0,
+            domain_topic: String::new(),
             pending_topic: String::new(),
             alpha_messages: Vec::new(),
             beta_messages: Vec::new(),
@@ -62,16 +64,20 @@ pub fn app() -> Html {
 
             spawn_local(async move {
                 loop {
-                    let topic = {
+                    let (topic, domain, alpha_turn) = {
                         let s = shared.borrow();
                         if !s.running || s.generation != generation {
                             break;
                         }
-                        s.pending_topic.clone()
+                        (
+                            s.pending_topic.clone(),
+                            s.domain_topic.clone(),
+                            s.next_id as u64,
+                        )
                     };
 
                     alpha_thinking.set(true);
-                    let alpha_resp = tram_query(&topic).await;
+                    let alpha_resp = tram_query(&topic, &domain, alpha_turn).await;
                     alpha_thinking.set(false);
 
                     let cont = {
@@ -87,7 +93,10 @@ pub fn app() -> Html {
                                 content: alpha_resp.clone(),
                                 topic_used: topic.clone(),
                             });
-                            s.pending_topic = summarize_to_topic(&alpha_resp);
+                            let domain = s.domain_topic.clone();
+                            let turn = s.next_id as u64;
+                            s.pending_topic =
+                                summarize_to_topic(&alpha_resp, &domain, &topic, turn);
                             true
                         }
                     };
@@ -99,10 +108,17 @@ pub fn app() -> Html {
                     let alpha_all = shared.borrow().alpha_messages.clone();
                     alpha_messages_ui.set(alpha_all);
 
-                    let beta_topic = shared.borrow().pending_topic.clone();
+                    let (beta_topic, beta_domain, beta_turn) = {
+                        let s = shared.borrow();
+                        (
+                            s.pending_topic.clone(),
+                            s.domain_topic.clone(),
+                            s.next_id as u64,
+                        )
+                    };
 
                     beta_thinking.set(true);
-                    let beta_resp = tram_query(&beta_topic).await;
+                    let beta_resp = tram_query(&beta_topic, &beta_domain, beta_turn).await;
                     beta_thinking.set(false);
 
                     let cont = {
@@ -118,7 +134,9 @@ pub fn app() -> Html {
                                 content: beta_resp.clone(),
                                 topic_used: beta_topic.clone(),
                             });
-                            s.pending_topic = summarize_to_topic(&beta_resp);
+                            let turn = s.next_id as u64;
+                            s.pending_topic =
+                                summarize_to_topic(&beta_resp, &beta_domain, &beta_topic, turn);
                             true
                         }
                     };
@@ -158,6 +176,7 @@ pub fn app() -> Html {
                 s.running = true;
                 s.generation = s.generation.wrapping_add(1);
                 s.next_id = 0;
+                s.domain_topic = topic.clone();
                 s.pending_topic = topic;
                 s.alpha_messages.clear();
                 s.beta_messages.clear();
@@ -212,6 +231,7 @@ pub fn app() -> Html {
                 s.running = false;
                 s.generation = s.generation.wrapping_add(1);
                 s.next_id = 0;
+                s.domain_topic = String::new();
                 s.pending_topic = String::new();
                 s.alpha_messages.clear();
                 s.beta_messages.clear();

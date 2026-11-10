@@ -1,8 +1,8 @@
 <div align="center">
 
-# 👁️ LMM 🦀
+# 🌟 LMM 🦀
 
-[![LMM](https://wiseai.dev/assets/logo.png)](https://wiseai.dev)
+[![LMM](https://github.com/wiseaidotdev/lmm/blob/main/assets/logo.png)](https://docs.rs/lmm/)
 
 [![Work In Progress](https://img.shields.io/badge/Work%20In%20Progress-orange)](https://github.com/wiseaidotdev/lmm)
 [![ASI (Best Run)](https://img.shields.io/badge/ASI-14.55%25-brown)](https://arcprize.org/replay/69c86b04-c9ff-4ae2-98e8-eade2e4c2214)
@@ -20,7 +20,7 @@
 [![Share On X](https://img.shields.io/badge/share%20on-X-03A9F4?logo=x)](https://twitter.com/share?url=https://github.com/wiseaidotdev/lmm&text=LMM%3A%20Large%20Mathematical%20Model%20%E2%80%94%20Encode%20Reality%20as%20Equations)
 [![Share On Linkedin](https://img.shields.io/badge/share%20on-linkedin-3949AB?logo=linkedin)](https://www.linkedin.com/shareArticle?url=https://github.com/wiseaidotdev/lmm&title=LMM%3A%20Large%20Mathematical%20Model)
 
-> **LMM (Large Mathematical Model)** is a pure‑Rust framework that models higher‑dimensional reality through symbolic mathematics and physics simulation; Inspired by the Pharaonic model of intelligence: compress the world into durable, universal equations. No training. No GPU. No API key.
+> **LMM (Large Mathematical Model)** empowers you to build ethical AI systems, without GPUs, training data, or API keys. Grounded in pure mathematics and transparent symbolic reasoning, LMM gives every developer, regardless of compute budget, the ability to create AI that is auditable, explainable, and bias-free by design. No data exploitation. No environmental cost. Just mathematics.
 
 |                                 🐧 Linux `(Recommended)`                                  |                                            🪟 Windows                                             |                                  🐳 Docker                                   |
 | :---------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------: |
@@ -33,15 +33,13 @@
 
 ## 🎬 Demo
 
-The following demonstrates the symbolic prediction engine generating coherent English sentences powered entirely by deterministic mathematical equations and structural Subject-Verb-Object grammar; No neural networks, no statistical models. The engine supports a full suite of CLI subcommands including `predict`, `summarize`, `sentence`, `paragraph`, `essay`, and `ask`, enabling multi-paragraph construction driven entirely by mathematics.
+The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics) pipeline generating coherent, non-repetitive English prose powered entirely by deterministic mathematics and transparent symbolic reasoning. The pipeline runs through five stages: web knowledge retrieval, symbolic inference, global deduplication, structural shaping, and stochastic enhancement.
 
-|                                                                                                       |                                                                                                       |                                                                                                       |
-| :---------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------: |
-| <video src="https://github.com/user-attachments/assets/f20ed16f-d90e-4983-bc47-0de2ce5c5a4f"></video> | <video src="https://github.com/user-attachments/assets/680d4ef4-bab1-47d4-84e8-86a11aa93294"></video> | <video src="https://github.com/user-attachments/assets/299c280d-dcf3-484f-bf02-c37836811dcb"></video> |
-| <video src="https://github.com/user-attachments/assets/06ef5c15-7743-4d62-908f-52d22288de76"></video> | <video src="https://github.com/user-attachments/assets/3b4bba24-012b-487b-98c8-91e61336cead"></video> | <video src="https://github.com/user-attachments/assets/fc1d0adc-e2c3-421a-b6b6-4b21dcf3af06"></video> |
+<video src="https://github.com/user-attachments/assets/0d4ff87e-bf09-4a2e-bcf4-00a4e9754885"></video>
 
 ### 🔬 Key Capabilities
 
+- 🛡️ **Ethical AI by design**: no training-data bias, no GPU requirement, no proprietary API dependencies. Full auditability, transparency, and explainability baked in.
 - 🧬 **Genetic Programming**: population-based symbolic regression with template seeding (linear, quadratic, periodic) and variable-enforcement guards.
 - 📐 **Symbolic Calculus**: automatic differentiation (chain rule, product rule, trig) and constant-folding simplification.
 - 🌀 **Physics Suite**: Harmonic Oscillator, Lorenz Attractor, Pendulum, SIR Epidemic, N-body Gravity; All implement `Simulatable`.
@@ -50,6 +48,9 @@ The following demonstrates the symbolic prediction engine generating coherent En
 - 🧩 **Neural Operators**: circular convolution with SGD kernel learning and Fourier spectral operators.
 - 🔤 **Text ↔ Equation**: losslessly encode any text string into a symbolic equation and recover it exactly via integer residuals.
 - 🔮 **Symbolic Prediction**: equation-native text continuation using sliding-window GP regression and vocabulary anchoring.
+- 🔍 **Sentence Filter**: declarative pre-ingestion noise gate, discards metadata lines, disambiguation fragments, low information-density text, and sub-8-word snippets before they enter the KnowledgeIndex.
+- 🔄 **Global Deduplicator**: Jaccard-similarity deduplication (threshold 0.65) eliminates near-duplicate sentences after expert + extractive prose is merged, ensuring clean, non-repetitive output.
+- 🏗️ **Paragraph Shaper**: structural output formatter enforcing 2 paragraphs, 2-5 sentences per paragraph, and 40-180 words per paragraph with discourse connector injection between paragraphs.
 - 🎲 **Stochastic Enhancement**: synonym-bank word replacement (`--stochastic`) delivers unique output each run while preserving mathematical sentence structure.
 - 🎨 **Spectral Image Synthesis**: generate procedural PPM images from a text prompt by hashing it into Fourier wave components.
 - 🧠 **Expert System**: IF-THEN production rules auto-derived from KB chunks at runtime; backward-chaining inference engine with Prospector-model certainty factors; how/why explanation facility; slot-filling `ProseBuilder` that constructs novel paragraphs, never copies verbatim.
@@ -78,13 +79,12 @@ lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
 ```mermaid
 flowchart TD
     A["User: lmm -p 'topic'"] --> B["handle_tram()"]
-    B --> B1["prefetch_web_inner()"]
-    B1 --> B1a["DDG IA: abstract_text + definition + answer"]
-    B1 --> B1b["DDG Lite: title+snippet chunks"]
-    B1a & B1b --> B1c["Filter: skip disambiguation fragments < 10 words"]
-    B1c --> IDX["KnowledgeIndex (IDF-weighted)"]
+    B --> WEB["Web Prefetch\nSearchAggregator\n(DuckDuckGo IA → CORS proxy → Wikipedia)"]
+    WEB --> DEAMB["remove_disambiguation_snippets()\nStrip (band) / (film) / (song) artefacts"]
+    DEAMB --> SFILT["SentenceFilter\nPre-ingestion noise gate\n(metadata · low-density · too-short)"]
+    SFILT --> IDX["KnowledgeIndex\n(IDF-weighted ingestion)"]
 
-    B --> TL["ThinkLoop.run(): PID-style error controller"]
+    B --> TL["ThinkLoop.run()\nPID-style closed-loop reasoning"]
     TL --> TL1["Reflector.formulate_query()"]
     TL1 --> TL2["SearchOracle.fetch()"]
     TL2 --> TL3["CognitionSignal: Jaccard error"]
@@ -94,29 +94,25 @@ flowchart TD
     TL6 -- yes --> TL7["stall_streak++"]
     TL6 -- no --> TL8["stall_streak = 0"]
     TL7 & TL8 --> TL1
-
     TL5 --> COLD["ColdStore: memory chunks → KB"]
     COLD --> IDX
 
-    IDX --> KA["KnowledgeIndex.answer(prompt, top_k=5-10)"]
-    KA --> SUM["TextSummarizer: 4-7 sentences, randomised"]
-    SUM --> QUAL{"is_quality_answer?"}
-    QUAL -- yes --> PARA["Paragraph assembler: 1-3 paragraphs\nwith discourse connectors"]
-    QUAL -- no --> SYM["ParagraphGenerator: time-seeded\n2-6 sentences per para"]
-
-    IDX --> RULES["RuleBase.from_chunks()\nIF-THEN production rules"]
-    RULES --> INFER["InferenceEngine\nBackward chaining, max_depth=3"]
-    INFER --> CF{"CF ≥ 0.30?"}
+    IDX --> KA["KnowledgeIndex.answer(prompt, top_k)"]
+    KA --> RULES["RuleBase.from_chunks()\nIF-THEN production rules"]
+    RULES --> INFER["InferenceEngine\nBackward chaining · max_depth=3"]
+    INFER --> CF{"CF ≥ 0.20?"}
     CF -- yes --> PROSE["ProseBuilder\nSlot-filling paragraph synthesis\n+ CoherenceScorer"]
     CF -- no --> PROSE_SKIP["Skip expert path"]
 
-    PARA --> MRG["Merge expert + extractive prose"]
-    SYM --> MRG
+    KA --> MRG["Merge expert + extractive prose"]
     PROSE --> MRG
     PROSE_SKIP --> MRG
 
-    MRG --> STOCH["StochasticEnhancer\nProspector-weighted synonym substitution\nprob = --probability or auto (0.05/0.12)"]
-    STOCH --> OUT["Output: novel, grounded, unique per run"]
+    MRG --> DEDUP["GlobalDeduplicator\nJaccard similarity dedup\n(threshold = 0.65)"]
+    DEDUP --> SFILT2["SentenceFilter.is_acceptable()\nPost-merge quality gate"]
+    SFILT2 --> SHAPER["ParagraphShaper\n2 paragraphs · 2-5 sentences each\n40-180 words per paragraph"]
+    SHAPER --> STOCH["StochasticEnhancer\nSynonym substitution (p = 0.05)"]
+    STOCH --> OUT["Final Output\ncoherent · unique · bias-free"]
 ```
 
 ## 📦 Installation
@@ -177,11 +173,11 @@ The architecture, formal mathematics, and paradigm are fully documented in the o
 
 ## 📂 Examples
 
-| Example                                     | Description                                                                                                                                                                                                                      |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [**chat**](examples/chat)                   | Interactive chat UI powered by all LMM generation modes: Ask (DuckDuckGo), Sentence, Paragraph, Essay, Summarize, Predict.                                                                                                       |
-| [**yap**](examples/yap)                     | Two LMM agents conversing non-stop using the full TRAM pipeline (KnowledgeIndex → RuleBase → InferenceEngine → ProseBuilder). Agent Alpha queries a topic, Agent Beta derives the next topic from the response and queries back. |
-| [**arc-lmm-agent**](examples/arc-lmm-agent) | Autonomous ARC-AGI-3 solver using LMM's episodic reasoning. WIP: Achieves 100% success across games with $0 cost and no external AI APIs.                                                                                        |
+| Example                                     | Description                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [**chat**](examples/chat)                   | Interactive chat UI powered by all LMM generation modes: Ask (DuckDuckGo), Sentence, Paragraph, Essay, Summarize, Predict.                                                                                                                                                                                                                          |
+| [**yap**](examples/yap)                     | Two LMM agents conversing non-stop using the full TRAM pipeline in WASM: web fetch → SentenceFilter → KnowledgeIndex → RuleBase → InferenceEngine → ProseBuilder → GlobalDeduplicator → ParagraphShaper. Agent Alpha queries a topic; Agent Beta derives the next sub-topic and queries back: producing varied, non-repetitive debate indefinitely. |
+| [**arc-lmm-agent**](examples/arc-lmm-agent) | Autonomous ARC-AGI-3 solver using LMM's episodic reasoning. WIP: Achieves 100% success across games with $0 cost and no external AI APIs.                                                                                                                                                                                                           |
 
 ### Blog Posts
 

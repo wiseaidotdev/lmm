@@ -19,6 +19,8 @@
 //! Adapted from the `autogpt` crate's `common/utils.rs`:
 //! <https://github.com/wiseaidotdev/autogpt/blob/main/autogpt/src/common/utils.rs>
 
+use crate::cognition::learning::q_table::{ActionKey, QTable};
+use crate::cognition::signal::CognitionSignal;
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -494,7 +496,7 @@ pub struct ThinkResult {
     pub memory_snapshot: Vec<String>,
 
     /// The per-step signals produced during the run.
-    pub signals: Vec<crate::cognition::signal::CognitionSignal>,
+    pub signals: Vec<CognitionSignal>,
 }
 
 /// The active learning paradigms for the HELM engine.
@@ -563,7 +565,7 @@ pub struct ExperienceRecord {
     /// FNV-1a hash of the current state (query token bag).
     pub state: u64,
     /// The query-refinement action applied.
-    pub action: crate::cognition::learning::q_table::ActionKey,
+    pub action: ActionKey,
     /// Reward received (from `CognitionSignal::reward`).
     pub reward: f64,
     /// FNV-1a hash of the next state (observation token bag).
@@ -590,7 +592,7 @@ pub struct AgentSnapshot {
     /// Unique identifier of the originating agent.
     pub agent_id: String,
     /// The agent's full Q-table at snapshot time.
-    pub q_table: crate::cognition::learning::q_table::QTable,
+    pub q_table: QTable,
     /// Total accumulated reward the agent achieved.
     pub total_reward: f64,
 }
