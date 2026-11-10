@@ -33,7 +33,7 @@
 
 ## 🎬 Demo
 
-The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics) pipeline generating coherent, non-repetitive English prose powered entirely by deterministic mathematics and transparent symbolic reasoning. The pipeline runs through five stages: web knowledge retrieval, symbolic inference, global deduplication, structural shaping, and stochastic enhancement.
+The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics) pipeline generating coherent, non-repetitive English prose powered entirely by deterministic mathematics and transparent symbolic reasoning. The pipeline runs through six stages: web knowledge retrieval, **adaptive thought engine reasoning**, symbolic inference, global deduplication, structural shaping, and stochastic enhancement.
 
 <video src="https://github.com/user-attachments/assets/0d4ff87e-bf09-4a2e-bcf4-00a4e9754885"></video>
 
@@ -55,6 +55,7 @@ The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics
 - 🎨 **Spectral Image Synthesis**: generate procedural PPM images from a text prompt by hashing it into Fourier wave components.
 - 🧠 **Expert System**: IF-THEN production rules auto-derived from KB chunks at runtime; backward-chaining inference engine with Prospector-model certainty factors; how/why explanation facility; slot-filling `ProseBuilder` that constructs novel paragraphs, never copies verbatim.
 - 🔀 **Coherence Scoring**: greedy nearest-neighbour sentence reordering by token overlap maximises topical flow across generated paragraphs.
+- 💡 **Adaptive Thought Engine (ATE)**: multi-step symbolic reasoner that classifies each prompt into a reasoning mode (factual, causal, procedural, analogical, comparative, exploratory) and iterates through typed thought steps (deductive, abductive, analogical, corrective) to build a goal-directed reasoning chain before the main pipeline runs. Activated with `--think` / `-t`. Fully controllable via `--think-steps`, `--think-threshold`, and `--think-patience`.
 
 ## 🧮 TRAM: Text Reasoning and Applied Mathematics
 
@@ -67,11 +68,17 @@ lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iteratio
 lmm -p "stochastic determinism" -k ./papers -i 15 --probability=0.1 --verbose
 lmm -p "rust programming" --cf-threshold 0.35 --inference-depth 4 --verbose
 
+# With Adaptive Thought Engine enabled:
+lmm -p "why does Rust not have a garbage collector?" --think --verbose
+lmm -p "rust vs python" --think --think-steps 4 --think-threshold 0.7 --verbose
+lmm -p "machine learning" --think -t --think-steps 6 --think-patience 2 --verbose
+
 # Or via explicit subcommand (identical behavior):
 lmm tram -p "rust programming" --verbose
 lmm tram -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
 lmm tram -p "stochastic determinism" -k ./papers -i 15 --verbose
 lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
+lmm tram -p "what is WebAssembly?" --think --verbose
 ```
 
 ### ⚙️ Architecture
@@ -81,8 +88,15 @@ flowchart TD
     A["User: lmm -p 'topic'"] --> B["handle_tram()"]
     B --> WEB["Web Prefetch\nSearchAggregator\n(DuckDuckGo IA → CORS proxy → Wikipedia)"]
     WEB --> DEAMB["remove_disambiguation_snippets()\nStrip (band) / (film) / (song) artefacts"]
-    DEAMB --> SFILT["SentenceFilter\nPre-ingestion noise gate\n(metadata · low-density · too-short)"]
+    DEAMB --> SFILT["SentenceFilter\nPre-ingestion noise gate\n(metadata · low-density · too-short · bare-question-titles)"]
     SFILT --> IDX["KnowledgeIndex\n(IDF-weighted ingestion)"]
+
+    B --> ATE_CHECK{"--think flag?"}
+    ATE_CHECK -- yes --> ATE["Adaptive Thought Engine\nClassify prompt mode\n(factual/causal/procedural/analogical/comparative/exploratory)"]
+    ATE --> ATE_STEPS["Typed Thought Steps\n(deductive · abductive · analogical · corrective)\nSearchOracle queries per sub-goal"]
+    ATE_STEPS --> ATE_CHAIN["ThoughtChain\nfactual_insight → KB seed\nprioritized_queries → ThinkLoop goal"]
+    ATE_CHAIN --> TL
+    ATE_CHECK -- no --> TL
 
     B --> TL["ThinkLoop.run()\nPID-style closed-loop reasoning"]
     TL --> TL1["Reflector.formulate_query()"]
@@ -109,8 +123,9 @@ flowchart TD
     PROSE_SKIP --> MRG
 
     MRG --> DEDUP["GlobalDeduplicator\nJaccard similarity dedup\n(threshold = 0.65)"]
-    DEDUP --> SFILT2["SentenceFilter.is_acceptable()\nPost-merge quality gate"]
-    SFILT2 --> SHAPER["ParagraphShaper\n2 paragraphs · 2-5 sentences each\n40-180 words per paragraph"]
+    DEDUP --> SFILT2["SentenceFilter.is_acceptable()\nPost-merge quality gate\n+ dangling-preposition filter\n+ bare-question-title filter"]
+    SFILT2 --> OPENER["is_good_opener()\nBAD_OPENERS + CONTINUATION_ADVERBS check\nSwap best opener to position 0"]
+    OPENER --> SHAPER["ParagraphShaper\n2 paragraphs · 2-5 sentences each\n40-180 words per paragraph"]
     SHAPER --> STOCH["StochasticEnhancer\nSynonym substitution (p = 0.05)"]
     STOCH --> OUT["Final Output\ncoherent · unique · bias-free"]
 ```

@@ -21,7 +21,7 @@ The resulting binary is named `lmm`.
 lmm [OPTIONS] [COMMAND]
 ```
 
-The `-p` / `--prompt` flag invokes **TRAM mode** directly at the top level without requiring a subcommand. All TRAM parameters (`--knowledge-base`, `--probability`, `--iterations`, `--depth`) are available both at the top level and under the explicit `tram` subcommand:
+The `-p` / `--prompt` flag invokes **TRAM mode** directly at the top level without requiring a subcommand. All TRAM parameters (`--knowledge-base`, `--probability`, `--iterations`, `--depth`, `--think`) are available both at the top level and under the explicit `tram` subcommand:
 
 ```sh
 # Top-level direct execution:
@@ -29,9 +29,15 @@ lmm -p "rust programming" --verbose
 lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
 lmm -p "stochastic determinism" -k ./papers -i 15 --probability=0.1 --verbose
 
+# With Adaptive Thought Engine (ATE):
+lmm -p "why does Rust not have a garbage collector?" --think --verbose
+lmm -p "rust vs python" -t --think-steps 4 --think-threshold 0.7 --verbose
+lmm -p "machine learning" --think --think-steps 6 --think-patience 2 --verbose
+
 # Explicit subcommand (identical behavior):
 lmm tram -p "rust programming" --verbose
 lmm tram -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
+lmm tram -p "what is WebAssembly?" --think --verbose
 ```
 
 ### Top-Level & TRAM Mode Flags:
@@ -45,13 +51,26 @@ lmm tram -p "machine learning" --probability=0.1 --knowledge-base ./papers --ite
 | `--depth`                          | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
 | `--inference-depth`, `--inf-depth` |   -   |   `3`    | Expert backward-chaining max search depth                                                  |
 | `--cf-threshold`, `--cf`           |   -   |  `0.30`  | Expert inference certainty-factor acceptance threshold [0.0 - 1.0]                         |
+| `--think`                          | `-t`  | `false`  | Enable the Adaptive Thought Engine (ATE) reasoning layer (off by default)                  |
+| `--think-steps`                    |   -   |   `6`    | Maximum number of ATE thought steps per prompt                                             |
+| `--think-threshold`                |   -   |  `0.55`  | ATE confidence threshold, stops early when reached [0.0 - 1.0]                             |
+| `--think-patience`                 |   -   |   `2`    | ATE stall patience, number of low-gain steps before early stopping                         |
 | `--verbose`                        | `-v`  | `false`  | Show full banners, seeds, pipeline stages, and statistics                                  |
 
 ## 📖 Subcommand Reference
 
 ### 0. `tram` (default): Text Reasoning and Applied Mathematics
 
-The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API), closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, **expert-system inference** (backward-chaining rule engine with Prospector certainty factors), novel slot-filling prose generation, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
+The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API), **optional Adaptive Thought Engine (ATE)** reasoning, closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, **expert-system inference** (backward-chaining rule engine with Prospector certainty factors), novel slot-filling prose generation, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
+
+The **Adaptive Thought Engine** (`--think` / `-t`) is an optional pre-reasoning layer that:
+
+1. **Classifies** the prompt into one of six reasoning modes: `factual`, `causal`, `procedural`, `analogical`, `comparative`, or `exploratory`.
+1. **Decomposes** the goal into typed sub-goals relevant to that mode.
+1. **Runs typed thought steps** (`deductive`, `abductive`, `analogical`, `corrective`), each step fetches evidence from the web oracle and distils it into a `factual_insight` that is seeded into the KB before the main pipeline runs.
+1. **Prioritizes** sub-goals by uncertainty, surfacing the most informative query as the ThinkLoop goal.
+
+ATE is **OFF by default**, it only activates when `--think` or `-t` is passed.
 
 ```sh
 # Short-form via top-level -p flag (auto-selects TRAM mode):
@@ -60,11 +79,18 @@ lmm -p "what is entropy" --verbose
 lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
 lmm -p "rust programming" --cf-threshold 0.35 --inference-depth 4 --verbose
 
+# With Adaptive Thought Engine (ATE):
+lmm -p "why does Rust not have a garbage collector?" --think --verbose
+lmm -p "rust vs python" -t --think-steps 4 --think-threshold 0.7 --verbose
+lmm -p "how to install rust" --think --think-steps 5 --think-patience 2 --verbose
+lmm -p "machine learning" --think --think-steps 6 --think-threshold 0.55 --think-patience 2 --verbose
+
 # Explicit subcommand:
 lmm tram -p "rust programming" --verbose
 lmm tram -p "stochastic determinism" --knowledge-base ./papers --verbose
 lmm tram -p "machine learning" --iterations 20 --verbose
 lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
+lmm tram -p "what is WebAssembly?" --think --verbose
 ```
 
 | Flag                               | Short | Default  | Description                                                                                |
@@ -76,6 +102,10 @@ lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
 | `--depth`                          | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
 | `--inference-depth`, `--inf-depth` |   -   |   `3`    | Expert backward-chaining max search depth                                                  |
 | `--cf-threshold`, `--cf`           |   -   |  `0.30`  | Expert inference certainty-factor acceptance threshold [0.0 - 1.0]                         |
+| `--think`                          | `-t`  | `false`  | Enable Adaptive Thought Engine (ATE) pre-reasoning layer                                   |
+| `--think-steps`                    |   -   |   `6`    | Maximum ATE thought steps                                                                  |
+| `--think-threshold`                |   -   |  `0.55`  | ATE confidence threshold for early stopping [0.0 - 1.0]                                    |
+| `--think-patience`                 |   -   |   `2`    | ATE stall patience before early stopping                                                   |
 | `--verbose`                        | `-v`  | `false`  | Show pipeline stage banners and statistics                                                 |
 
 **Pipeline stages (verbose output):**
@@ -89,33 +119,74 @@ lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
 
   ❓ Prompt    : "rust programming language"
   🔁 Iterations: 10
+  🔍 Inference : depth=3 CF≥0.20
 
 -- Web Knowledge -----------------------------
-  🌐 Instant Answer ["rust programming language"]: 11 chunk(s) ingested (11 prose)
+  🌐 Instant Answer ["rust programming language"]: 6 chunk(s) ingested (6 prose)
 
 -- ThinkLoop Reasoning -----------------------
   🔄 ThinkLoop: converged=true steps=1 error=0.000
-  💡 Memory → KB: +12 chunk(s)
+  💡 Memory → KB: +0 chunk(s)
 
 -- Knowledge Retrieval -----------------------
-  ✅ KB answer found (597 chars)
+  ✅ KB answer found (544 chars)
 
 -- Expert Inference --------------------------
-  🧠 Inference: conclusion="rust is multi-paradigm programming language" CF=0.40 depth=1 rules=5
+  🧠 Inference: conclusion="rust is general-purpose programming language" CF=0.20 depth=1 rules=3
   📋 Explanation: 2 steps
-  💬 Based on observed knowledge (rust is multi-paradigm programming language). rule_2 establishes that rust is multi-paradigm programming language with moderate confidence (CF=0.40).
 
 -- Stochastic Enhancement --------------------
-  🎲 substitutions=1 language=English prob=0.05
+  🎲 substitutions=0 language=English prob=0.05
 
 -- TRAM Response -----------------------------
-Outline of the Rust programming language - The following outline is provided as an overview of and topical guide to Rust: Rust is a multi-paradigm programming language emphasizing performance, memory safety, and concurrency. It follows from the available evidence that rust is multi-paradigm programming language. Drawing on the ingested knowledge corpus, rust is multi-paradigm programming language.
+  Rust is a general-purpose programming language that emphasizes performance, type safety,
+  concurrency, and memory safety. The first stable release, Rust 1.0, was published in May 2015.
+  The project has been sponsored by the Rust Foundation since February 2021.
+```
 
-In practice, the relationship between rust and multi-paradigm programming language reveals that rust is multi-paradigm programming language. Rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety. Rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety.
+**With `--think` (Adaptive Thought Engine enabled):**
 
-Rust (programming language) Category History of programming languages - The correspondence of programming languages spans from documentation of early mechanical computers to modern tools for software development. Outline of the Rust programming language - The following outline is provided as an overview of and topical guide to Rust: Rust is a multi-paradigm programming language emphasizing performance, memory safety, and concurrency.
+```sh
+> lmm -p "why does Rust not have a garbage collector?" --think --verbose
 
-At its core, rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety. Rust supports multiple programming paradigms.
+╔══════════════════════════════════════════════════════╗
+║  🧮  TRAM · Text Reasoning and Applied Mathematics   ║
+╚══════════════════════════════════════════════════════╝
+
+  ❓ Prompt    : "why does Rust not have a garbage collector?"
+  🔁 Iterations: 10
+  🔍 Inference : depth=3 CF≥0.20
+
+-- Web Knowledge -----------------------------
+  🌐 Instant Answer ["Rust programming language"]: 6 chunk(s) ingested (6 prose)
+
+-- Adaptive Thought Engine -------------------
+  🧠 ATE: mode=causal steps=3 confidence=0.693
+  💬 Thought 1 [deductive]: The evidence establishes that Rust achieves memory safety through
+     ownership and borrowing rules enforced at compile time. This gives me a foundation to
+     explore the mechanism behind Rust's design choice.
+  💬 Thought 2 [abductive]: Evidence on 'effects of no GC in Rust' is limited (recall 5%).
+     This aspect requires further investigation.
+  💬 Thought 3 [corrective]: Re-examining 'Rust memory management' from a different angle
+     reveals this aspect needs broader context.
+
+-- ThinkLoop Reasoning -----------------------
+  🔄 ThinkLoop: converged=true steps=4 error=1.000
+
+-- Knowledge Retrieval -----------------------
+  ✅ KB answer found (595 chars)
+
+-- Expert Inference --------------------------
+  🧠 Inference: conclusion="rust is general-purpose programming language" CF=0.20 depth=1 rules=3
+
+-- Stochastic Enhancement --------------------
+  🎲 substitutions=0 language=English prob=0.05
+
+-- TRAM Response -----------------------------
+  The first stable release, Rust 1.0, was published in May 2015. Rust is a general-purpose
+  programming language that emphasizes performance, type safety, concurrency, and memory safety.
+  Software developer Graydon Hoare created Rust in 2006 while working at Mozilla, which
+  officially sponsored the project in 2009.
 ```
 
 > [!NOTE]

@@ -160,6 +160,63 @@ pub struct Cli {
     )]
     pub cf_threshold: f64,
 
+    /// Enable the Adaptive Thought Engine (ATE) reasoning pre-pass.
+    ///
+    /// When set, ATE runs before `ThinkLoop`, classifies the prompt into one
+    /// of seven reasoning modes, decomposes the goal into sub-goals, and
+    /// feeds prioritised queries downstream. Off by default to keep latency
+    /// low for simple look-ups; enable when deeper reasoning is desired.
+    ///
+    /// Applied when using the top-level `-p` shortcut (default TRAM mode).
+    #[arg(
+        short = 't',
+        long = "think",
+        global = false,
+        default_value_t = false,
+        help = "Enable the Adaptive Thought Engine reasoning pre-pass (default: off)"
+    )]
+    pub think: bool,
+
+    /// Maximum number of internal thought steps the ATE will generate.
+    ///
+    /// Each step queries the oracle once; higher values produce richer
+    /// reasoning chains but increase latency proportionally.
+    /// Only used when `--think` is active.
+    #[arg(
+        long,
+        global = false,
+        default_value_t = 6,
+        help = "Max ATE thought steps (default: 6, only used with --think)"
+    )]
+    pub think_steps: usize,
+
+    /// DS-belief midpoint threshold for ATE early-stop convergence [0.0, 1.0].
+    ///
+    /// When the running Dempster-Shafer combined belief exceeds this value,
+    /// the thought chain stops early. Lower values allow more exploration;
+    /// values near 1.0 force the full `--think-steps` to run.
+    /// Only used when `--think` is active.
+    #[arg(
+        long,
+        global = false,
+        default_value_t = 0.55,
+        help = "ATE belief threshold for early-stop [0.0, 1.0] (default: 0.55, only with --think)"
+    )]
+    pub think_threshold: f64,
+
+    /// Consecutive non-improving steps before the ATE critic flags stagnation.
+    ///
+    /// When belief has not improved by the minimum epsilon for this many
+    /// consecutive steps, a corrective thought step is injected. Must be ≥ 1.
+    /// Only used when `--think` is active.
+    #[arg(
+        long,
+        global = false,
+        default_value_t = 2,
+        help = "ATE critic stagnation patience in steps (default: 2, only with --think)"
+    )]
+    pub think_patience: usize,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -201,6 +258,26 @@ pub enum Commands {
         /// Expert inference certainty-factor threshold [0.0, 1.0].
         #[arg(long, alias = "cf", default_value_t = 0.30)]
         cf_threshold: f64,
+        /// Enable the Adaptive Thought Engine reasoning pre-pass.
+        ///
+        /// Off by default; pass `--think` or `-t` to activate deeper reasoning.
+        #[arg(short = 't', long = "think", default_value_t = false)]
+        think: bool,
+        /// Maximum number of internal thought steps the ATE will generate.
+        ///
+        /// Only effective when `--think` is active.
+        #[arg(long, default_value_t = 6)]
+        think_steps: usize,
+        /// DS-belief midpoint threshold for ATE early-stop convergence [0.0, 1.0].
+        ///
+        /// Only effective when `--think` is active.
+        #[arg(long, default_value_t = 0.55)]
+        think_threshold: f64,
+        /// Consecutive non-improving steps before the ATE critic flags stagnation.
+        ///
+        /// Only effective when `--think` is active.
+        #[arg(long, default_value_t = 2)]
+        think_patience: usize,
     },
     #[command(about = "Simulate continuous logical pathways")]
     Simulate {

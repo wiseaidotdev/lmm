@@ -198,6 +198,7 @@ impl SentenceFilter {
             && !Self::is_header_fragment(sentence)
             && !Self::is_disambiguation_fragment(sentence)
             && !Self::is_title_prefix_fragment(sentence)
+            && !Self::is_bare_question_title(sentence)
             && !Self::is_low_density(sentence)
     }
 
@@ -466,6 +467,31 @@ impl SentenceFilter {
         }
 
         false
+    }
+
+    /// Returns `true` when the sentence is a bare search-query title that starts
+    /// with a question word (`What`, `Why`, `How`, `When`, `Where`, `Which`, `Who`)
+    /// and does not end with a question mark.  Such strings are DuckDuckGo
+    /// related-topic link titles, not prose sentences.
+    ///
+    /// Example: `"What does Rust have instead of a garbage collector"`, no `?`,
+    /// starts with `"What"`, qualifies as a bare query fragment.
+    ///
+    /// # Time Complexity
+    ///
+    /// O(1): inspects only the first word and last character.
+    pub fn is_bare_question_title(sentence: &str) -> bool {
+        static QUESTION_STARTERS: &[&str] = &[
+            "what", "why", "how", "when", "where", "which", "who", "whom", "whose",
+        ];
+        let first = sentence
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .trim_matches(|c: char| !c.is_ascii_alphabetic())
+            .to_ascii_lowercase();
+        let ends_with_question = sentence.trim_end().ends_with('?');
+        QUESTION_STARTERS.contains(&first.as_str()) && !ends_with_question
     }
 
     /// Returns `true` when fewer than 50% of the sentence's words are unique,

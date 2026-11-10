@@ -18,14 +18,20 @@ flowchart TD
     L["LmmAgent\n(core state)"]
     E["Executor trait\n(your logic)"]
     O["AutoAgent\norchestrator"]
+    ATE["AdaptiveThoughtEngine\n(pre-reasoning layer)"]
     G["TextPredictor\n(symbolic regression)"]
-    S["DuckDuckGo search\n(optional enrichment)"]
+    S["DuckDuckGo / SearchOracle\n(optional enrichment)"]
+    TL["ThinkLoop\n(PI-controller feedback)"]
 
     U -->|"delegates to"| L
     U -->|"implements"| E
     O -->|"runs pool of"| E
-    L -->|"uses"| G
-    L -->|"uses"| S
+    L -->|"uses"| ATE
+    ATE -->|"seeds oracle"| S
+    ATE -->|"prioritized_queries"| TL
+    TL -->|"converged answer"| L
+    L -->|"fallback"| G
+    L -->|"enrichment"| S
 ```
 
 ## 🚀 Quick Start
@@ -91,18 +97,21 @@ let agent = LmmAgent::builder()
 
 ## 🧩 Key Types
 
-| Type              | Purpose                                                      |
-| ----------------- | ------------------------------------------------------------ |
-| `LmmAgent`        | Core agent struct (memory, tools, planner, knowledge, etc.)  |
-| `LmmAgentBuilder` | Fluent builder for `LmmAgent`                                |
-| `Message`         | A chat message with `role` + `content`                       |
-| `Status`          | `Idle`, `Active`, `InUnitTesting`, `Completed`, `Thinking`   |
-| `Knowledge`       | Map of fact keys to natural-language descriptions            |
-| `Planner`         | Ordered list of `Goal`s with priorities and completion flags |
-| `Profile`         | Agent personality traits and behavioural script              |
-| `ContextManager`  | Recent messages + current focus topics                       |
-| `Task`            | Work unit with description, scope, URLs, and code fields     |
-| `AutoAgent`       | Orchestrator that runs a pool of agents                      |
+| Type                    | Purpose                                                                             |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `LmmAgent`              | Core agent struct (memory, tools, planner, knowledge, etc.)                         |
+| `LmmAgentBuilder`       | Fluent builder for `LmmAgent`                                                       |
+| `Message`               | A chat message with `role` + `content`                                              |
+| `Status`                | `Idle`, `Active`, `InUnitTesting`, `Completed`, `Thinking`                          |
+| `Knowledge`             | Map of fact keys to natural-language descriptions                                   |
+| `Planner`               | Ordered list of `Goal`s with priorities and completion flags                        |
+| `Profile`               | Agent personality traits and behavioural script                                     |
+| `ContextManager`        | Recent messages + current focus topics                                              |
+| `Task`                  | Work unit with description, scope, URLs, and code fields                            |
+| `AutoAgent`             | Orchestrator that runs a pool of agents                                             |
+| `AdaptiveThoughtEngine` | Pre-reasoning layer: classifies intent → decomposes goal → multi-step thought chain |
+| `SearchOracle`          | Cached DuckDuckGo query layer; supports `seed_cache()` pre-population from KB       |
+| `ThoughtChainResult`    | Output of ATE: `factual_insight`, `prioritized_queries`, `confidence`               |
 
 ## 📡 AsyncFunctions Trait
 
