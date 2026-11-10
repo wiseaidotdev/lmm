@@ -5,7 +5,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate lmm_agent;
 use lmm_agent::agent::LmmAgent;
 use lmm_agent::prelude::*;
 use lmm_agent::runtime::AutoAgent;

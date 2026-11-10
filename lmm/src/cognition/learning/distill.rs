@@ -32,7 +32,7 @@
 //! use lmm::cognition::knowledge::KnowledgeIndex;
 //!
 //! let mut cold = ColdStore::default();
-//! cold.promote(MemoryEntry::new("Rust prevents data races at compile time.".into(), 0.9, 0));
+//! cold.promote(MemoryEntry::new("Rust enforces memory safety at compile time through ownership rules.".into(), 0.9, 0));
 //! cold.promote(MemoryEntry::new("x".into(), 0.1, 1));
 //!
 //! let mut index = KnowledgeIndex::new();
@@ -58,7 +58,7 @@ use std::collections::{HashMap, HashSet};
 ///
 /// let mut cold = ColdStore::default();
 /// cold.promote(MemoryEntry::new(
-///     "ownership and borrowing make Rust memory safe".into(), 0.85, 0
+///     "ownership and borrowing make Rust memory safe without a garbage collector".into(), 0.85, 0
 /// ));
 /// let mut idx = KnowledgeIndex::new();
 /// let mut d = KnowledgeDistiller::new(0.2, 5);

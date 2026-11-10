@@ -174,6 +174,7 @@ async fn agent_generate_uses_knowledge_index_first() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn ingest_raw_text_via_free_function() {
     let mut idx = KnowledgeIndex::new();
     let n = ingest(

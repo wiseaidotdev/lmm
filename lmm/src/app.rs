@@ -23,70 +23,68 @@
 //! through to [`handle_tram`], which is identical to `lmm tram -p 'question'`.
 
 #[cfg(feature = "cli")]
-use crate::causal::CausalGraph;
-#[cfg(all(feature = "cli", feature = "net"))]
-use crate::cli::commands::Commands::Ask;
-#[cfg(feature = "cli")]
-use crate::cli::commands::{
-    Cli,
-    Commands::{
-        Causal, Consciousness as CmdConsciousness, Decode, Discover, Encode, Essay,
-        Field as CmdField, Imagen, Paragraph, Physics, Predict, Sentence, Simulate, Summarize,
-        Tram,
+use {
+    crate::{
+        causal::CausalGraph,
+        cli::commands::{
+            Cli,
+            Commands::{
+                Causal, Consciousness as CmdConsciousness, Decode, Discover, Encode, Essay,
+                Field as CmdField, Imagen, Paragraph, Physics, Predict, Sentence, Simulate,
+                Summarize, Tram,
+            },
+        },
+        cognition::{
+            knowledge::{KnowledgeIndex, KnowledgeSource, ingest as cognition_ingest},
+            r#loop::ThinkLoop,
+            search::SearchOracle,
+        },
+        consciousness::Consciousness,
+        discovery::SymbolicRegression,
+        encode::{decode_from_parts, decode_message, encode_text},
+        error::{LmmError, Result as LmmResult},
+        expert::{inference::InferenceEngine, rule::RuleBase},
+        field::Field,
+        generation::{
+            dedup::GlobalDeduplicator, filter::SentenceFilter, prose::ProseBuilder,
+            shaper::ParagraphShaper,
+        },
+        imagen::{ImagenParams, StyleMode, render as imagen_render},
+        lexicon::Lexicon,
+        physics::{HarmonicOscillator, LorenzSystem, Pendulum, SIRModel},
+        predict::TextPredictor,
+        simulation::Simulator,
+        stochastic::StochasticEnhancer,
+        tensor::Tensor,
+        text::{EssayGenerator, ParagraphGenerator, SentenceGenerator, TextSummarizer},
+        traits::{Causal as CausalTrait, Simulatable},
+    },
+    clap::Parser,
+    std::{
+        fs, io,
+        path::Path,
+        process::exit,
+        time::{SystemTime, UNIX_EPOCH},
+    },
+    tracing::{Event, Subscriber, error, info},
+    tracing_appender::rolling,
+    tracing_subscriber::{
+        Layer, Registry, filter,
+        fmt::{self as ts_fmt, FmtContext, FormatEvent, FormatFields},
+        prelude::__tracing_subscriber_SubscriberExt,
+        registry::LookupSpan,
     },
 };
-#[cfg(feature = "cli")]
-use crate::cognition::knowledge::{KnowledgeIndex, KnowledgeSource, ingest as cognition_ingest};
-#[cfg(feature = "cli")]
-use crate::cognition::r#loop::ThinkLoop;
-#[cfg(feature = "cli")]
-use crate::cognition::search::SearchOracle;
-#[cfg(feature = "cli")]
-use crate::consciousness::Consciousness;
-#[cfg(feature = "cli")]
-use crate::discovery::SymbolicRegression;
-#[cfg(feature = "cli")]
-use crate::encode::{decode_message, encode_text};
-#[cfg(feature = "cli")]
-use crate::expert::inference::InferenceEngine;
-#[cfg(feature = "cli")]
-use crate::expert::rule::RuleBase;
-#[cfg(feature = "cli")]
-use crate::field::Field;
-#[cfg(feature = "cli")]
-use crate::generation::prose::ProseBuilder;
-#[cfg(feature = "cli")]
-use crate::lexicon::Lexicon;
-#[cfg(feature = "cli")]
-use crate::physics::{HarmonicOscillator, LorenzSystem, Pendulum, SIRModel};
-#[cfg(feature = "cli")]
-use crate::predict::TextPredictor;
-#[cfg(feature = "cli")]
-use crate::simulation::Simulator;
-#[cfg(feature = "cli")]
-use crate::stochastic::StochasticEnhancer;
-#[cfg(feature = "cli")]
-use crate::tensor::Tensor;
-#[cfg(feature = "cli")]
-use crate::text::{EssayGenerator, ParagraphGenerator, SentenceGenerator, TextSummarizer};
-#[cfg(feature = "cli")]
-use crate::traits::{Causal as CausalTrait, Simulatable};
-#[cfg(feature = "cli")]
-use clap::Parser;
+
 #[cfg(all(feature = "cli", feature = "net"))]
-use duckduckgo::browser::Browser;
-#[cfg(all(feature = "cli", feature = "net"))]
-use duckduckgo::user_agents::get as get_ua;
-#[cfg(feature = "cli")]
-use tracing::{Event, Subscriber, error, info};
-#[cfg(feature = "cli")]
-use tracing_appender::rolling;
-#[cfg(feature = "cli")]
-use tracing_subscriber::{
-    Layer, Registry, filter,
-    fmt::{self, FmtContext, FormatEvent, FormatFields},
-    prelude::__tracing_subscriber_SubscriberExt,
-    registry::LookupSpan,
+use {
+    crate::{
+        cli::commands::Commands::Ask,
+        net::{
+            SearchAggregator, corpus_from_response, corpus_from_results, corpus_from_results_raw,
+        },
+    },
+    duckduckgo::{browser::Browser, user_agents::get as get_ua},
 };
 
 #[cfg(feature = "cli")]
@@ -101,7 +99,7 @@ where
     fn format_event(
         &self,
         ctx: &FmtContext<'_, S, N>,
-        mut writer: fmt::format::Writer<'_>,
+        mut writer: ts_fmt::format::Writer<'_>,
         event: &Event<'_>,
     ) -> std::fmt::Result {
         ctx.format_fields(writer.by_ref(), event)?;
@@ -118,18 +116,18 @@ fn setup_logging(verbose: bool) -> anyhow::Result<()> {
     };
     let file_appender = rolling::daily("logs", "lmm_log");
 
-    let console_layer = fmt::Layer::new()
+    let console_layer = ts_fmt::Layer::new()
         .compact()
         .without_time()
         .with_file(false)
         .with_line_number(false)
         .with_thread_ids(false)
         .with_target(false)
-        .with_writer(std::io::stdout)
+        .with_writer(io::stdout)
         .event_format(NoLevelFormatter)
         .with_filter(console_level);
 
-    let file_layer = fmt::Layer::new()
+    let file_layer = ts_fmt::Layer::new()
         .compact()
         .with_file(true)
         .with_line_number(true)
@@ -144,12 +142,12 @@ fn setup_logging(verbose: bool) -> anyhow::Result<()> {
 }
 
 #[cfg(feature = "cli")]
-fn load_source(input: &str, text: String) -> crate::error::Result<String> {
+fn load_source(input: &str, text: String) -> LmmResult<String> {
     if input == "-" {
         Ok(text)
     } else {
-        std::fs::read_to_string(input)
-            .map_err(|e| crate::error::LmmError::Perception(e.to_string()))
+        fs::read_to_string(input)
+            .map_err(|e| LmmError::Perception(e.to_string()))
             .map(|s| s.trim_end().to_string())
     }
 }
@@ -278,7 +276,7 @@ pub async fn handle_tram(
     let kb_provided = knowledge_base.is_some();
 
     if let Some(kb_path) = knowledge_base {
-        let path = std::path::Path::new(&kb_path);
+        let path = Path::new(&kb_path);
         let source = if path.is_file() {
             Some(KnowledgeSource::File(path.to_path_buf()))
         } else if path.is_dir() {
@@ -299,17 +297,17 @@ pub async fn handle_tram(
 
     divider("ThinkLoop Reasoning");
 
-    let run_seed: u64 = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let run_seed: u64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .subsec_nanos() as u64;
 
     let mut oracle = SearchOracle::new(5);
-    let convergence_threshold = 0.70;
+    let convergence_threshold = 0.60;
     let think_iterations = if index.is_empty() {
         iterations
     } else {
-        iterations.min(3)
+        iterations.min(4)
     };
     let mut lp = ThinkLoop::builder(&prompt)
         .max_iterations(think_iterations)
@@ -341,7 +339,7 @@ pub async fn handle_tram(
 
     divider("Knowledge Retrieval");
 
-    let top_k = 5 + (run_seed % 6) as usize;
+    let top_k = 6 + (run_seed % 5) as usize;
     let kb_chunks: Vec<String> = index
         .query(&prompt, top_k)
         .into_iter()
@@ -351,7 +349,7 @@ pub async fn handle_tram(
     let (answer_text, from_kb) = match index.answer(&prompt, top_k) {
         Some(answer) if is_quality_answer(&answer) => {
             info!("  ✅ KB answer found ({} chars)", answer.len());
-            let prose = assemble_paragraphs(&answer, run_seed);
+            let prose = assemble_paragraphs_for(&answer, run_seed, &prompt);
             (prose, true)
         }
         Some(_) => {
@@ -392,8 +390,11 @@ pub async fn handle_tram(
         }
         let builder = ProseBuilder::new(2, 5);
         let expert_prose = builder.build(result, &chunk_refs, run_seed);
-        if expert_prose.split_whitespace().count() >= 20 {
-            expert_prose + "\n\n" + &answer_text
+        if expert_prose.split_whitespace().count() >= 30 {
+            let deduplicator = GlobalDeduplicator::new(0.65);
+            let merged = format!("{}\n\n{}", expert_prose, answer_text);
+            let deduped = deduplicator.deduplicate_text(&merged);
+            assemble_paragraphs_for(&deduped, run_seed, &prompt)
         } else {
             answer_text
         }
@@ -413,7 +414,7 @@ pub async fn handle_tram(
             if from_kb {
                 0.05
             } else {
-                0.12
+                0.10
             }
         }
     };
@@ -451,18 +452,22 @@ pub async fn handle_tram(
 #[cfg(feature = "cli")]
 fn is_quality_answer(answer: &str) -> bool {
     let word_count = answer.split_whitespace().count();
-    if word_count < 20 {
+    if word_count < 15 {
         return false;
     }
     let sentences: Vec<&str> = answer
         .split(['.', '!', '?'])
         .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
+        .filter(|s| {
+            !s.is_empty()
+                && s.split_whitespace().count() >= 5
+                && !s.chars().next().is_some_and(|c| c.is_ascii_digit())
+        })
         .collect();
     let sentence_count = sentences.len().max(1);
     let avg_words_per_sentence = word_count / sentence_count;
 
-    if avg_words_per_sentence < 12 {
+    if avg_words_per_sentence < 6 {
         return false;
     }
 
@@ -491,51 +496,56 @@ fn is_quality_answer(answer: &str) -> bool {
                 || lower.contains(" formed ")
                 || lower.contains(" released ")
                 || lower.contains(" developed ")
+                || lower.contains(" began ")
+                || lower.contains(" defines ")
+                || lower.contains(" describe ")
         })
         .count();
-    verb_count * 10 >= sentence_count * 4
+    verb_count * 10 >= sentence_count * 3
 }
 
-/// Assembles raw KB answer text into randomised multi-paragraph prose.
-///
-/// Sentences are split from the raw answer, shuffled pseudo-randomly with
-/// `run_seed`, then grouped into 1-3 paragraphs separated by blank lines.
-/// A discourse connector is prepended to the first sentence of each
-/// subsequent paragraph so the output reads naturally.
-///
-/// # Arguments
-///
-/// * `text`     - Raw extractive answer from `KnowledgeIndex::answer`.
-/// * `run_seed` - Per-run nanosecond entropy value from [`handle_tram`].
-///
-/// # Time Complexity
-///
-/// O(|text|)
+/// Assembles and shapes final output paragraphs, optionally filtering sentences
+/// that open with an off-topic proper noun not related to `topic`.
 #[cfg(feature = "cli")]
-fn assemble_paragraphs(text: &str, run_seed: u64) -> String {
-    static CONNECTORS: &[&str] = &[
-        "Furthermore,",
-        "In addition,",
-        "Notably,",
-        "Moreover,",
-        "As a result,",
-        "In practice,",
-        "By extension,",
-        "Interestingly,",
-        "At its core,",
-        "Consequently,",
-    ];
+fn assemble_paragraphs_for(text: &str, run_seed: u64, topic: &str) -> String {
+    let topic_word: String = topic
+        .split_whitespace()
+        .find(|w| {
+            w.len() > 3
+                && !matches!(
+                    *w,
+                    "what" | "does" | "how" | "the" | "and" | "for" | "with" | "about"
+                )
+        })
+        .unwrap_or("")
+        .to_lowercase();
 
-    let mut sentences: Vec<String> = text
-        .split(['.', '!', '?'])
-        .map(|s| s.trim().to_string())
-        .filter(|s| s.split_whitespace().count() >= 5)
-        .map(|s| {
-            let mut out = s.clone();
-            if !out.ends_with('.') && !out.ends_with('!') && !out.ends_with('?') {
-                out.push('.');
+    let mut sentences: Vec<String> = split_sentences_with_punct(text)
+        .into_iter()
+        .map(strip_discourse_connector)
+        .filter(|s| SentenceFilter::is_acceptable(s))
+        .filter(|s| {
+            if topic_word.is_empty() {
+                return true;
             }
-            out
+            let first = s.split_whitespace().next().unwrap_or("");
+            if first.len() < 4 {
+                return true;
+            }
+            let mut chars = first.chars();
+            let starts_upper = chars.next().map(|c| c.is_uppercase()).unwrap_or(false);
+            let rest_lower = chars.all(|c| c.is_lowercase());
+            if !starts_upper || !rest_lower {
+                return true;
+            }
+            let first_lower = first.to_lowercase();
+            if first_lower.contains(&topic_word) || topic_word.contains(&first_lower) {
+                return true;
+            }
+            if s.to_lowercase().contains(&topic_word) {
+                return true;
+            }
+            false
         })
         .collect();
 
@@ -553,62 +563,159 @@ fn assemble_paragraphs(text: &str, run_seed: u64) -> String {
         sentences.swap(i, j);
     }
 
-    let para_count = if sentences.len() <= 2 {
-        1
-    } else if sentences.len() <= 4 {
-        1 + (run_seed % 2) as usize
-    } else {
-        1 + (run_seed % 3) as usize
-    };
+    let deduplicator = GlobalDeduplicator::new(0.65);
+    let mut sentences = deduplicator.deduplicate(sentences);
 
-    let per_para = (sentences.len() / para_count).max(1);
-    let mut paragraphs: Vec<String> = Vec::new();
-    let mut offset = 0usize;
-
-    for p in 0..para_count {
-        let take = if p == para_count - 1 {
-            sentences.len() - offset
-        } else {
-            per_para
-        };
-        if take == 0 {
-            break;
-        }
-        let chunk: Vec<&str> = sentences[offset..offset + take]
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
-        offset += take;
-
-        let mut para = if p > 0 {
-            let conn = CONNECTORS[(run_seed as usize + p) % CONNECTORS.len()];
-            let first = chunk[0];
-            let joined_first = if let Some(fc) = first.chars().next() {
-                format!(
-                    "{} {}{}",
-                    conn,
-                    fc.to_ascii_lowercase(),
-                    &first[fc.len_utf8()..]
-                )
-            } else {
-                format!("{} {}", conn, first)
-            };
-            let mut parts = vec![joined_first];
-            parts.extend(chunk[1..].iter().map(|s| s.to_string()));
-            parts.join(" ")
-        } else {
-            chunk.join(" ")
-        };
-
-        if let Some(fc) = para.chars().next() {
-            let upper: String = fc.to_uppercase().collect();
-            para = upper + &para[fc.len_utf8()..];
-        }
-
-        paragraphs.push(para);
+    if sentences.is_empty() {
+        return text.to_string();
     }
 
-    paragraphs.join("\n\n")
+    if let Some(good_pos) = sentences
+        .iter()
+        .position(|s| SentenceFilter::is_good_opener(s))
+    {
+        sentences.swap(0, good_pos);
+    }
+
+    let shaper = ParagraphShaper::new(2, 2, 5, 40, 180);
+    shaper.shape(&sentences, run_seed)
+}
+
+/// Strips a leading discourse connector phrase from a sentence.
+///
+/// Connectors like `"Furthermore, "`, `"In addition, "`, `"As a result, "` are
+/// prepended by [`ProseBuilder`] and [`ParagraphShaper`] when building
+/// non-first paragraphs.  When sentences are later re-shuffled through
+/// [`assemble_paragraphs`], these stale connectors cause double-stacking
+/// (e.g. `"To elaborate, Furthermore, rust supports..."`).  This function
+/// removes them so the shaper can apply fresh connectors at the right positions.
+///
+/// # Time Complexity
+///
+/// O(|sentence|)
+#[cfg(feature = "cli")]
+fn strip_discourse_connector(sentence: String) -> String {
+    static CONNECTOR_PREFIXES: &[&str] = &[
+        "Furthermore, ",
+        "In addition, ",
+        "Notably, ",
+        "Moreover, ",
+        "As a result, ",
+        "In practice, ",
+        "Interestingly, ",
+        "Consequently, ",
+        "Building on this, ",
+        "To elaborate, ",
+        "More specifically, ",
+        "On the technical side, ",
+        "From a practical standpoint, ",
+        "In this context, ",
+        "In addition, ",
+        "Also, ",
+        "However, ",
+        "Therefore, ",
+        "Thus, ",
+        "Hence, ",
+    ];
+    for prefix in CONNECTOR_PREFIXES {
+        if let Some(rest) = sentence.strip_prefix(prefix) {
+            let trimmed = rest.trim();
+            if !trimmed.is_empty() {
+                let mut chars = trimmed.chars();
+                let first_up: String = chars
+                    .next()
+                    .map(|c| c.to_uppercase().collect::<String>())
+                    .unwrap_or_default();
+                return first_up + chars.as_str();
+            }
+        }
+    }
+    sentence
+}
+
+/// Splits text into complete sentences with terminal punctuation attached.
+///
+/// Sentences below 8 words are silently discarded.
+///
+/// Handles common English abbreviations (`e.g.`, `i.e.`, `vs.`, `Dr.`,
+/// `Mr.`, `Mrs.`, `No.`, `Fig.`, `cf.`) to prevent spurious sentence splits
+/// at their trailing periods.
+///
+/// # Time Complexity
+///
+/// O(|text|)
+#[cfg(feature = "cli")]
+fn split_sentences_with_punct(text: &str) -> Vec<String> {
+    static ABBREVIATIONS: phf::Set<&'static str> = phf::phf_set! {
+        "e.g", "i.e", "vs", "dr", "mr", "mrs", "ms", "prof", "sr", "jr",
+        "no", "fig", "cf", "etc", "approx", "dept", "est", "govt", "inc",
+        "ltd", "corp", "jan", "feb", "mar", "apr", "jun", "jul", "aug",
+        "sep", "oct", "nov", "dec",
+    };
+
+    let chars: Vec<char> = text.chars().collect();
+    let len = chars.len();
+    let mut out: Vec<String> = Vec::new();
+    let mut cur = String::new();
+
+    for (i, &ch) in chars.iter().enumerate() {
+        cur.push(ch);
+        if matches!(ch, '.' | '!' | '?') {
+            let next_char = chars.get(i + 1).copied();
+            let next_lower = next_char.map(|c| c.is_ascii_lowercase()).unwrap_or(false);
+            let next_space = next_char.map(|c| c == ' ').unwrap_or(false);
+            let prev_digit = i > 0 && chars[i - 1].is_ascii_digit();
+            let next_digit = next_char.map(|c| c.is_ascii_digit()).unwrap_or(false);
+
+            if ch == '.' && (next_lower || (prev_digit && next_digit)) {
+                continue;
+            }
+
+            if ch == '.' && next_space {
+                let word_before: String = cur
+                    .trim_end_matches('.')
+                    .split_whitespace()
+                    .last()
+                    .unwrap_or("")
+                    .chars()
+                    .filter(|c| c.is_ascii_alphabetic() || *c == '.')
+                    .collect::<String>()
+                    .to_ascii_lowercase();
+                let stripped = word_before.trim_end_matches('.');
+                if ABBREVIATIONS.contains(stripped) {
+                    continue;
+                }
+            }
+
+            let next_upper = next_char.map(|c| c.is_ascii_uppercase()).unwrap_or(false);
+            if ch == '.'
+                && !next_upper
+                && !next_char.map(|c| c == '\n').unwrap_or(false)
+                && next_char.is_some()
+                && !next_space
+            {
+                continue;
+            }
+
+            let s = cur.trim().to_string();
+            if s.split_whitespace().count() >= 8 {
+                out.push(s);
+            }
+            cur.clear();
+        }
+    }
+
+    let tail = cur.trim().to_string();
+    if tail.split_whitespace().count() >= 8 {
+        if !tail.ends_with('.') && !tail.ends_with('!') && !tail.ends_with('?') {
+            out.push(format!("{}.", tail));
+        } else {
+            out.push(tail);
+        }
+    }
+
+    let _ = len;
+    out
 }
 
 /// Builds a topic-aware symbolic response when no KB answer is available.
@@ -689,7 +796,8 @@ fn extract_topic(prompt: &str) -> String {
     for prefix in FILLER_PREFIXES {
         if lower.starts_with(prefix) {
             let raw = prompt[prefix.len()..].trim();
-            return strip_leading_articles(raw);
+            let stripped = strip_leading_articles(raw);
+            return strip_trailing_verb(stripped);
         }
     }
     strip_leading_articles(prompt.trim())
@@ -709,6 +817,44 @@ fn strip_leading_articles(s: &str) -> String {
         }
     }
     s.to_string()
+}
+
+/// Strips a trailing common verb from a topic string extracted from a question.
+///
+/// For example, `"how does tokio work"` → `extract_topic` strips `"how does "`
+/// yielding `"tokio work"`. This function further strips `" work"` to give
+/// just `"tokio"`, which produces cleaner DuckDuckGo Instant Answer hits.
+///
+/// # Time Complexity
+///
+/// O(|s|)
+#[cfg(feature = "cli")]
+fn strip_trailing_verb(s: String) -> String {
+    static TRAILING_VERBS: &[&str] = &[
+        " work",
+        " works",
+        " function",
+        " functions",
+        " operate",
+        " operates",
+        " run",
+        " runs",
+        " do",
+        " does",
+        " mean",
+        " means",
+        " help",
+        " helps",
+        " differ",
+        " differs",
+    ];
+    let lower = s.to_lowercase();
+    for verb in TRAILING_VERBS {
+        if lower.ends_with(verb) {
+            return s[..s.len() - verb.len()].trim().to_string();
+        }
+    }
+    s
 }
 
 /// Issues a DuckDuckGo pre-fetch when no KB is provided and the `net` feature is active.
@@ -750,11 +896,15 @@ async fn prefetch_web_inner(
     let topic_lang = format!("{} programming language", topic_query);
     let topic_lang2 = format!("{} language", topic_query);
     let topic_what = format!("what is {}", topic_query);
+    let topic_library = format!("{} library", topic_query);
+    let topic_framework = format!("{} framework", topic_query);
 
     let ia_candidates: &[&str] = &[
         topic_query.as_str(),
         topic_lang.as_str(),
         topic_lang2.as_str(),
+        topic_library.as_str(),
+        topic_framework.as_str(),
         topic_what.as_str(),
         prompt,
     ];
@@ -797,11 +947,11 @@ async fn prefetch_web_inner(
             for topic in resp.related_topics.iter().take(10) {
                 if let Some(text) = topic.text.as_deref().filter(|s| !s.trim().is_empty()) {
                     let wc = text.split_whitespace().count();
-                    if wc >= 20 {
+                    if wc >= 20 && SentenceFilter::is_acceptable(text.trim()) {
                         let added = index.ingest_text("web-ia", text.trim());
                         prose_chunks += added;
                         ingested += added;
-                    } else if wc >= 8 {
+                    } else if wc >= 8 && SentenceFilter::is_acceptable(text.trim()) {
                         ingested += index.ingest_text("web-ia", text.trim());
                     }
                 }
@@ -831,40 +981,51 @@ async fn prefetch_web_inner(
     }
 
     let mut lite_snippets_found = 0usize;
-    match browser.lite_search(prompt, "wt-wt", Some(15), ua).await {
-        Ok(results) if !results.is_empty() => {
-            for r in &results {
-                let snippet = r.snippet.trim();
-                let title = r.title.trim();
-                if snippet.split_whitespace().count() >= 8 {
-                    let chunk = format!("{} {}", title, snippet);
-                    ingested += index.ingest_text("web-lite", chunk.trim());
-                    lite_snippets_found += 1;
+    let mut lite_q_list: Vec<&str> = vec![prompt];
+    if topic_query.as_str() != prompt {
+        lite_q_list.push(topic_query.as_str());
+    }
+    'lite: for lite_q in lite_q_list {
+        match browser.lite_search(lite_q, "wt-wt", Some(15), ua).await {
+            Ok(results) if !results.is_empty() => {
+                for r in &results {
+                    let snippet = r.snippet.trim();
+                    let title = r.title.trim();
+                    if snippet.split_whitespace().count() >= 8 {
+                        let chunk = format!("{} {}", title, snippet);
+                        ingested += index.ingest_text("web-lite", chunk.trim());
+                        lite_snippets_found += 1;
+                    }
+                }
+                if lite_snippets_found == 0 {
+                    info!(
+                        "  🌐 Lite search: {} results (titles only - no snippets)",
+                        results.len()
+                    );
+                } else {
+                    info!(
+                        "  🌐 Lite search [{:?}]: {} result(s), {} snippet chunk(s) ingested",
+                        lite_q,
+                        results.len(),
+                        ingested
+                    );
+                    break 'lite;
                 }
             }
-            if lite_snippets_found == 0 {
-                info!(
-                    "  🌐 Lite search: {} results (titles only - no snippets)",
-                    results.len()
-                );
-            } else {
-                info!(
-                    "  🌐 Lite search: {} result(s), {} snippet chunk(s) ingested",
-                    results.len(),
-                    ingested
-                );
+            Ok(_) => {
+                if verbose {
+                    info!("  🌐 Lite search [{:?}]: no results", lite_q);
+                }
+            }
+            Err(e) => {
+                if verbose {
+                    info!("  ⚠️  Lite search [{:?}] error: {e}", lite_q);
+                }
             }
         }
-        Ok(_) => {
-            if verbose {
-                info!("  🌐 Lite search: no results");
-            }
-        }
-        Err(e) => {
-            if verbose {
-                info!("  ⚠️  Lite search error: {e}");
-            }
-        }
+    }
+    if lite_snippets_found == 0 && ingested == 0 {
+        info!("  🌐 Lite search: no results");
     }
 }
 
@@ -880,7 +1041,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                 eprintln!(
                     "lmm: no subcommand given. Try `lmm --help` or `lmm -p 'your question'`."
                 );
-                std::process::exit(1);
+                exit(1);
             });
             return handle_tram(
                 prompt,
@@ -1164,7 +1325,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             banner("Decode · Equation to Text", "🔓");
             info!("  📐 Equation : {}", equation);
             info!("  📏 Length   : {}", length);
-            let decoded = crate::encode::decode_from_parts(&equation, length, &residuals)?;
+            let decoded = decode_from_parts(&equation, length, &residuals)?;
             if cli.verbose {
                 divider("Decoded Text");
                 info!("  {}", decoded);
@@ -1187,7 +1348,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             banner("Predict · Symbolic Continuation", "🔮");
             let source = load_source(&input, text)?;
             let lexicon = match dictionary {
-                Some(path) => Lexicon::load_from(std::path::Path::new(&path)).ok(),
+                Some(path) => Lexicon::load_from(Path::new(&path)).ok(),
                 None => Lexicon::load_system().ok(),
             };
             let mut predictor = TextPredictor::new(window, iterations, depth);
@@ -1373,7 +1534,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
         } => {
             banner("Ask · Internet-Aware Knowledge Synthesis", "🌐");
             info!("  ❓ Prompt : {:?}", prompt);
-            let aggregator = crate::net::SearchAggregator::new().with_region(&region);
+            let aggregator = SearchAggregator::new().with_region(&region);
             divider("DuckDuckGo Results");
 
             if let Err(e) = aggregator.search_and_display(&prompt, limit).await {
@@ -1381,15 +1542,15 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             }
 
             let corpus = match aggregator.get_response(&prompt).await {
-                Ok(resp) => crate::net::corpus_from_response(&resp),
+                Ok(resp) => corpus_from_response(&resp),
                 Err(_) => String::new(),
             };
 
             let final_corpus = if corpus.trim().is_empty() {
                 let lite_results = aggregator.fetch(&prompt, limit).await.unwrap_or_default();
-                let quality = crate::net::corpus_from_results(&lite_results);
+                let quality = corpus_from_results(&lite_results);
                 if quality.trim().is_empty() {
-                    crate::net::corpus_from_results_raw(&lite_results)
+                    corpus_from_results_raw(&lite_results)
                 } else {
                     quality
                 }
@@ -1435,10 +1596,8 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             info!("  🎭 Style      : {}", style);
             info!("  🎨 Palette    : {}", palette);
             info!("  🌊 Components : {}", components);
-            let parsed_style = style
-                .parse::<crate::imagen::StyleMode>()
-                .unwrap_or(crate::imagen::StyleMode::Plasma);
-            let params = crate::imagen::ImagenParams {
+            let parsed_style = style.parse::<StyleMode>().unwrap_or(StyleMode::Plasma);
+            let params = ImagenParams {
                 prompt,
                 width,
                 height,
@@ -1449,7 +1608,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             };
             info!("");
             divider("Rendering");
-            match crate::imagen::render(&params) {
+            match imagen_render(&params) {
                 Ok(path) => {
                     if cli.verbose {
                         info!("  ✅ Saved to: {}", path);

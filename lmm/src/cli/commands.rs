@@ -155,8 +155,8 @@ pub struct Cli {
         long,
         alias = "cf",
         global = false,
-        default_value_t = 0.30,
-        help = "Expert inference certainty-factor threshold [0.0, 1.0] (default: 0.30)"
+        default_value_t = 0.20,
+        help = "Expert inference certainty-factor threshold [0.0, 1.0] (default: 0.20)"
     )]
     pub cf_threshold: f64,
 

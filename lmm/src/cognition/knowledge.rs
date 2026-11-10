@@ -41,6 +41,7 @@
 //! assert!(answer.is_some());
 //! ```
 
+use crate::generation::filter::SentenceFilter;
 use crate::text::TextSummarizer;
 use anyhow::{Result, anyhow};
 use std::cmp::Ordering;
@@ -49,6 +50,8 @@ use std::fs;
 #[cfg(feature = "knowledge")]
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A source from which an agent can acquire knowledge.
 #[derive(Debug, Clone)]
@@ -131,12 +134,18 @@ impl KnowledgeIndex {
     /// Ingests a raw text string under the given `source` label.
     ///
     /// The text is split into sentence-level chunks via a lightweight sentence
-    /// splitter before being indexed.  Returns the number of chunks created.
+    /// splitter before being indexed.  Each candidate sentence is passed through
+    /// [`SentenceFilter::is_acceptable`] to reject metadata lines, Wikipedia
+    /// disambiguation fragments, and other low-quality content before it enters
+    /// the index.  Returns the number of chunks created.
     pub fn ingest_text(&mut self, source: &str, text: &str) -> usize {
         let sentences = split_sentences(text);
         let start = self.chunks.len();
         for sentence in sentences {
             if sentence.split_whitespace().count() < 4 {
+                continue;
+            }
+            if !SentenceFilter::is_acceptable(&sentence) {
                 continue;
             }
             let chunk = DocumentChunk::new(source, &sentence);
@@ -193,6 +202,10 @@ impl KnowledgeIndex {
     /// [`lmm::text::TextSummarizer`] with the original question as a relevance
     /// hint. The summariser selects the sentences most likely to answer the question.
     ///
+    /// Each candidate sentence is additionally screened by [`SentenceFilter`] so
+    /// metadata lines and disambiguation fragments never appear in the returned
+    /// answer regardless of their IDF score.
+    ///
     /// The number of sentences extracted is randomised per call (4-7) using
     /// the sub-second nanosecond clock, so repeated identical queries produce
     /// different answer lengths.
@@ -203,12 +216,16 @@ impl KnowledgeIndex {
         }
         let corpus: String = hits
             .iter()
+            .filter(|c| SentenceFilter::is_acceptable(&c.text))
             .map(|c| c.text.as_str())
             .collect::<Vec<_>>()
             .join(" ");
+        if corpus.trim().is_empty() {
+            return None;
+        }
         #[cfg(not(target_arch = "wasm32"))]
-        let run_nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let run_nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .subsec_nanos() as usize;
         #[cfg(target_arch = "wasm32")]

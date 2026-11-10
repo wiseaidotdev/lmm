@@ -29,8 +29,9 @@
 //! - [Popper, K. (1959). The Logic of Scientific Discovery. Hutchinson.](https://en.wikipedia.org/wiki/The_Logic_of_Scientific_Discovery)
 //! - [Abductive reasoning - Wikipedia](https://en.wikipedia.org/wiki/Abductive_reasoning)
 
-use crate::causal::{CausalEdge, CausalGraph};
+use crate::causal::{CausalEdge, CausalGraph, CausalNode};
 use crate::error::Result;
+use std::collections::HashMap;
 
 /// A candidate causal explanation proposed by the [`HypothesisGenerator`].
 ///
@@ -125,12 +126,12 @@ impl HypothesisGenerator {
     pub fn generate(
         &self,
         graph: &CausalGraph,
-        observed: &std::collections::HashMap<String, f64>,
+        observed: &HashMap<String, f64>,
     ) -> Result<Vec<Hypothesis>> {
         let mut forward_graph = graph.clone();
         forward_graph.forward_pass()?;
 
-        let under_explained: Vec<(&crate::causal::CausalNode, f64)> = forward_graph
+        let under_explained: Vec<(&CausalNode, f64)> = forward_graph
             .nodes
             .iter()
             .filter_map(|node| {
@@ -227,7 +228,7 @@ impl HypothesisGenerator {
     pub fn promote_best(
         &self,
         graph: &mut CausalGraph,
-        observed: &std::collections::HashMap<String, f64>,
+        observed: &HashMap<String, f64>,
     ) -> Result<bool> {
         let hypotheses = self.generate(graph, observed)?;
         if let Some(best) = hypotheses.into_iter().next() {

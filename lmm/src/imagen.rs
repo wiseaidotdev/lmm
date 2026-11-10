@@ -46,7 +46,7 @@ use std::fs::File;
 #[cfg(not(target_arch = "wasm32"))]
 use std::io::{BufWriter, Write};
 #[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// LCG multiplier (Knuth).
 const LCG_MULTIPLIER: u64 = 6364136223846793005;
@@ -467,7 +467,7 @@ pub fn render(params: &ImagenParams) -> Result<String> {
         }
     }
 
-    let mut out_path = std::path::PathBuf::from(&params.output);
+    let mut out_path = PathBuf::from(&params.output);
     if params.output.ends_with('/') || params.output.ends_with('\\') || out_path.is_dir() {
         if !out_path.exists() {
             std::fs::create_dir_all(&out_path)

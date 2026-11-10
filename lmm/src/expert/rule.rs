@@ -38,7 +38,7 @@
 //! | `X guarantees Y` | `guarantees` |
 //! | `X has Y`        | `has` |
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// A set of relation verbs used to extract subject-predicate-object triples.
 static RELATION_VERBS: &[&str] = &[
@@ -319,7 +319,7 @@ fn extract_triples(text: &str) -> Vec<Condition> {
             .map(|w| w.to_ascii_lowercase())
             .collect();
 
-        let mut seen_subj = std::collections::HashSet::new();
+        let mut seen_subj = HashSet::new();
         let subject: String = raw_subject_words
             .into_iter()
             .filter(|w| seen_subj.insert(w.clone()))

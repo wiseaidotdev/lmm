@@ -51,7 +51,7 @@ pub struct CoherenceScorer;
 impl CoherenceScorer {
     /// Reorders `sentences` for maximum adjacent-sentence token overlap.
     ///
-    /// Uses a greedy nearest-neighbour strategy for ≤ 8 sentences; preserves
+    /// Uses a greedy nearest-neighbour strategy for ≤ 12 sentences; preserves
     /// input order for larger sets.
     ///
     /// # Arguments
@@ -64,14 +64,14 @@ impl CoherenceScorer {
     ///
     /// # Time Complexity
     ///
-    /// O(n² × |sentence|) for n ≤ 8; O(n) otherwise.
+    /// O(n² × |sentence|) for n ≤ 12; O(n) otherwise.
     ///
     /// # Space Complexity
     ///
     /// O(n × |tokens_per_sentence|)
     pub fn reorder(&self, sentences: &[String]) -> Vec<String> {
         let n = sentences.len();
-        if n <= 1 || n > 8 {
+        if n <= 1 || n > 12 {
             return sentences.to_vec();
         }
 
