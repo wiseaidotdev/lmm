@@ -275,7 +275,8 @@ impl ThoughtChain {
             .iter()
             .filter_map(|s| {
                 let t = s.evidence_text.trim();
-                if t.split_whitespace().count() >= 6 {
+                let wc = t.split_whitespace().count();
+                if (6..=60).contains(&wc) && !is_link_title(t) {
                     Some(t)
                 } else {
                     None
@@ -554,15 +555,20 @@ impl AdaptiveThoughtEngine {
         match step_mode {
             StepMode::Deductive => {
                 if has_evidence {
+                    let snippet: String = evidence_text
+                        .split_whitespace()
+                        .take(20)
+                        .collect::<Vec<_>>()
+                        .join(" ");
                     if idx == 0 {
                         format!(
                             "The evidence establishes that {}. This gives me a foundation to explore {}.",
-                            evidence_text, sub_goal
+                            snippet, sub_goal
                         )
                     } else {
                         format!(
                             "Building on prior context, the evidence confirms: {}.",
-                            evidence_text
+                            snippet
                         )
                     }
                 } else {
@@ -688,6 +694,37 @@ fn is_link_title(s: &str) -> bool {
     if s.contains(" - ") || s.contains(" | ") || s.contains(" \u{00b7} ") {
         return true;
     }
+    let trimmed = s.trim();
+    if trimmed.starts_with('-') || trimmed.starts_with('•') || trimmed.starts_with('*') {
+        return true;
+    }
+    if s.contains('[') && s.contains(']') {
+        return true;
+    }
+    let colon_count = s.chars().filter(|&c| c == ':').count();
+    if colon_count >= 2 {
+        return true;
+    }
+    static SITE_NAMES: &[&str] = &[
+        "geeksforgeeks",
+        "stackoverflow",
+        "reddit",
+        "medium.com",
+        "github",
+        "quora",
+        "dev.to",
+        "freecodecamp",
+        "tutorialspoint",
+        "programiz",
+        "towardsdatascience",
+        "hackernews",
+    ];
+    let lower = s.to_ascii_lowercase();
+    for site in SITE_NAMES {
+        if lower.contains(site) {
+            return true;
+        }
+    }
     let words: Vec<&str> = s.split_whitespace().collect();
     if words.is_empty() {
         return false;
@@ -730,9 +767,12 @@ fn extract_key_phrase(evidence: &str, topic: &str) -> Option<String> {
     let lower_topic = topic.to_ascii_lowercase();
 
     let sentences: Vec<&str> = evidence
-        .split(['.', '!', '?'])
+        .split(['.', '!', '?', '\n'])
         .map(|s| s.trim())
-        .filter(|s| s.split_whitespace().count() >= 5)
+        .filter(|s| {
+            let wc = s.split_whitespace().count();
+            (5..=50).contains(&wc)
+        })
         .collect();
 
     let prose: Vec<&&str> = sentences.iter().filter(|s| !is_link_title(s)).collect();

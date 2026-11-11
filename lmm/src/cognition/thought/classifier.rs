@@ -7,7 +7,7 @@
 
 //! # Input Classifier
 //!
-//! Classifies a raw user prompt into one of seven [`ReasoningMode`]s using a
+//! Classifies a raw user prompt into one of eight [`ReasoningMode`]s using a
 //! lightweight, training-free **scored token-matching** approach.
 //!
 //! Each mode has a set of **signal words** weighted by their diagnostic strength.
@@ -63,6 +63,8 @@ pub enum ReasoningMode {
     Exploratory,
     /// "Is X good?", "which is better X or Y?", weigh evidence and judge.
     Evaluative,
+    /// "write X in Y", "generate X", "create a program", "implement X", produce executable output.
+    TaskExecution,
 }
 
 impl ReasoningMode {
@@ -75,6 +77,7 @@ impl ReasoningMode {
     ///
     /// assert_eq!(ReasoningMode::FactualLookup.label(), "factual");
     /// assert_eq!(ReasoningMode::Procedural.label(), "procedural");
+    /// assert_eq!(ReasoningMode::TaskExecution.label(), "task");
     /// ```
     pub fn label(&self) -> &'static str {
         match self {
@@ -85,6 +88,7 @@ impl ReasoningMode {
             Self::Procedural => "procedural",
             Self::Exploratory => "exploratory",
             Self::Evaluative => "evaluative",
+            Self::TaskExecution => "task",
         }
     }
 }
@@ -98,6 +102,7 @@ struct ModeSignals {
     definitional: &'static [(&'static str, u32)],
     procedural: &'static [(&'static str, u32)],
     evaluative: &'static [(&'static str, u32)],
+    task_execution: &'static [(&'static str, u32)],
 }
 
 static SIGNALS: ModeSignals = ModeSignals {
@@ -201,6 +206,35 @@ static SIGNALS: ModeSignals = ModeSignals {
         ("assessment", 5),
         ("opinion", 4),
         ("review", 4),
+        ("inconveniences", 7),
+        ("inconvenience", 7),
+        ("limitations", 5),
+        ("drawbacks", 5),
+        ("downsides", 5),
+        ("upsides", 5),
+        ("weaknesses", 5),
+        ("strengths", 5),
+        ("merits", 5),
+        ("demerits", 5),
+        ("pitfalls", 5),
+        ("benefits", 5),
+        ("tradeoffs", 5),
+        ("tradeoff", 5),
+    ],
+    task_execution: &[
+        ("write", 9),
+        ("generate", 8),
+        ("implement", 7),
+        ("code", 6),
+        ("program", 6),
+        ("script", 6),
+        ("snippet", 6),
+        ("example", 5),
+        ("hello", 8),
+        ("world", 5),
+        ("build", 5),
+        ("make", 4),
+        ("create", 5),
     ],
 };
 
@@ -271,6 +305,7 @@ impl InputClassifier {
         };
 
         let scores = [
+            (ReasoningMode::TaskExecution, score(SIGNALS.task_execution)),
             (ReasoningMode::Causal, score(SIGNALS.causal)),
             (ReasoningMode::Analogical, score(SIGNALS.analogical)),
             (ReasoningMode::Procedural, score(SIGNALS.procedural)),

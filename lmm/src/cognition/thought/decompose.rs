@@ -25,7 +25,8 @@
 //! | `Definitional` | etymology, formal definition, usage, examples, contrast |
 //! | `Procedural` | prerequisites, steps, verification, common errors, alternatives |
 //! | `Exploratory` | broad overview, notable aspects, history, related concepts, impact |
-//! | `Evaluative` | criteria, evidence for, evidence against, context, verdict |
+//! | `Evaluative` | advantages, benefits, disadvantages, pros and cons, when to use |
+//! | `TaskExecution` | example program, how to write, code template, getting started, syntax |
 //!
 //! ## Prioritization
 //!
@@ -87,11 +88,70 @@ impl GoalDecomposer {
     /// ```
     pub fn decompose(prompt: &str, mode: ReasoningMode, context: &[String]) -> Vec<String> {
         let topic = Self::extract_topic(prompt, context);
+        if matches!(mode, ReasoningMode::Causal) {
+            return Self::decompose_causal(prompt, &topic);
+        }
         let aspects = Self::aspects_for_mode(mode);
         aspects
             .iter()
             .map(|aspect| Self::instantiate(aspect, &topic, prompt))
             .collect()
+    }
+
+    /// Generates richer causal sub-goals by extracting the full predicate clause
+    /// from the prompt rather than just the subject noun.
+    ///
+    /// For `"why does rust not have a garbage collector?"` this produces aspects
+    /// about `"rust memory management"`, `"rust ownership model"`, etc. rather
+    /// than the generic `"mechanism behind rust"`.
+    ///
+    /// # Time Complexity
+    ///
+    /// O(|prompt|)
+    fn decompose_causal(prompt: &str, topic: &str) -> Vec<String> {
+        let prompt_lower = prompt.to_ascii_lowercase();
+        let clean_prompt = prompt_lower
+            .trim_end_matches('?')
+            .trim_end_matches('.')
+            .trim();
+        static CAUSAL_OPENERS: &[&str] = &[
+            "why does ",
+            "why do ",
+            "why is ",
+            "why are ",
+            "why was ",
+            "why were ",
+            "why would ",
+            "why should ",
+            "why can't ",
+            "why cannot ",
+            "why doesn't ",
+            "why don't ",
+            "how come ",
+        ];
+        let predicate = CAUSAL_OPENERS
+            .iter()
+            .find_map(|&pfx| clean_prompt.strip_prefix(pfx))
+            .unwrap_or(clean_prompt);
+        let predicate_trimmed = predicate.trim();
+        let full_question = if predicate_trimmed.is_empty() {
+            topic
+        } else {
+            predicate_trimmed
+        };
+        let words: Vec<&str> = full_question.split_whitespace().collect();
+        let key_phrase = if words.len() > 6 {
+            words[..6].join(" ")
+        } else {
+            full_question.to_string()
+        };
+        vec![
+            format!("{} explanation and rationale", key_phrase),
+            format!("why {} design decision", topic),
+            format!("{} technical background", key_phrase),
+            format!("{} underlying mechanism", topic),
+            format!("{} history and motivation", topic),
+        ]
     }
 
     /// Re-orders `sub_goals` so that the most uncertain sub-goals (widest belief
@@ -178,6 +238,27 @@ impl GoalDecomposer {
             "when is ",
             "is it true that ",
             "is ",
+            "write a ",
+            "write an ",
+            "write ",
+            "generate a ",
+            "generate an ",
+            "generate ",
+            "create a ",
+            "create an ",
+            "create ",
+            "implement a ",
+            "implement an ",
+            "implement ",
+            "make a ",
+            "make an ",
+            "code a ",
+            "build a ",
+            "show me how to ",
+            "show me a ",
+            "show me ",
+            "give me a ",
+            "give me an ",
         ];
 
         let lower = prompt.to_ascii_lowercase();
@@ -193,10 +274,10 @@ impl GoalDecomposer {
             .trim();
 
         if stripped.is_empty() {
-            prompt.trim().to_string()
-        } else {
-            trim_predicate_decompose(stripped)
+            return prompt.trim().to_string();
         }
+        let core = trim_predicate_decompose(stripped);
+        strip_mode_keywords_decompose(&core)
     }
 
     /// Returns the canonical aspect list for `mode`.
@@ -245,11 +326,18 @@ impl GoalDecomposer {
                 "impact and significance of {topic}",
             ],
             ReasoningMode::Evaluative => &[
-                "evaluation criteria for {topic}",
-                "evidence supporting {topic}",
-                "evidence against or limitations of {topic}",
-                "context and conditions for {topic}",
-                "conclusion on {topic}",
+                "advantages of {topic}",
+                "benefits of {topic}",
+                "disadvantages of {topic}",
+                "pros and cons of {topic}",
+                "when to use {topic}",
+            ],
+            ReasoningMode::TaskExecution => &[
+                "example {topic} program",
+                "how to write {topic}",
+                "{topic} code template",
+                "{topic} getting started",
+                "{topic} syntax",
             ],
         }
     }
@@ -265,6 +353,74 @@ impl GoalDecomposer {
         };
         aspect.replace("{topic}", used_topic)
     }
+}
+
+/// Strips common mode-specific keyword prefixes from a topic left over after
+/// question-prefix removal.
+///
+/// After stripping `"what are the "` from `"what are the advantages of rust"`,
+/// the residual is `"advantages of rust"`.  When used as an aspect template
+/// anchor this produces redundant text (`"advantages of advantages of rust"`).
+/// This function strips those second-level prefixes to yield just `"rust"`.
+///
+/// # Time Complexity
+///
+/// O(|s|)
+fn strip_mode_keywords_decompose(s: &str) -> String {
+    static MODE_PREFIXES: &[&str] = &[
+        "advantages of ",
+        "advantage of ",
+        "benefits of ",
+        "benefit of ",
+        "disadvantages of ",
+        "disadvantage of ",
+        "pros and cons of ",
+        "pros of ",
+        "cons of ",
+        "drawbacks of ",
+        "drawback of ",
+        "strengths of ",
+        "strength of ",
+        "weaknesses of ",
+        "weakness of ",
+        "limitations of ",
+        "limitation of ",
+        "inconveniences of ",
+        "inconvenience of ",
+        "upsides of ",
+        "downsides of ",
+        "merits of ",
+        "demerits of ",
+        "causes of ",
+        "cause of ",
+        "reason for ",
+        "reasons for ",
+        "explanation of ",
+        "effect of ",
+        "effects of ",
+        "definition of ",
+        "meaning of ",
+        "concept of ",
+        "examples of ",
+        "example of ",
+        "overview of ",
+        "history of ",
+        "installation of ",
+        "setup of ",
+        "usage of ",
+        "use of ",
+        "uses of ",
+    ];
+    let lower = s.to_ascii_lowercase();
+    for prefix in MODE_PREFIXES {
+        if lower.starts_with(prefix) {
+            let rest = s[prefix.len()..].trim();
+            if rest.len() >= 2 {
+                return rest.to_string();
+            }
+        }
+    }
+    s.to_string()
 }
 
 // Copyright 2026 Mahmoud Harmouch.
