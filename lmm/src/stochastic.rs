@@ -286,6 +286,23 @@ static PROTECTED_WORDS: Set<&'static str> = phf_set! {
     "together", "crab", "most", "multiple", "including", "systematic", "analysis", "relationship", "evidence", "confirms", "available", "knowledge", "suggests", "determined", "confidence", "reasoning", "principles", "drawing", "ingested", "corpus", "derivation", "establishes", "domain", "clearly", "unofficial", "mascot", "community", "polymorphism", "inheritance", "exception", "exceptions", "blocking", "asynchronous", "synchronous", "annotation", "annotations", "outlive", "outlives", "interoperate", "foreign", "resolve", "producing", "handling", "preventing", "eliminating", "enabling", "achieving", "providing",
     "once", "twice", "thrice", "never", "always", "often", "rarely", "precisely", "specifically", "either", "neither", "every", "each", "only", "just", "merely", "entirely", "fully", "wholly", "properly", "correctly", "accurately", "efficiently", "effectively", "simultaneously", "sequentially", "additionally", "subsequently", "originally", "initially", "ultimately", "primarily", "mainly", "largely", "enforce", "track", "verify", "allocate", "deallocate", "sequential", "eliminate", "eliminates", "eliminated", "enforces", "checked", "unchecked", "verified",
     "view", "views", "supported", "confirmed", "confirm", "concept", "concepts", "aspect", "aspects", "property", "properties", "behavior", "behaviour", "mechanism", "mechanisms", "technique", "techniques", "method", "methods", "processing", "operation", "operations", "condition", "conditions", "detail", "details", "fact", "facts", "point", "points", "case", "cases", "example", "examples", "instance", "instances", "characteristic", "characteristics", "principle", "rule", "rules", "idea", "ideas", "notion", "notions", "theory", "theories", "strategy", "strategies", "solutions", "problem", "problems", "challenge", "challenges", "limitation", "limitations", "advantage", "advantages", "benefit", "benefits", "trade", "tradeoff", "tradeoffs", "latency", "throughput", "bandwidth", "capacity", "efficiency", "reliability", "stability", "consistency", "correctness", "expressiveness", "maintainability", "portability", "interoperability", "encapsulation", "modularity", "composability", "reusability",
+    "traditional", "classical", "historical", "ancestral",
+    "topic", "topics", "theme", "themes",
+    "question", "questions", "request", "requests",
+    "natural", "ordinary",
+    "uncommon",
+    "important", "essential", "fundamental",
+    "simple", "complex", "detailed",
+    "clear", "obvious", "apparent", "evident",
+    "rephrasing", "rephrased", "rephrase",
+    "focused", "focus",
+    "note", "notes",
+    "working", "worked",
+    "project", "projects",
+    "published", "officially",
+    "announced", "company", "organization", "foundation",
+    "staff", "team", "employee", "employees",
+    "while", "during", "since", "until",
 };
 
 /// A compile-time perfect-hash set of English stop words.

@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "lmm-rs"
 requires-python = ">=3.12"
-description = "A language agnostic framework for emulating reality: A pure Rust, training-free, equation-based intelligence."
+description = "🌟 Empowering Everyone To Build Ethical AI Systems."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Mahmoud Harmouch", email = "oss@wiseai.dev" }]

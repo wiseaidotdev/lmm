@@ -55,7 +55,10 @@ The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics
 - 🎨 **Spectral Image Synthesis**: generate procedural PPM images from a text prompt by hashing it into Fourier wave components.
 - 🧠 **Expert System**: IF-THEN production rules auto-derived from KB chunks at runtime; backward-chaining inference engine with Prospector-model certainty factors; how/why explanation facility; slot-filling `ProseBuilder` that constructs novel paragraphs, never copies verbatim.
 - 🔀 **Coherence Scoring**: greedy nearest-neighbour sentence reordering by token overlap maximises topical flow across generated paragraphs.
-- 💡 **Adaptive Thought Engine (ATE)**: multi-step symbolic reasoner that classifies each prompt into a reasoning mode (factual, causal, procedural, analogical, comparative, exploratory) and iterates through typed thought steps (deductive, abductive, analogical, corrective) to build a goal-directed reasoning chain before the main pipeline runs. Activated with `--think` / `-t`. Fully controllable via `--think-steps`, `--think-threshold`, and `--think-patience`.
+- 💡 **Adaptive Thought Engine (ATE)**: multi-step symbolic reasoner that classifies each prompt into one of eight reasoning modes (`factual`, `causal`, `procedural`, `analogical`, `definitional`, `exploratory`, `evaluative`, `task`) and iterates through typed thought steps to build a goal-directed reasoning chain before the main pipeline runs. Activated with `--think` / `-t`.
+- 🎯 **Context-Aware Response Framing**: the final answer is prefixed with an intent-specific phrase (e.g. "The advantages of Rust are..."). Always-on; suppressible with `--no-frame`.
+- 🔍 **Task Decomposer**: fires up to `--max-tasks` intent-specific web queries to enrich the KB with mode-relevant content before reasoning.
+- 💻 **Code Responder**: for `task`-mode prompts, renders a fenced code block with templates or KB-extracted snippets.
 
 ## 🧮 TRAM: Text Reasoning and Applied Mathematics
 
@@ -68,10 +71,19 @@ lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iteratio
 lmm -p "stochastic determinism" -k ./papers -i 15 --probability=0.1 --verbose
 lmm -p "rust programming" --cf-threshold 0.35 --inference-depth 4 --verbose
 
+# Intent-aware enrichment + response framing (always on):
+lmm -p "what are the advantages of rust?" --verbose
+lmm -p "rust vs python" --verbose
+lmm -p "write a hello world in python" --verbose
+
 # With Adaptive Thought Engine enabled:
 lmm -p "why does Rust not have a garbage collector?" --think --verbose
 lmm -p "rust vs python" --think --think-steps 4 --think-threshold 0.7 --verbose
-lmm -p "machine learning" --think -t --think-steps 6 --think-patience 2 --verbose
+lmm -p "machine learning" --think --think-steps 6 --think-patience 2 --verbose
+
+# Control decomposition and framing:
+lmm -p "advantages of rust" --max-tasks 6 --verbose
+lmm -p "rust programming" --no-frame --verbose
 
 # Or via explicit subcommand (identical behavior):
 lmm tram -p "rust programming" --verbose
@@ -79,6 +91,7 @@ lmm tram -p "machine learning" --probability=0.1 --knowledge-base ./papers --ite
 lmm tram -p "stochastic determinism" -k ./papers -i 15 --verbose
 lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
 lmm tram -p "what is WebAssembly?" --think --verbose
+lmm tram -p "write hello world in rust" --max-tasks 4 --verbose
 ```
 
 ### ⚙️ Architecture
@@ -91,8 +104,11 @@ flowchart TD
     DEAMB --> SFILT["SentenceFilter\nPre-ingestion noise gate\n(metadata · low-density · too-short · bare-question-titles)"]
     SFILT --> IDX["KnowledgeIndex\n(IDF-weighted ingestion)"]
 
+    B --> TDEC["TaskDecomposer\nClassify prompt mode\nFire intent-specific sub-queries\n(advantages of · vs · how to · code example)"]
+    TDEC --> IDX
+
     B --> ATE_CHECK{"--think flag?"}
-    ATE_CHECK -- yes --> ATE["Adaptive Thought Engine\nClassify prompt mode\n(factual/causal/procedural/analogical/comparative/exploratory)"]
+    ATE_CHECK -- yes --> ATE["Adaptive Thought Engine\nClassify prompt mode\n(factual/causal/procedural/analogical/\ndefinitional/exploratory/evaluative/task)"]
     ATE --> ATE_STEPS["Typed Thought Steps\n(deductive · abductive · analogical · corrective)\nSearchOracle queries per sub-goal"]
     ATE_STEPS --> ATE_CHAIN["ThoughtChain\nfactual_insight → KB seed\nprioritized_queries → ThinkLoop goal"]
     ATE_CHAIN --> TL
@@ -127,7 +143,8 @@ flowchart TD
     SFILT2 --> OPENER["is_good_opener()\nBAD_OPENERS + CONTINUATION_ADVERBS check\nSwap best opener to position 0"]
     OPENER --> SHAPER["ParagraphShaper\n2 paragraphs · 2-5 sentences each\n40-180 words per paragraph"]
     SHAPER --> STOCH["StochasticEnhancer\nSynonym substitution (p = 0.05)"]
-    STOCH --> OUT["Final Output\ncoherent · unique · bias-free"]
+    STOCH --> FRAME["ResponseFramer\nIntent-specific opening phrase\n(evaluative/causal/analogical/procedural/task)"]
+    FRAME --> OUT["Final Output\ncoherent · intent-aware · unique · bias-free"]
 ```
 
 ## 📦 Installation

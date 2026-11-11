@@ -55,20 +55,36 @@ lmm tram -p "what is WebAssembly?" --think --verbose
 | `--think-steps`                    |   -   |   `6`    | Maximum number of ATE thought steps per prompt                                             |
 | `--think-threshold`                |   -   |  `0.55`  | ATE confidence threshold, stops early when reached [0.0 - 1.0]                             |
 | `--think-patience`                 |   -   |   `2`    | ATE stall patience, number of low-gain steps before early stopping                         |
+| `--max-tasks`                      |   -   |   `4`    | Maximum intent-specific sub-tasks for web enrichment (TaskDecomposer)                      |
+| `--no-frame`                       |   -   | `false`  | Suppress response framing prefix; emit raw pipeline output                                 |
 | `--verbose`                        | `-v`  | `false`  | Show full banners, seeds, pipeline stages, and statistics                                  |
 
 ## 📖 Subcommand Reference
 
 ### 0. `tram` (default): Text Reasoning and Applied Mathematics
 
-The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API), **optional Adaptive Thought Engine (ATE)** reasoning, closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, **expert-system inference** (backward-chaining rule engine with Prospector certainty factors), novel slot-filling prose generation, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
+The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API + intent-specific sub-queries), **context-aware response framing**, **optional Adaptive Thought Engine (ATE)** reasoning, closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, **expert-system inference** (backward-chaining rule engine with Prospector certainty factors), novel slot-filling prose generation, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
 
 The **Adaptive Thought Engine** (`--think` / `-t`) is an optional pre-reasoning layer that:
 
-1. **Classifies** the prompt into one of six reasoning modes: `factual`, `causal`, `procedural`, `analogical`, `comparative`, or `exploratory`.
+1. **Classifies** the prompt into one of eight reasoning modes: `factual`, `causal`, `procedural`, `analogical`, `definitional`, `exploratory`, `evaluative`, or `task` (code generation).
 1. **Decomposes** the goal into typed sub-goals relevant to that mode.
 1. **Runs typed thought steps** (`deductive`, `abductive`, `analogical`, `corrective`), each step fetches evidence from the web oracle and distils it into a `factual_insight` that is seeded into the KB before the main pipeline runs.
 1. **Prioritizes** sub-goals by uncertainty, surfacing the most informative query as the ThinkLoop goal.
+
+**Response Framing** (always-on unless `--no-frame` is passed) prepends an intent-specific opening phrase so the response directly addresses what was asked:
+
+| Mode | Opening phrase |
+|------|---------------|
+| `causal` | "The reason ... is that ..." |
+| `analogical` | "Comparing ... and ...: the key differences are ..." |
+| `definitional` | "By definition, ... refers to ..." |
+| `procedural` | "Here is how to ...:" |
+| `evaluative` | "The advantages of ... are as follows." |
+| `task` | "Here is the solution for ...:" + fenced code block |
+| `factual`, `exploratory` | pass-through (no prefix) |
+
+**Task Decomposer** fires up to `--max-tasks` intent-specific web queries before the main pipeline, enriching the KB with mode-relevant content (e.g. "advantages of rust", "rust vs python comparison").
 
 ATE is **OFF by default**, it only activates when `--think` or `-t` is passed.
 
@@ -79,11 +95,20 @@ lmm -p "what is entropy" --verbose
 lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
 lmm -p "rust programming" --cf-threshold 0.35 --inference-depth 4 --verbose
 
+# Intent-aware enrichment and response framing (always on):
+lmm -p "what are the advantages of rust?" --verbose
+lmm -p "rust vs python" --verbose
+lmm -p "write a hello world in python" --verbose
+
 # With Adaptive Thought Engine (ATE):
 lmm -p "why does Rust not have a garbage collector?" --think --verbose
 lmm -p "rust vs python" -t --think-steps 4 --think-threshold 0.7 --verbose
 lmm -p "how to install rust" --think --think-steps 5 --think-patience 2 --verbose
 lmm -p "machine learning" --think --think-steps 6 --think-threshold 0.55 --think-patience 2 --verbose
+
+# Control task decomposition and framing:
+lmm -p "what are the advantages of rust?" --max-tasks 6 --verbose
+lmm -p "rust programming" --no-frame --verbose
 
 # Explicit subcommand:
 lmm tram -p "rust programming" --verbose
@@ -91,6 +116,7 @@ lmm tram -p "stochastic determinism" --knowledge-base ./papers --verbose
 lmm tram -p "machine learning" --iterations 20 --verbose
 lmm tram -p "rust programming" --cf 0.35 --inf-depth 4 --verbose
 lmm tram -p "what is WebAssembly?" --think --verbose
+lmm tram -p "write hello world in python" --max-tasks 4 --verbose
 ```
 
 | Flag                               | Short | Default  | Description                                                                                |
@@ -106,6 +132,8 @@ lmm tram -p "what is WebAssembly?" --think --verbose
 | `--think-steps`                    |   -   |   `6`    | Maximum ATE thought steps                                                                  |
 | `--think-threshold`                |   -   |  `0.55`  | ATE confidence threshold for early stopping [0.0 - 1.0]                                    |
 | `--think-patience`                 |   -   |   `2`    | ATE stall patience before early stopping                                                   |
+| `--max-tasks`                      |   -   |   `4`    | Maximum intent-specific sub-tasks for web enrichment                                       |
+| `--no-frame`                       |   -   | `false`  | Suppress intent-specific response framing (emit raw pipeline output)                       |
 | `--verbose`                        | `-v`  | `false`  | Show pipeline stage banners and statistics                                                 |
 
 **Pipeline stages (verbose output):**

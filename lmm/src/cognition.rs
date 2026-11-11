@@ -53,6 +53,7 @@
 //! * [Control theory - Wikipedia](https://en.wikipedia.org/wiki/Control_theory)
 
 pub mod attribution;
+pub mod code_responder;
 pub mod drive;
 pub mod goal;
 pub mod hypothesis;
@@ -61,12 +62,15 @@ pub mod learning;
 pub mod r#loop;
 pub mod memory;
 pub mod reflect;
+pub mod response_framer;
 pub mod search;
 pub mod signal;
+pub mod task_decomposer;
 pub mod thought;
 pub mod types;
 
 pub use attribution::{AttributionReport, CausalAttributor};
+pub use code_responder::CodeResponder;
 pub use drive::{DriveSignal, DriveState, InternalDrive};
 pub use goal::GoalEvaluator;
 pub use hypothesis::{Hypothesis, HypothesisGenerator};
@@ -78,8 +82,10 @@ pub use learning::{
 pub use r#loop::{ThinkLoop, ThinkLoopBuilder};
 pub use memory::{ColdStore, HotStore, MemoryEntry};
 pub use reflect::Reflector;
+pub use response_framer::ResponseFramer;
 pub use search::SearchOracle;
 pub use signal::{CognitionSignal, error_from_texts};
+pub use task_decomposer::{SubTask, TaskDecomposer, TaskKind};
 pub use thought::belief::BeliefInterval;
 pub use thought::classifier::{InputClassifier, ReasoningMode};
 pub use thought::critic::{CritiqueResult, InternalCritic};

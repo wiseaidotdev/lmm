@@ -217,6 +217,32 @@ pub struct Cli {
     )]
     pub think_patience: usize,
 
+    /// Maximum number of intent-specific sub-tasks the pipeline will fire.
+    ///
+    /// Each sub-task issues an additional web query aimed at the specific
+    /// intent of the prompt (advantages, comparison, code example, etc.).
+    /// Higher values enrich the response at the cost of extra latency.
+    #[arg(
+        long,
+        global = false,
+        default_value_t = 4,
+        help = "Max intent-specific sub-tasks for web enrichment (default: 4)"
+    )]
+    pub max_tasks: usize,
+
+    /// Bypass response framing and emit raw pipeline output.
+    ///
+    /// By default the final answer is prefixed with an intent-specific opening
+    /// phrase (e.g. "The advantages of Rust are...").  Pass `--no-frame` to
+    /// suppress that prefix and receive the raw shuffled prose.
+    #[arg(
+        long,
+        global = false,
+        default_value_t = false,
+        help = "Suppress intent-specific response framing (default: off)"
+    )]
+    pub no_frame: bool,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -278,6 +304,12 @@ pub enum Commands {
         /// Only effective when `--think` is active.
         #[arg(long, default_value_t = 2)]
         think_patience: usize,
+        /// Maximum number of intent-specific sub-tasks for web enrichment.
+        #[arg(long, default_value_t = 4)]
+        max_tasks: usize,
+        /// Suppress intent-specific response framing and emit raw pipeline output.
+        #[arg(long, default_value_t = false)]
+        no_frame: bool,
     },
     #[command(about = "Simulate continuous logical pathways")]
     Simulate {
