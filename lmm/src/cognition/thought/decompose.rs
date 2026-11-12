@@ -42,6 +42,7 @@
 
 use crate::cognition::thought::belief::BeliefInterval;
 use crate::cognition::thought::classifier::ReasoningMode;
+use std::cmp::Ordering;
 
 /// Decomposes a prompt into ordered sub-goal strings and re-prioritises them
 /// based on accumulated evidence.
@@ -187,7 +188,7 @@ impl GoalDecomposer {
             })
             .collect();
 
-        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
         indexed.into_iter().map(|(g, _)| g).collect()
     }
 

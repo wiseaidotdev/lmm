@@ -73,6 +73,8 @@ pub struct SearchOracle {
     cache: HashMap<String, String>,
     /// Maximum number of Lite result snippets to include (Instant Answer is unbounded).
     pub limit: usize,
+    /// When true, disables all network requests (for WASM environments where CORS blocks requests).
+    no_web: bool,
 }
 
 impl SearchOracle {
@@ -83,14 +85,28 @@ impl SearchOracle {
         Self {
             cache: HashMap::new(),
             limit: limit.max(1),
+            no_web: false,
         }
+    }
+
+    /// Sets the no_web flag to disable all network requests.
+    ///
+    /// When true, `fetch()` will return empty strings without making any network calls.
+    /// This is useful for WASM environments where CORS blocks cross-origin requests.
+    pub fn no_web(mut self, no_web: bool) -> Self {
+        self.no_web = no_web;
+        self
     }
 
     /// Fetches an observation for `query`, returning a cached result when available.
     ///
     /// When the `net` feature is disabled this always returns `String::new()`.
+    /// When `no_web` is true, this returns `String::new()` without any network calls.
     /// Network errors are silently discarded so the ThinkLoop continues safely.
     pub async fn fetch(&mut self, query: &str) -> String {
+        if self.no_web {
+            return String::new();
+        }
         if let Some(cached) = self.cache.get(query) {
             return cached.clone();
         }
@@ -126,6 +142,11 @@ impl SearchOracle {
         self.cache
             .entry(query.to_string())
             .or_insert_with(|| observation.to_string());
+    }
+
+    /// Returns the current no_web flag value.
+    pub fn is_no_web(&self) -> bool {
+        self.no_web
     }
 
     /// Issues the actual DuckDuckGo request (only compiled when `net` or `wasm-net` is on).

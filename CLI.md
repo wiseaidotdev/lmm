@@ -49,11 +49,11 @@ lmm tram -p "what is WebAssembly?" --think --verbose
 | `--probability`                    |   -   |  `0.05`  | Stochastic synonym-substitution rate [0.0 - 1.0] (default: 0.05 for KB, 0.12 for symbolic) |
 | `--iterations`                     | `-i`  |   `10`   | ThinkLoop reasoning iteration budget                                                       |
 | `--depth`                          | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
-| `--inference-depth`, `--inf-depth` |   -   |   `3`    | Expert backward-chaining max search depth                                                  |
-| `--cf-threshold`, `--cf`           |   -   |  `0.30`  | Expert inference certainty-factor acceptance threshold [0.0 - 1.0]                         |
+| `--inference-depth`, `--inf-depth` |   -   |   `5`    | Expert backward-chaining max search depth                                                  |
+| `--cf-threshold`, `--cf`           |   -   |  `0.35`  | Expert inference certainty-factor acceptance threshold [0.0 - 1.0]                         |
 | `--think`                          | `-t`  | `false`  | Enable the Adaptive Thought Engine (ATE) reasoning layer (off by default)                  |
-| `--think-steps`                    |   -   |   `6`    | Maximum number of ATE thought steps per prompt                                             |
-| `--think-threshold`                |   -   |  `0.55`  | ATE confidence threshold, stops early when reached [0.0 - 1.0]                             |
+| `--think-steps`                    |   -   |   `8`    | Maximum number of ATE thought steps per prompt                                             |
+| `--think-threshold`                |   -   |  `0.40`  | ATE confidence threshold, stops early when reached [0.0 - 1.0]                             |
 | `--think-patience`                 |   -   |   `2`    | ATE stall patience, number of low-gain steps before early stopping                         |
 | `--max-tasks`                      |   -   |   `4`    | Maximum intent-specific sub-tasks for web enrichment (TaskDecomposer)                      |
 | `--no-frame`                       |   -   | `false`  | Suppress response framing prefix; emit raw pipeline output                                 |
@@ -74,15 +74,15 @@ The **Adaptive Thought Engine** (`--think` / `-t`) is an optional pre-reasoning 
 
 **Response Framing** (always-on unless `--no-frame` is passed) prepends an intent-specific opening phrase so the response directly addresses what was asked:
 
-| Mode | Opening phrase |
-|------|---------------|
-| `causal` | "The reason ... is that ..." |
-| `analogical` | "Comparing ... and ...: the key differences are ..." |
-| `definitional` | "By definition, ... refers to ..." |
-| `procedural` | "Here is how to ...:" |
-| `evaluative` | "The advantages of ... are as follows." |
-| `task` | "Here is the solution for ...:" + fenced code block |
-| `factual`, `exploratory` | pass-through (no prefix) |
+| Mode                     | Opening phrase                                       |
+| ------------------------ | ---------------------------------------------------- |
+| `causal`                 | "The reason ... is that ..."                         |
+| `analogical`             | "Comparing ... and ...: the key differences are ..." |
+| `definitional`           | "By definition, ... refers to ..."                   |
+| `procedural`             | "Here is how to ...:"                                |
+| `evaluative`             | "The advantages of ... are as follows."              |
+| `task`                   | "Here is the solution for ...:" + fenced code block  |
+| `factual`, `exploratory` | pass-through (no prefix)                             |
 
 **Task Decomposer** fires up to `--max-tasks` intent-specific web queries before the main pipeline, enriching the KB with mode-relevant content (e.g. "advantages of rust", "rust vs python comparison").
 
@@ -126,12 +126,12 @@ lmm tram -p "write hello world in python" --max-tasks 4 --verbose
 | `--probability`                    |   -   |  `0.05`  | Stochastic synonym-substitution rate [0.0 - 1.0] (default: 0.05 for KB, 0.12 for symbolic) |
 | `--iterations`                     | `-i`  |   `10`   | ThinkLoop reasoning iteration budget                                                       |
 | `--depth`                          | `-d`  |   `3`    | GP expression-tree depth limit                                                             |
-| `--inference-depth`, `--inf-depth` |   -   |   `3`    | Expert backward-chaining max search depth                                                  |
-| `--cf-threshold`, `--cf`           |   -   |  `0.30`  | Expert inference certainty-factor acceptance threshold [0.0 - 1.0]                         |
+| `--inference-depth`, `--inf-depth` |   -   |   `5`    | Expert backward-chaining max search depth                                                  |
+| `--cf-threshold`, `--cf`           |   -   |  `0.35`  | Expert inference certainty-factor acceptance threshold [0.0 - 1.0]                         |
 | `--think`                          | `-t`  | `false`  | Enable Adaptive Thought Engine (ATE) pre-reasoning layer                                   |
 | `--think-steps`                    |   -   |   `6`    | Maximum ATE thought steps                                                                  |
 | `--think-threshold`                |   -   |  `0.55`  | ATE confidence threshold for early stopping [0.0 - 1.0]                                    |
-| `--think-patience`                 |   -   |   `2`    | ATE stall patience before early stopping                                                   |
+| `--think-patience`                 |   -   |   `3`    | ATE stall patience before early stopping                                                   |
 | `--max-tasks`                      |   -   |   `4`    | Maximum intent-specific sub-tasks for web enrichment                                       |
 | `--no-frame`                       |   -   | `false`  | Suppress intent-specific response framing (emit raw pipeline output)                       |
 | `--verbose`                        | `-v`  | `false`  | Show pipeline stage banners and statistics                                                 |
@@ -147,7 +147,7 @@ lmm tram -p "write hello world in python" --max-tasks 4 --verbose
 
   ❓ Prompt    : "rust programming language"
   🔁 Iterations: 10
-  🔍 Inference : depth=3 CF≥0.20
+  🔍 Inference : depth=5 CF≥0.35
 
 -- Web Knowledge -----------------------------
   🌐 Instant Answer ["rust programming language"]: 6 chunk(s) ingested (6 prose)
@@ -160,7 +160,7 @@ lmm tram -p "write hello world in python" --max-tasks 4 --verbose
   ✅ KB answer found (544 chars)
 
 -- Expert Inference --------------------------
-  🧠 Inference: conclusion="rust is general-purpose programming language" CF=0.20 depth=1 rules=3
+  🧠 Inference: conclusion="rust is general-purpose programming language" CF=0.35 depth=1 rules=3
   📋 Explanation: 2 steps
 
 -- Stochastic Enhancement --------------------
@@ -183,7 +183,7 @@ lmm tram -p "write hello world in python" --max-tasks 4 --verbose
 
   ❓ Prompt    : "why does Rust not have a garbage collector?"
   🔁 Iterations: 10
-  🔍 Inference : depth=3 CF≥0.20
+  🔍 Inference : depth=5 CF≥0.35
 
 -- Web Knowledge -----------------------------
   🌐 Instant Answer ["Rust programming language"]: 6 chunk(s) ingested (6 prose)
@@ -205,7 +205,7 @@ lmm tram -p "write hello world in python" --max-tasks 4 --verbose
   ✅ KB answer found (595 chars)
 
 -- Expert Inference --------------------------
-  🧠 Inference: conclusion="rust is general-purpose programming language" CF=0.20 depth=1 rules=3
+  🧠 Inference: conclusion="rust is general-purpose programming language" CF=0.35 depth=1 rules=3
 
 -- Stochastic Enhancement --------------------
   🎲 substitutions=0 language=English prob=0.05

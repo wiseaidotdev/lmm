@@ -34,6 +34,8 @@ clap = { version = "4.6.1", features = ["derive"] }
 duckduckgo = "0.3.2"
 lopdf = { version = "0.42.0" }
 reqwest = { version = "0.13", features = ["json"] }
+scraper = "0.29.0"
+js-sys = "0.3.107"
 pyo3 = { version = "0.29.0", features = ["extension-module"] }
 napi = { version = "3.16.1", default-features = false, features = ["napi4"] }
 napi-derive = "3.5.4"

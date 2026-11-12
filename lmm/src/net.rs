@@ -19,9 +19,9 @@
 //!   `Default` impl.
 
 use anyhow::Result;
-use duckduckgo::browser::Browser;
+pub use duckduckgo::browser::Browser;
 pub use duckduckgo::response::{LiteSearchResult, Response, ResultFormat};
-use duckduckgo::user_agents::get as agent;
+pub use duckduckgo::user_agents::get as agent;
 
 /// Percent-encodes a query string for safe inclusion in a URL query parameter.
 ///
