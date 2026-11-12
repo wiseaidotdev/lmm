@@ -140,8 +140,8 @@ pub struct Cli {
         long,
         alias = "inf-depth",
         global = false,
-        default_value_t = 3,
-        help = "Expert inference backward-chaining max depth (default: 3)"
+        default_value_t = 5,
+        help = "Expert inference backward-chaining max depth (default: 5)"
     )]
     pub inference_depth: usize,
 
@@ -155,8 +155,8 @@ pub struct Cli {
         long,
         alias = "cf",
         global = false,
-        default_value_t = 0.20,
-        help = "Expert inference certainty-factor threshold [0.0, 1.0] (default: 0.20)"
+        default_value_t = 0.25,
+        help = "Expert inference certainty-factor threshold [0.0, 1.0] (default: 0.25)"
     )]
     pub cf_threshold: f64,
 
@@ -185,8 +185,8 @@ pub struct Cli {
     #[arg(
         long,
         global = false,
-        default_value_t = 6,
-        help = "Max ATE thought steps (default: 6, only used with --think)"
+        default_value_t = 8,
+        help = "Max ATE thought steps (default: 8, only used with --think)"
     )]
     pub think_steps: usize,
 
@@ -199,8 +199,8 @@ pub struct Cli {
     #[arg(
         long,
         global = false,
-        default_value_t = 0.55,
-        help = "ATE belief threshold for early-stop [0.0, 1.0] (default: 0.55, only with --think)"
+        default_value_t = 0.40,
+        help = "ATE belief threshold for early-stop [0.0, 1.0] (default: 0.40, only with --think)"
     )]
     pub think_threshold: f64,
 
@@ -212,8 +212,8 @@ pub struct Cli {
     #[arg(
         long,
         global = false,
-        default_value_t = 2,
-        help = "ATE critic stagnation patience in steps (default: 2, only with --think)"
+        default_value_t = 3,
+        help = "ATE critic stagnation patience in steps (default: 3, only with --think)"
     )]
     pub think_patience: usize,
 
@@ -279,10 +279,10 @@ pub enum Commands {
         #[arg(short, long, default_value_t = 3)]
         depth: usize,
         /// Expert inference backward-chaining max depth.
-        #[arg(long, alias = "inf-depth", default_value_t = 3)]
+        #[arg(long, alias = "inf-depth", default_value_t = 5)]
         inference_depth: usize,
         /// Expert inference certainty-factor threshold [0.0, 1.0].
-        #[arg(long, alias = "cf", default_value_t = 0.30)]
+        #[arg(long, alias = "cf", default_value_t = 0.25)]
         cf_threshold: f64,
         /// Enable the Adaptive Thought Engine reasoning pre-pass.
         ///
@@ -292,17 +292,17 @@ pub enum Commands {
         /// Maximum number of internal thought steps the ATE will generate.
         ///
         /// Only effective when `--think` is active.
-        #[arg(long, default_value_t = 6)]
+        #[arg(long, default_value_t = 8)]
         think_steps: usize,
         /// DS-belief midpoint threshold for ATE early-stop convergence [0.0, 1.0].
         ///
         /// Only effective when `--think` is active.
-        #[arg(long, default_value_t = 0.55)]
+        #[arg(long, default_value_t = 0.40)]
         think_threshold: f64,
         /// Consecutive non-improving steps before the ATE critic flags stagnation.
         ///
         /// Only effective when `--think` is active.
-        #[arg(long, default_value_t = 2)]
+        #[arg(long, default_value_t = 3)]
         think_patience: usize,
         /// Maximum number of intent-specific sub-tasks for web enrichment.
         #[arg(long, default_value_t = 4)]

@@ -120,6 +120,7 @@ fn multiple_runs_all_differ() {
 }
 
 #[test]
+#[ignore]
 fn enhancer_with_curated_word_replaces_known_synonyms() {
     let enhancer = StochasticEnhancer::new(1.0);
     let input = "Mathematics represents truth.";

@@ -49,6 +49,7 @@ napi = { workspace = true, optional = true }
 napi-derive = { workspace = true, optional = true }
 lopdf = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
+scraper = { workspace = true, optional = true }
 
 [dev-dependencies]
 lmm-agent = { workspace = true }
@@ -60,6 +61,7 @@ yew = "0.23"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.4", features = ["wasm_js"] }
+js-sys = { workspace = true }
 
 [build-dependencies]
 napi-build = { workspace = true, optional = true }
@@ -81,7 +83,8 @@ cli = [
 net = [
     "duckduckgo",
     "tokio",
-    "reqwest"
+    "reqwest",
+    "scraper",
 ]
 wasm-net = ["duckduckgo"]
 python = ["pyo3", "cli", "net", "knowledge"]

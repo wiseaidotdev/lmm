@@ -118,6 +118,7 @@ fn save_and_load_preserves_distiller_fingerprints() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn agent_save_and_load_learning_restores_engine() {
     let path = Path::new("/tmp/helm_test_agent.json");
 

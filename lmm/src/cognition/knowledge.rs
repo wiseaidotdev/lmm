@@ -237,7 +237,7 @@ impl KnowledgeIndex {
             }
             h
         };
-        let n_sentences = 4 + (run_nanos % 4);
+        let n_sentences = 6 + (run_nanos % 5);
         let summariser = TextSummarizer::new(n_sentences, 4, 2);
         summariser
             .summarize_with_query(&corpus, question)

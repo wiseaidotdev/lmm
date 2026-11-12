@@ -79,6 +79,63 @@ let state = sim.rk4_step(&osc, osc.state()).unwrap();
 println!("{:?}", state.data);
 ```
 
+### TRAM Pipeline
+
+The TRAM (Text Reasoning and Applied Mathematics) pipeline is available as a reusable library API for programmatic use. It provides a typed configuration builder and structured result types:
+
+```rust
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    use lmm::cognition::knowledge::KnowledgeIndex;
+    use lmm::tram::{TramConfig, TramPipeline};
+
+    let config = TramConfig::builder()
+        .iterations(10)
+        .inference_depth(5)
+        .cf_threshold(0.35)
+        .think(true)
+        .think_steps(8)
+        .build();
+
+    let mut index = KnowledgeIndex::new();
+    let pipeline = TramPipeline::new(config);
+    let result = pipeline.run("What is Rust programming language?", &mut index).await?;
+
+    println!("Response: {}", result.final_text);
+    println!("Stochastic substitutions: {}", result.stochastic_result.substitutions);
+    println!("Web chunks ingested: {}", result.web_fetch_result.total_chunks_ingested);
+
+    if let Some(ref ate) = result.ate_result {
+        println!("ATE confidence: {:.3}", ate.confidence);
+        println!("ATE steps: {}", ate.steps);
+    }
+
+    Ok(())
+}
+```
+
+**Key types:**
+
+| Type / Field                       | Description                                        |
+| ---------------------------------- | -------------------------------------------------- |
+| `TramConfig::builder()`            | Fluent builder for pipeline configuration          |
+| `TramPipeline::new(config)`        | Pipeline orchestrator with run() method            |
+| `TramPipeline::run(prompt, index)` | Executes full TRAM pipeline, returns TramResult    |
+| `TramResult`                       | Structured result with all pipeline stage outputs  |
+| `TramResult.final_text`            | The final enhanced response text                   |
+| `TramResult.web_fetch_result`      | Web ingestion statistics (chunks, queries)         |
+| `TramResult.ate_result`            | Optional ATE pre-reasoning output                  |
+| `TramResult.thinkloop_result`      | ThinkLoop convergence and error metrics            |
+| `TramResult.kb_retrieval_result`   | Knowledge retrieval statistics                     |
+| `TramResult.expert_result`         | Optional expert inference output                   |
+| `TramResult.stochastic_result`     | Stochastic enhancement statistics                  |
+| `WebFetchResult`                   | Web fetch ingestion statistics                     |
+| `AteResult`                        | ATE output with mode, steps, confidence, insight   |
+| `ThinkLoopResult`                  | ThinkLoop convergence, steps, error, cold corpus   |
+| `KbRetrievalResult`                | KB retrieval with answer quality and source        |
+| `ExpertResult`                     | Expert inference with conclusion, certainty, depth |
+| `StochasticResult`                 | Stochastic enhancement with substitutions count    |
+
 ### Adaptive Thought Engine (ATE)
 
 The `AdaptiveThoughtEngine` is an optional pre-reasoning layer that classifies a prompt into a reasoning mode, decomposes it into typed sub-goals, and iterates through symbolic thought steps before the main TRAM pipeline runs. It is activated via `--think` / `-t` on the CLI, or directly from Rust:
@@ -221,6 +278,15 @@ flowchart TD
 | `HarmonicOscillator`, `LorenzSystem`, `Pendulum`, `SIRModel`      | Physics models; all implement `Simulatable`                                    |
 | `Simulator`                                                       | `.euler_step_osc()`, `.rk4_step_osc()`, `.rk45_adaptive()`                     |
 | `SymbolicRegression`                                              | GP regressor; `.fit(inputs, targets) → String`                                 |
+| `TramConfig::builder()`                                           | Fluent builder for TRAM pipeline configuration                                 |
+| `TramPipeline::new(config)`                                       | TRAM pipeline orchestrator; `.run(prompt, index) → TramResult`                 |
+| `TramResult`                                                      | Structured TRAM output with all stage results                                  |
+| `WebFetchResult`                                                  | Web ingestion statistics (chunks, queries, prose)                              |
+| `AteResult`                                                       | ATE pre-reasoning output (mode, steps, confidence, insight)                    |
+| `ThinkLoopResult`                                                 | ThinkLoop convergence metrics (steps, error, cold corpus)                      |
+| `KbRetrievalResult`                                               | Knowledge retrieval statistics (answer quality, source)                        |
+| `ExpertResult`                                                    | Expert inference output (conclusion, certainty, depth, trace)                  |
+| `StochasticResult`                                                | Stochastic enhancement statistics (substitutions, language, probability)       |
 | `AdaptiveThoughtEngine::new(steps, threshold, patience)`          | ATE pre-reasoner; `.run(prompt, oracle) → ThoughtChainResult`                  |
 | `ThoughtChainResult`                                              | `.chain`, `.confidence`, `.factual_insight`, `.prioritized_queries`            |
 | `SearchOracle::new(limit)`                                        | Web oracle with in-process cache; `.fetch(query)`, `.seed_cache(query, text)`  |

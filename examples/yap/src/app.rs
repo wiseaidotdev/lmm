@@ -1,7 +1,8 @@
 use crate::components::agent_panel::AgentPanel;
 use crate::components::header::Header;
-use crate::lmm_bridge::{summarize_to_topic, tram_query};
+use crate::lmm_bridge::tram_query;
 use crate::types::{AgentId, AgentMessage, ConversationState};
+use lmm::summarize_to_topic;
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;

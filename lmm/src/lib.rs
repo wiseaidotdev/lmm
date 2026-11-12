@@ -45,6 +45,12 @@ pub mod stochastic;
 pub mod symbolic;
 pub mod tensor;
 pub mod text;
+pub mod tram;
+
+pub use text::{
+    EssayGenerator, ParagraphGenerator, SentenceGenerator, TextSummarizer, aspect_topic,
+    summarize_to_topic,
+};
 pub mod traits;
 pub mod uncertainty;
 pub mod world;

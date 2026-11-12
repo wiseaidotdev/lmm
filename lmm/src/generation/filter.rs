@@ -310,7 +310,15 @@ impl SentenceFilter {
     ///
     /// O(min(|sentence|, 80))
     pub fn is_header_fragment(sentence: &str) -> bool {
-        let preview = &sentence[..sentence.len().min(100)];
+        let preview = if sentence.len() >= 100 {
+            sentence
+                .char_indices()
+                .nth(100)
+                .map(|(i, _)| &sentence[..i])
+                .unwrap_or(sentence)
+        } else {
+            sentence
+        };
         if preview.contains(" - ") || preview.contains(" — ") {
             return true;
         }
@@ -440,9 +448,6 @@ impl SentenceFilter {
             return true;
         }
 
-        // Pattern D: ≥ 3 consecutive TitleCase words with no linking verb in
-        // the first 8 words, catches Wikipedia nav-boxes like
-        // "Self-hosting software Concurrent Versions System Distributed version..."
         let mut consecutive_title = 0usize;
         let mut max_consec = 0usize;
         for w in sentence.split_whitespace().take(12) {
