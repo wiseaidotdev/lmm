@@ -39,7 +39,7 @@
 //! ## Enhancement Pipeline
 //!
 //! For each non-stop token in the input text, [`StochasticEnhancer`] samples a
-//! uniform Bernoulli draw with probability `p` (default 0.5).  On a "hit", the
+//! uniform Bernoulli draw with probability `p` (default 0.03).  On a "hit", the
 //! language-specific synonym table is consulted first; if no entry exists, a
 //! same-length word from the system wordlist is substituted.  Case style
 //! (ALL_CAPS, Capitalised, lowercase) is mirror-copied to the substituted word.
@@ -425,13 +425,13 @@ impl StochasticEnhancer {
         }
     }
 
-    /// Creates a [`StochasticEnhancer`] with `p = 0.5`.
+    /// Creates a [`StochasticEnhancer`] with `p = 0.03`.
     ///
     /// # Examples
     ///
     /// ```
     /// use lmm::stochastic::StochasticEnhancer;
-    /// assert_eq!(StochasticEnhancer::with_default_probability().probability(), 0.5);
+    /// assert_eq!(StochasticEnhancer::with_default_probability().probability(), 0.03);
     /// ```
     pub fn with_default_probability() -> Self {
         Self::new(DEFAULT_REPLACEMENT_PROBABILITY)

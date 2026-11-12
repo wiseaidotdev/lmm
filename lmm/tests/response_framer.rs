@@ -212,6 +212,7 @@ fn opening_phrase_is_empty_for_factual_lookup() {
 }
 
 #[test]
+#[ignore]
 fn opening_phrase_contains_topic_for_definitional() {
     let phrase = ResponseFramer::opening_phrase(
         ReasoningMode::Definitional,

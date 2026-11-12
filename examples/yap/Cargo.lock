@@ -1174,7 +1174,9 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "lmm"
-version = "0.3.7"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9bc4c286c983ff1925ddcc7333d889a885ee0b2ae75f7628025b4722b592b4f"
 dependencies = [
  "anyhow",
  "async-trait",
