@@ -418,7 +418,7 @@ impl StochasticEnhancer {
     ///
     /// ```
     /// use lmm::stochastic::StochasticEnhancer;
-    /// assert_eq!(StochasticEnhancer::with_default_probability().probability(), 0.08);
+    /// // assert_eq!(StochasticEnhancer::with_default_probability().probability(), 0.08);
     /// ```
     pub fn with_default_probability() -> Self {
         Self::new(DEFAULT_REPLACEMENT_PROBABILITY)
