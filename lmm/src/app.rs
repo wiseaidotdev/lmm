@@ -42,8 +42,7 @@ use {
             },
             logging::setup_logging,
             tram::{
-                assemble_paragraphs_for, derive_framing_topic, prefetch_web,
-                prefetch_web_for_query,
+                assemble_paragraphs_for, derive_framing_topic, prefetch_web_for_query,
                 query::extract_topic,
                 response::{build_symbolic_response, derive_kb_query, is_quality_answer},
                 restructure_analogical_response,
@@ -60,6 +59,24 @@ use {
             task_decomposer::{TaskDecomposer, TaskKind},
             thought::AdaptiveThoughtEngine,
             thought::classifier::InputClassifier,
+        },
+        constants::app::{
+            DEFAULT_CODE_LANGUAGE, DEFAULT_STOCHASTIC_PROBABILITY, ESSAY_LABEL_BODY_PREFIX,
+            ESSAY_LABEL_CONCLUSION, ESSAY_LABEL_INTRODUCTION, EVALUATIVE_KEYWORDS,
+            MIN_EXPERT_PROSE_WORDS, VS_SPLITTER_PRIMARY, VS_SPLITTER_SECONDARY,
+        },
+        constants::stochastic::{PROBABILITY_MAX, PROBABILITY_MIN},
+        constants::tram_answer::{
+            ADVANTAGE_KEYWORDS, HISTORICAL_MARKERS, HISTORY_KEYWORDS, MIN_FILTERED_PARAGRAPHS,
+        },
+        constants::tram_scraper::{
+            ARTICLE_GAP_PATTERNS, CITATION_SEMICOLON_AND_GAP_PATTERN,
+            CITATION_SEMICOLON_GAP_PATTERN, CITATION_SEMICOLON_WAS_GAP_PATTERN, CODE_INDICATORS,
+            CODE_KEYWORDS, EMPTY_GAP_PATTERN, INCOMPLETE_COMMON_PATTERN,
+            INCOMPLETE_PARENTHETICAL_PATTERNS, INCOMPLETE_QUOTE_EXCEPTION,
+            INCOMPLETE_QUOTE_PATTERN, INCOMPLETE_THROUGH_MODULES_PATTERN,
+            INCOMPLETE_THROUGH_PATTERN, MAX_DEEP_PARAGRAPHS_TO_SHOW, MIN_DEEP_PARAGRAPH_WORDS,
+            MONTH_PATTERNS, SENTENCE_END_INCOMPLETE, STANDALONE_PUNCTUATION, TABLE_INDICATORS,
         },
         error::Result as LmmResult,
         expert::{inference::InferenceEngine, rule::RuleBase},
@@ -168,6 +185,7 @@ pub async fn handle_tram(
     think_patience: usize,
     max_tasks: usize,
     no_frame: bool,
+    deep: bool,
 ) -> anyhow::Result<()> {
     banner("TRAM · Text Reasoning and Applied Mathematics", "🧮");
     info!("  ❓ Prompt    : {:?}", prompt);
@@ -198,7 +216,9 @@ pub async fn handle_tram(
         }
     }
 
-    prefetch_web(&prompt, &mut index, kb_provided, verbose).await;
+    divider("Web Knowledge");
+    let web_result =
+        crate::tram::web_fetch::prefetch_web(&prompt, &mut index, kb_provided, deep, verbose).await;
 
     let prompt_mode = InputClassifier::classify(&prompt);
     let sub_tasks = TaskDecomposer::decompose(&prompt, prompt_mode, max_tasks);
@@ -311,23 +331,17 @@ pub async fn handle_tram(
     let top_k = 6 + (run_seed % 5) as usize;
 
     let prompt_lower = prompt.to_ascii_lowercase();
-    let is_evaluative = prompt_lower.contains("advantage")
-        || prompt_lower.contains("benefit")
-        || prompt_lower.contains("pros")
-        || prompt_lower.contains("disadvantage")
-        || prompt_lower.contains("inconvenience")
-        || prompt_lower.contains("limitation")
-        || prompt_lower.contains("drawback")
-        || prompt_lower.contains("weakness")
-        || prompt_lower.contains("cons");
+    let is_evaluative = EVALUATIVE_KEYWORDS
+        .iter()
+        .any(|&keyword| prompt_lower.contains(keyword));
 
     let (kb_chunks, combined_answer) = if matches!(prompt_mode, ReasoningMode::Analogical) {
         let topic_lower = topic.to_ascii_lowercase();
         let mut chunks = Vec::new();
-        let vs_splitter = if topic_lower.contains(" vs ") {
-            " vs "
-        } else if topic_lower.contains(" versus ") {
-            " versus "
+        let vs_splitter = if topic_lower.contains(VS_SPLITTER_PRIMARY) {
+            VS_SPLITTER_PRIMARY
+        } else if topic_lower.contains(VS_SPLITTER_SECONDARY) {
+            VS_SPLITTER_SECONDARY
         } else {
             ""
         };
@@ -395,13 +409,182 @@ pub async fn handle_tram(
             format!("advantages of {}", topic),
             format!("benefits of {}", topic),
             format!("pros and cons of {}", topic),
-            format!("{} programming language", topic),
         ];
         for eq in &eval_queries {
             chunks.extend(index.query(eq, top_k).into_iter().map(|c| c.text.clone()));
         }
-        let answer = index.answer(&eval_queries[0], top_k);
-        (chunks, answer)
+        if deep {
+            info!("  🔍 Deep mode: querying IA content excluding deep-scraped source");
+            let ia_answer =
+                index.answer_excluding_source(&eval_queries[0], top_k, "web-deep-scrape");
+
+            let all_deep_chunks = index
+                .query_source("web-deep-scrape", top_k * 5)
+                .into_iter()
+                .map(|c| c.text.clone())
+                .collect::<Vec<_>>();
+            info!(
+                "  🔍 Deep mode: query_source returned {} chunks",
+                all_deep_chunks.len()
+            );
+            chunks.extend(all_deep_chunks.clone());
+
+            let answer = if think {
+                if let Some(ia) = ia_answer {
+                    let prompt_lower = prompt.to_ascii_lowercase();
+                    let prompt_asks_history = HISTORY_KEYWORDS
+                        .iter()
+                        .any(|&keyword| prompt_lower.contains(keyword));
+
+                    let filtered_ia = if !prompt_asks_history {
+                        let split_result = split_sentences_with_punct(&ia);
+                        let filtered: Vec<String> = split_result
+                            .into_iter()
+                            .filter(|s| {
+                                let lower = s.to_ascii_lowercase();
+                                let has_year = lower.chars().any(|c| c.is_ascii_digit());
+                                let has_historical_marker = HISTORICAL_MARKERS
+                                    .iter()
+                                    .any(|&marker| lower.contains(marker));
+                                !(has_year && has_historical_marker)
+                            })
+                            .collect();
+                        if filtered.is_empty() {
+                            ia.clone()
+                        } else {
+                            filtered.join(" ")
+                        }
+                    } else {
+                        ia.clone()
+                    };
+
+                    let prefixed_ia = if ADVANTAGE_KEYWORDS
+                        .iter()
+                        .any(|&keyword| prompt_lower.contains(keyword))
+                    {
+                        let topic_name = extract_topic_name(&prompt);
+                        format!(
+                            "The advantages of {} are as follows. {}",
+                            topic_name, filtered_ia
+                        )
+                    } else {
+                        filtered_ia
+                    };
+
+                    Some(prefixed_ia)
+                } else {
+                    None
+                }
+            } else {
+                let filtered_deep: Vec<String> = all_deep_chunks
+                    .into_iter()
+                    .filter(|s| {
+                        let words = s.split_whitespace().count();
+                        let lower = s.to_ascii_lowercase();
+                        if words < MIN_DEEP_PARAGRAPH_WORDS {
+                            return false;
+                        }
+                        if lower.contains(EMPTY_GAP_PATTERN) {
+                            return false;
+                        }
+                        if lower.contains(CITATION_SEMICOLON_GAP_PATTERN)
+                            || lower.contains(CITATION_SEMICOLON_AND_GAP_PATTERN)
+                            || lower.contains(CITATION_SEMICOLON_WAS_GAP_PATTERN)
+                        {
+                            return false;
+                        }
+                        if lower
+                            .split_whitespace()
+                            .any(|w| w.ends_with(';') && w.len() < 5)
+                        {
+                            return false;
+                        }
+                        if lower.contains(INCOMPLETE_THROUGH_PATTERN)
+                            || lower.contains(INCOMPLETE_THROUGH_MODULES_PATTERN)
+                        {
+                            return false;
+                        }
+                        if lower.starts_with(INCOMPLETE_COMMON_PATTERN) {
+                            return false;
+                        }
+                        for pattern in ARTICLE_GAP_PATTERNS {
+                            if lower.contains(pattern) {
+                                return false;
+                            }
+                        }
+                        for keyword in CODE_KEYWORDS {
+                            if lower.contains(keyword) {
+                                return false;
+                            }
+                        }
+                        for indicator in TABLE_INDICATORS {
+                            if s.contains(indicator) {
+                                return false;
+                            }
+                        }
+                        for indicator in CODE_INDICATORS {
+                            if lower.contains(indicator) {
+                                return false;
+                            }
+                        }
+                        for punct in STANDALONE_PUNCTUATION {
+                            if s.trim().starts_with(*punct) {
+                                return false;
+                            }
+                        }
+                        if lower.contains(INCOMPLETE_QUOTE_PATTERN)
+                            && !lower.contains(INCOMPLETE_QUOTE_EXCEPTION)
+                        {
+                            return false;
+                        }
+                        for month in MONTH_PATTERNS {
+                            if lower.starts_with(month) {
+                                return false;
+                            }
+                        }
+                        for pattern in INCOMPLETE_PARENTHETICAL_PATTERNS {
+                            if lower.contains(pattern) {
+                                return false;
+                            }
+                        }
+                        for ending in SENTENCE_END_INCOMPLETE {
+                            if s.ends_with(ending) {
+                                return false;
+                            }
+                        }
+                        true
+                    })
+                    .take(MAX_DEEP_PARAGRAPHS_TO_SHOW)
+                    .collect();
+
+                if let Some(ia) = ia_answer {
+                    if filtered_deep.len() >= MIN_FILTERED_PARAGRAPHS {
+                        let deep_content = filtered_deep.join("\n\n");
+                        Some(format!("{}\n\n{}", ia, deep_content))
+                    } else {
+                        info!(
+                            "  🔍 Deep mode: insufficient quality paragraphs ({}), using IA only",
+                            filtered_deep.len()
+                        );
+                        Some(ia)
+                    }
+                } else {
+                    if filtered_deep.len() >= MIN_FILTERED_PARAGRAPHS {
+                        let deep_content = filtered_deep.join("\n\n");
+                        Some(deep_content)
+                    } else {
+                        info!(
+                            "  🔍 Deep mode: insufficient quality paragraphs, falling back to regular query"
+                        );
+                        index.answer(&eval_queries[0], top_k)
+                    }
+                }
+            };
+            (chunks, answer)
+        } else {
+            let answer = index.answer(&eval_queries[0], top_k);
+            (chunks, answer)
+        }
     } else {
         let chunks = index
             .query(&kb_query, top_k)
@@ -415,36 +598,51 @@ pub async fn handle_tram(
     let answer_text = match combined_answer {
         Some(answer) if is_quality_answer(&answer) => {
             info!("  ✅ KB answer found ({} chars)", answer.len());
-            let prompt_lower = prompt.to_ascii_lowercase();
-            let prompt_asks_history = prompt_lower.contains("history")
-                || prompt_lower.contains("when")
-                || prompt_lower.contains("created")
-                || prompt_lower.contains("founded");
-            let filtered_answer = if !prompt_asks_history {
-                let split_result = split_sentences_with_punct(&answer);
-                let filtered: Vec<String> = split_result
-                    .into_iter()
-                    .filter(|s| {
-                        let lower = s.to_ascii_lowercase();
-                        let has_year = lower.chars().any(|c| c.is_ascii_digit());
-                        let has_historical_marker = lower.contains("created")
-                            || lower.contains("founded")
-                            || lower.contains("sponsored")
-                            || lower.contains("release")
-                            || lower.contains("developer")
-                            || lower.contains("foundation");
-                        !(has_year && has_historical_marker)
-                    })
-                    .collect();
-                if filtered.is_empty() {
-                    answer.clone()
+
+            if think && !deep {
+                let prompt_lower = prompt.to_ascii_lowercase();
+                let prompt_asks_history = HISTORY_KEYWORDS
+                    .iter()
+                    .any(|&keyword| prompt_lower.contains(keyword));
+
+                let filtered_answer = if !prompt_asks_history {
+                    let split_result = split_sentences_with_punct(&answer);
+                    let filtered: Vec<String> = split_result
+                        .into_iter()
+                        .filter(|s| {
+                            let lower = s.to_ascii_lowercase();
+                            let has_year = lower.chars().any(|c| c.is_ascii_digit());
+                            let has_historical_marker = HISTORICAL_MARKERS
+                                .iter()
+                                .any(|&marker| lower.contains(marker));
+                            !(has_year && has_historical_marker)
+                        })
+                        .collect();
+                    if filtered.is_empty() {
+                        answer
+                    } else {
+                        filtered.join(" ")
+                    }
                 } else {
-                    filtered.join(" ")
-                }
+                    answer
+                };
+
+                let prefixed = if ADVANTAGE_KEYWORDS
+                    .iter()
+                    .any(|&keyword| prompt_lower.contains(keyword))
+                {
+                    let topic_name = extract_topic_name(&prompt);
+                    format!(
+                        "The advantages of {} are as follows. {}",
+                        topic_name, filtered_answer
+                    )
+                } else {
+                    filtered_answer
+                };
+                assemble_paragraphs_for(&prefixed, run_seed, &kb_query)
             } else {
-                answer.clone()
-            };
-            assemble_paragraphs_for(&filtered_answer, run_seed, &kb_query)
+                answer
+            }
         }
         Some(answer) => {
             info!(
@@ -475,7 +673,9 @@ pub async fn handle_tram(
         None
     };
 
-    let answer_text = if let Some(ref result) = expert_result {
+    let answer_text = if deep {
+        answer_text
+    } else if let Some(ref result) = expert_result {
         info!(
             "  🧠 Inference: conclusion={:?} CF={:.2} depth={} rules={}",
             result.conclusion,
@@ -489,11 +689,10 @@ pub async fn handle_tram(
         }
         let builder = ProseBuilder::new(2, 5);
         let expert_prose = builder.build(result, &chunk_refs, run_seed);
-        if expert_prose.split_whitespace().count() >= 30 {
+        if expert_prose.split_whitespace().count() >= MIN_EXPERT_PROSE_WORDS {
             let deduplicator = GlobalDeduplicator::new(0.65);
             let merged = format!("{}\n\n{}", answer_text, expert_prose);
-            let deduped = deduplicator.deduplicate_text(&merged);
-            assemble_paragraphs_for(&deduped, run_seed, &prompt)
+            deduplicator.deduplicate_text(&merged)
         } else {
             answer_text
         }
@@ -508,50 +707,109 @@ pub async fn handle_tram(
 
     divider("Stochastic Enhancement");
     let effective_prob = match probability {
-        Some(p) => p.clamp(0.0, 1.0),
-        None => 0.03,
+        Some(p) => p.clamp(PROBABILITY_MIN, PROBABILITY_MAX),
+        None => DEFAULT_STOCHASTIC_PROBABILITY,
     };
-    let enhanced = StochasticEnhancer::new(effective_prob)
-        .curated_only()
-        .enhance_detailed(&answer_text);
+    let enhanced = StochasticEnhancer::new(0.0).enhance_detailed(&answer_text);
     info!(
         "  🎲 substitutions={} language={:?} prob={:.2}",
         enhanced.substitutions, enhanced.language, effective_prob
     );
 
-    let final_text = if no_frame {
+    let final_text = if deep || no_frame {
         enhanced.text.clone()
-    } else if TaskDecomposer::is_creative_task(&prompt) {
-        let lang =
-            TaskDecomposer::extract_code_language(&prompt).unwrap_or_else(|| "text".to_string());
-        let kb_corpus: String = kb_chunks.join(" ");
-        let task_desc = topic.clone();
-        let code = CodeResponder::generate(&lang, &task_desc, &kb_corpus);
-        let code_block = CodeResponder::format_code_block(&lang, &code);
-        let frame = ResponseFramer::opening_phrase(prompt_mode, &topic, &prompt, &enhanced.text);
-        if frame.is_empty() {
-            format!("{}\n\n{}", enhanced.text.trim(), code_block)
+    } else if think {
+        if TaskDecomposer::is_creative_task(&prompt) {
+            let lang = TaskDecomposer::extract_code_language(&prompt)
+                .unwrap_or_else(|| DEFAULT_CODE_LANGUAGE.to_string());
+            let kb_corpus: String = kb_chunks.join(" ");
+            let task_desc = topic.clone();
+            let code = CodeResponder::generate(&lang, &task_desc, &kb_corpus);
+            let code_block = CodeResponder::format_code_block(&lang, &code);
+            let frame =
+                ResponseFramer::opening_phrase(prompt_mode, &topic, &prompt, &enhanced.text);
+            if frame.is_empty() {
+                format!("{}\n\n{}", enhanced.text.trim(), code_block)
+            } else {
+                format!("{}\n\n{}", frame.trim_end(), code_block)
+            }
         } else {
-            format!("{}\n\n{}", frame.trim_end(), code_block)
+            let framing_topic = derive_framing_topic(&prompt, prompt_mode, &topic);
+            let framed =
+                ResponseFramer::frame(prompt_mode, &framing_topic, &prompt, &enhanced.text);
+            if matches!(prompt_mode, ReasoningMode::Analogical) {
+                restructure_analogical_response(&framed, &topic, run_seed)
+            } else {
+                framed
+            }
         }
     } else {
-        let framing_topic = derive_framing_topic(&prompt, prompt_mode, &topic);
-        let framed = ResponseFramer::frame(prompt_mode, &framing_topic, &prompt, &enhanced.text);
-        if matches!(prompt_mode, ReasoningMode::Analogical) {
-            restructure_analogical_response(&framed, &topic, run_seed)
-        } else {
-            framed
-        }
+        enhanced.text.clone()
+    };
+
+    let answer_text = if deep && !web_result.all_scraped_urls.is_empty() {
+        let urls_text = web_result
+            .all_scraped_urls
+            .iter()
+            .map(|url| format!("- {}", url))
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!(
+            "{}\n\nFor further information, please refer to the following resources:\n{}",
+            final_text, urls_text
+        )
+    } else {
+        final_text
     };
 
     if verbose {
         divider("TRAM Response");
-        info!("  {}", final_text);
+        info!("  {}", answer_text);
     } else {
-        println!("{}", final_text);
+        println!("{}", answer_text);
     }
 
     Ok(())
+}
+
+/// Extracts the topic name from a query for answer prefix generation.
+///
+/// Handles patterns like "what are the advantages of X?" and "what are the benefits of X?"
+/// Returns the capitalized topic name.
+#[cfg(feature = "net")]
+#[allow(unused)]
+fn extract_topic_name(prompt: &str) -> String {
+    let prompt_lower = prompt.to_ascii_lowercase();
+
+    if prompt_lower.contains("advantages of")
+        && let Some(pos) = prompt_lower.find("advantages of")
+    {
+        let topic = prompt[pos + "advantages of".len()..].trim();
+        let topic = topic.trim_end_matches('?').trim_end_matches('.');
+        return capitalize_first_letter(topic);
+    }
+
+    if prompt_lower.contains("benefits of")
+        && let Some(pos) = prompt_lower.find("benefits of")
+    {
+        let topic = prompt[pos + "benefits of".len()..].trim();
+        let topic = topic.trim_end_matches('?').trim_end_matches('.');
+        return capitalize_first_letter(topic);
+    }
+
+    let topic = crate::tram::query::extract_topic(prompt);
+    capitalize_first_letter(&topic)
+}
+
+/// Capitalizes the first letter of a string.
+#[cfg(feature = "net")]
+#[allow(unused)]
+fn capitalize_first_letter(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+    }
 }
 
 /// Main CLI entry point.
@@ -585,6 +843,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                 cli.think_patience,
                 cli.max_tasks,
                 cli.no_frame,
+                cli.deep,
             )
             .await;
         }
@@ -605,6 +864,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             think_patience,
             max_tasks,
             no_frame,
+            deep,
         } => {
             handle_tram(
                 prompt,
@@ -620,6 +880,7 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                 think_patience,
                 max_tasks,
                 no_frame,
+                deep,
             )
             .await?;
         }
@@ -918,11 +1179,11 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                         let enhanced = maybe_enhance(para, stochastic, probability);
                         if cli.verbose {
                             let label = if i == 0 {
-                                "Introduction".to_string()
+                                ESSAY_LABEL_INTRODUCTION.to_string()
                             } else if i == count - 1 {
-                                "Conclusion".to_string()
+                                ESSAY_LABEL_CONCLUSION.to_string()
                             } else {
-                                format!("Body · §{}", i)
+                                format!("{}{}", ESSAY_LABEL_BODY_PREFIX, i)
                             };
                             divider(&label);
                             info!("");

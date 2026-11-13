@@ -26,6 +26,11 @@
 //!
 //! [`KnowledgeIndex`]: crate::cognition::knowledge::KnowledgeIndex
 
+use crate::constants::generation_filter::{
+    ALL_CAPS_WORD_LIMIT, DEFAULT_EMPTY_WORD, LINK_WORD_LIMIT, MAX_CONSECUTIVE_TITLE,
+    MIN_WORDS_FOR_QUESTION_PATTERN, MIN_WORDS_FOR_SENTENCE_LENGTH, NAVIGATION_LINK_LIMIT,
+    NAVIGATION_WORD_LIMIT, QUESTION_PATTERN_WORD_LIMIT,
+};
 use phf::{Set, phf_set};
 use std::collections::HashSet;
 
@@ -236,7 +241,7 @@ impl SentenceFilter {
         let mut words = sentence.split_whitespace();
         let first = words
             .next()
-            .unwrap_or("")
+            .unwrap_or(DEFAULT_EMPTY_WORD)
             .trim_matches(|c: char| !c.is_ascii_alphabetic())
             .to_ascii_lowercase();
         if BAD_OPENERS.contains(first.as_str()) {
@@ -244,7 +249,7 @@ impl SentenceFilter {
         }
         let second = words
             .next()
-            .unwrap_or("")
+            .unwrap_or(DEFAULT_EMPTY_WORD)
             .trim_matches(|c: char| !c.is_ascii_alphabetic())
             .to_ascii_lowercase();
         !CONTINUATION_ADVERBS.contains(second.as_str())
@@ -256,7 +261,7 @@ impl SentenceFilter {
     ///
     /// O(|sentence|)
     pub fn has_minimum_length(sentence: &str) -> bool {
-        sentence.split_whitespace().count() >= 8
+        sentence.split_whitespace().count() >= MIN_WORDS_FOR_SENTENCE_LENGTH
     }
 
     /// Returns `true` when the sentence contains a known metadata marker token.
@@ -386,8 +391,11 @@ impl SentenceFilter {
             "had", "will", "would", "may", "might", "shall", "should",
             "does", "do", "did", "a", "an", "the", "of", "in", "to",
         };
-        let words: Vec<&str> = sentence.split_whitespace().take(8).collect();
-        if words.len() < 3 {
+        let words: Vec<&str> = sentence
+            .split_whitespace()
+            .take(QUESTION_PATTERN_WORD_LIMIT)
+            .collect();
+        if words.len() < MIN_WORDS_FOR_QUESTION_PATTERN {
             return false;
         }
         let clean = |w: &str| {
@@ -403,12 +411,12 @@ impl SentenceFilter {
 
         let all_caps = words
             .iter()
-            .take(3)
+            .take(ALL_CAPS_WORD_LIMIT)
             .all(|w| w.chars().next().is_some_and(|c| c.is_uppercase()));
         if all_caps {
             let has_link = words
                 .iter()
-                .take(5)
+                .take(LINK_WORD_LIMIT)
                 .any(|w| LINK_WORDS.contains(clean(w).as_str()));
             if !has_link {
                 return true;
@@ -422,7 +430,7 @@ impl SentenceFilter {
 
         let mut consecutive_title = 0usize;
         let mut max_consec = 0usize;
-        for w in sentence.split_whitespace().take(12) {
+        for w in sentence.split_whitespace().take(NAVIGATION_WORD_LIMIT) {
             if w.chars().next().is_some_and(|c| c.is_uppercase()) {
                 consecutive_title += 1;
                 max_consec = max_consec.max(consecutive_title);
@@ -430,14 +438,17 @@ impl SentenceFilter {
                 consecutive_title = 0;
             }
         }
-        if max_consec >= 3 {
-            let has_link_early = sentence.split_whitespace().take(8).any(|w| {
-                LINK_WORDS.contains(
-                    w.trim_matches(|c: char| !c.is_ascii_alphabetic())
-                        .to_ascii_lowercase()
-                        .as_str(),
-                )
-            });
+        if max_consec >= MAX_CONSECUTIVE_TITLE {
+            let has_link_early = sentence
+                .split_whitespace()
+                .take(NAVIGATION_LINK_LIMIT)
+                .any(|w| {
+                    LINK_WORDS.contains(
+                        w.trim_matches(|c: char| !c.is_ascii_alphabetic())
+                            .to_ascii_lowercase()
+                            .as_str(),
+                    )
+                });
             if !has_link_early {
                 return true;
             }
@@ -450,7 +461,7 @@ impl SentenceFilter {
 
         let mut consecutive_title = 0usize;
         let mut max_consec = 0usize;
-        for w in sentence.split_whitespace().take(12) {
+        for w in sentence.split_whitespace().take(NAVIGATION_WORD_LIMIT) {
             if w.chars().next().is_some_and(|c| c.is_uppercase()) {
                 consecutive_title += 1;
                 max_consec = max_consec.max(consecutive_title);
@@ -458,14 +469,17 @@ impl SentenceFilter {
                 consecutive_title = 0;
             }
         }
-        if max_consec >= 3 {
-            let has_link_early = sentence.split_whitespace().take(8).any(|w| {
-                LINK_WORDS.contains(
-                    w.trim_matches(|c: char| !c.is_ascii_alphabetic())
-                        .to_ascii_lowercase()
-                        .as_str(),
-                )
-            });
+        if max_consec >= MAX_CONSECUTIVE_TITLE {
+            let has_link_early = sentence
+                .split_whitespace()
+                .take(NAVIGATION_LINK_LIMIT)
+                .any(|w| {
+                    LINK_WORDS.contains(
+                        w.trim_matches(|c: char| !c.is_ascii_alphabetic())
+                            .to_ascii_lowercase()
+                            .as_str(),
+                    )
+                });
             if !has_link_early {
                 return true;
             }
@@ -492,7 +506,7 @@ impl SentenceFilter {
         let first = sentence
             .split_whitespace()
             .next()
-            .unwrap_or("")
+            .unwrap_or(DEFAULT_EMPTY_WORD)
             .trim_matches(|c: char| !c.is_ascii_alphabetic())
             .to_ascii_lowercase();
         let ends_with_question = sentence.trim_end().ends_with('?');

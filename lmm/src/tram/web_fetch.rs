@@ -10,49 +10,34 @@
 //! DuckDuckGo prefetch logic for web knowledge retrieval.
 
 use crate::cognition::knowledge::KnowledgeIndex;
-use crate::generation::filter::SentenceFilter;
+#[cfg(feature = "net")]
+use crate::constants::tram_logging::{
+    IA_FOUND_LOG_PREFIX, IA_FOUND_LOG_SUFFIX, WEB_SEARCH_LOG_PREFIX,
+};
+#[allow(unused_imports)]
+use crate::constants::tram_web_fetch::{
+    ADVANTAGES_OF_PREFIX, ADVANTAGES_PREFIX, AMBIGUOUS_LENGTH_THRESHOLD, AMBIGUOUS_WORDS,
+    AND_CONNECTOR, BENEFITS_OF_PREFIX, BENEFITS_PREFIX, CAUSAL_KEYWORDS, CAUSAL_OPENERS,
+    CHEMICAL_SUFFIX, COMPARE_PREFIX, COMPOUND_SUFFIX, DEFAULT_USER_AGENT, DESIGN_DECISIONS_SUFFIX,
+    DIFFERENCES_BETWEEN_PREFIX, DISADVANTAGE_KEYWORDS, DISADVANTAGES_PREFIX, DUCKY_PREFIX,
+    ELEMENT_SUFFIX, EMPTY_STRING, EVALUATIVE_KEYWORDS, FIREFOX_AGENT, MAX_DEEP_SCRAPE_ITERATIONS,
+    MAX_DUCKY_RESULTS, MAX_LITE_RESULTS, MAX_RELATED_TOPICS, MAX_TOPIC_PAIR_WORDS,
+    MEMORY_MANAGEMENT_SUFFIX, MIN_ENTITY_WORD_LENGTH, MIN_IA_FALLBACK_WORD_COUNT,
+    MIN_IA_WORD_COUNT, MIN_LITE_SNIPPET_WORD_COUNT, MIN_PROVERB_WORD_COUNT, OWNERSHIP_MODEL_SUFFIX,
+    OWNERSHIP_SUFFIX, PROGRAMMING_LANGUAGE_SUFFIX, PROS_CONS_PREFIX, PROS_CONS_SUFFIX,
+    SCIENTIFIC_SUFFIX, VS_CONNECTOR, VS_SPLITTERS, WEB_DUCKY_SOURCE, WEB_IA_A_SOURCE,
+    WEB_IA_B_SOURCE, WEB_IA_EVAL_SOURCE, WEB_IA_FALLBACK_SOURCE, WEB_IA_SOURCE, WEB_INTENT_SOURCE,
+    WEB_LITE_SOURCE, WEB_SCRAPE_SOURCE, WHAT_IS_PREFIX,
+};
 #[cfg(feature = "net")]
 use crate::net::{Browser, agent};
 use crate::tram::config::WebFetchResult;
+#[cfg(feature = "net")]
 use crate::tram::query::extract_topic;
 #[cfg(feature = "net")]
 use crate::tram::scraper::scrape_and_ingest;
-
-#[allow(dead_code)]
-const MAX_LITE_RESULTS: usize = 10;
-#[allow(dead_code)]
-const MIN_PROVERB_WORD_COUNT: usize = 8;
-#[allow(dead_code)]
-const MAX_DUCKY_RESULTS: usize = 5;
-#[allow(dead_code)]
-const MIN_LITE_SNIPPET_WORD_COUNT: usize = 12;
-#[allow(dead_code)]
-const MIN_ENTITY_WORD_LENGTH: usize = 4;
-#[allow(dead_code)]
-const MAX_TOPIC_PAIR_WORDS: usize = 4;
-#[allow(dead_code)]
-const MIN_IA_WORD_COUNT: usize = 8;
-#[allow(dead_code)]
-const MAX_RELATED_TOPICS: usize = 5;
-#[allow(dead_code)]
-const MIN_IA_FALLBACK_WORD_COUNT: usize = 5;
-#[allow(dead_code)]
-const CAUSAL_OPENERS: &[&str] = &[
-    "why does ",
-    "why do ",
-    "why is ",
-    "why are ",
-    "why was ",
-    "why would ",
-    "why should ",
-    "why can't ",
-    "why cannot ",
-    "why doesn't ",
-    "why don't ",
-    "how come ",
-];
-#[allow(dead_code)]
-const VS_SPLITTERS: &[&str] = &[" vs ", " versus "];
+#[cfg(feature = "net")]
+use tracing::info;
 
 /// Fires a lightweight intent-specific DDG search and ingests snippets into `index`.
 ///
@@ -63,6 +48,7 @@ const VS_SPLITTERS: &[&str] = &[" vs ", " versus "];
 ///
 /// * `query`   - The search query string.
 /// * `index`   - The `KnowledgeIndex` to populate.
+/// * `verbose` - When `true`, enables detailed debug logging.
 ///
 /// # Returns
 ///
@@ -72,9 +58,13 @@ const VS_SPLITTERS: &[&str] = &[" vs ", " versus "];
 ///
 /// O(|network response|)
 #[cfg(feature = "net")]
-pub async fn prefetch_web_for_query(query: &str, index: &mut KnowledgeIndex) -> WebFetchResult {
+pub async fn prefetch_web_for_query(
+    query: &str,
+    index: &mut KnowledgeIndex,
+    verbose: bool,
+) -> WebFetchResult {
     let browser = Browser::new();
-    let ua = agent("firefox").unwrap_or("Mozilla/5.0");
+    let ua = agent(FIREFOX_AGENT).unwrap_or(DEFAULT_USER_AGENT);
     let encoded: String = query
         .chars()
         .map(|c| if c == ' ' { '+' } else { c })
@@ -83,12 +73,23 @@ pub async fn prefetch_web_for_query(query: &str, index: &mut KnowledgeIndex) -> 
     let mut ingested = 0usize;
     let mut fetch_queries = Vec::new();
 
+    if verbose {
+        info!("{}{}", WEB_SEARCH_LOG_PREFIX, query);
+    }
     if let Ok(resp) = browser.get_api_response(&ia_path, None).await {
         if let Some(text) = resp.abstract_text.filter(|s| !s.trim().is_empty()) {
-            ingested += index.ingest_text("web-intent", text.trim());
+            if verbose {
+                info!(
+                    "{}{}{}",
+                    IA_FOUND_LOG_PREFIX,
+                    text.len(),
+                    IA_FOUND_LOG_SUFFIX
+                );
+            }
+            ingested += index.ingest_text(WEB_INTENT_SOURCE, text.trim());
         }
         if let Some(def) = resp.definition.filter(|s| !s.trim().is_empty()) {
-            ingested += index.ingest_text("web-intent", def.trim());
+            ingested += index.ingest_text(WEB_INTENT_SOURCE, def.trim());
         }
     }
 
@@ -102,7 +103,7 @@ pub async fn prefetch_web_for_query(query: &str, index: &mut KnowledgeIndex) -> 
                 let title = r.title.trim();
                 if snippet.split_whitespace().count() >= MIN_PROVERB_WORD_COUNT {
                     let chunk = format!("{} {}", title, snippet);
-                    ingested += index.ingest_text("web-intent", chunk.trim());
+                    ingested += index.ingest_text(WEB_INTENT_SOURCE, chunk.trim());
                 }
             }
             fetch_queries.push(query.to_string());
@@ -112,7 +113,7 @@ pub async fn prefetch_web_for_query(query: &str, index: &mut KnowledgeIndex) -> 
     }
 
     if ingested == 0 {
-        let ducky_q = format!("!ducky+{}", query.replace(' ', "+"));
+        let ducky_q = format!("{}{}", DUCKY_PREFIX, query.replace(' ', "+"));
         if let Ok(ducky_results) = browser
             .lite_search(&ducky_q, "wt-wt", Some(MAX_DUCKY_RESULTS), ua)
             .await
@@ -122,11 +123,11 @@ pub async fn prefetch_web_for_query(query: &str, index: &mut KnowledgeIndex) -> 
                 let title = r.title.trim();
                 if snippet.split_whitespace().count() >= MIN_LITE_SNIPPET_WORD_COUNT {
                     let chunk = format!("{} {}", title, snippet);
-                    ingested += index.ingest_text("web-ducky", chunk.trim());
+                    ingested += index.ingest_text(WEB_DUCKY_SOURCE, chunk.trim());
                 }
                 let url = &r.url;
                 if url.starts_with("http") {
-                    let scraped = scrape_and_ingest(url, index, "web-scrape").await;
+                    let scraped = scrape_and_ingest(url, index, WEB_SCRAPE_SOURCE).await;
                     if scraped > 0 {
                         ingested += scraped;
                     }
@@ -144,11 +145,17 @@ pub async fn prefetch_web_for_query(query: &str, index: &mut KnowledgeIndex) -> 
         lite_snippets_found: 0,
         instant_answer_query: None,
         fetch_queries,
+        unscraped_urls: Vec::new(),
+        all_scraped_urls: Vec::new(),
     }
 }
 
 #[cfg(not(feature = "net"))]
-pub async fn prefetch_web_for_query(_query: &str, _index: &mut KnowledgeIndex) -> WebFetchResult {
+pub async fn prefetch_web_for_query(
+    _query: &str,
+    _index: &mut KnowledgeIndex,
+    _verbose: bool,
+) -> WebFetchResult {
     WebFetchResult::default()
 }
 
@@ -161,6 +168,8 @@ pub async fn prefetch_web_for_query(_query: &str, _index: &mut KnowledgeIndex) -
 /// * `prompt`      - The search query to issue.
 /// * `index`       - The `KnowledgeIndex` to populate.
 /// * `kb_provided` - When `true`, a local KB was supplied and the web fetch is skipped.
+/// * `deep`        - When `true`, enables deep scraping for topic-relevant content.
+/// * `verbose`     - When `true`, enables detailed debug logging.
 ///
 /// # Returns
 ///
@@ -174,13 +183,15 @@ pub async fn prefetch_web(
     prompt: &str,
     index: &mut KnowledgeIndex,
     kb_provided: bool,
+    deep: bool,
+    verbose: bool,
 ) -> WebFetchResult {
     if kb_provided {
         return WebFetchResult::default();
     }
 
     let browser = Browser::new();
-    let ua = agent("firefox").unwrap_or("Mozilla/5.0");
+    let ua = agent(FIREFOX_AGENT).unwrap_or(DEFAULT_USER_AGENT);
     let mut ingested = 0usize;
     let mut prose_chunks = 0usize;
     let mut lite_snippets_found = 0usize;
@@ -188,13 +199,13 @@ pub async fn prefetch_web(
 
     let topic_query = extract_topic(prompt);
     let topic_clean = topic_query.trim().to_string();
-    let topic_lang = format!("{} programming language", topic_query);
+    let topic_lang = format!("{}{}", topic_query, PROGRAMMING_LANGUAGE_SUFFIX);
 
-    let topic_advantages = format!("advantages of {}", topic_query);
-    let topic_benefits = format!("benefits of {}", topic_query);
-    let topic_disadvantages = format!("disadvantages of {}", topic_query);
-    let topic_pros_cons = format!("pros and cons of {}", topic_query);
-    let topic_what = format!("what is {}", topic_query);
+    let topic_advantages = format!("{}{}", ADVANTAGES_PREFIX, topic_query);
+    let topic_benefits = format!("{}{}", BENEFITS_PREFIX, topic_query);
+    let topic_disadvantages = format!("{}{}", DISADVANTAGES_PREFIX, topic_query);
+    let topic_pros_cons = format!("{}{}", PROS_CONS_PREFIX, topic_query);
+    let topic_what = format!("{}{}", WHAT_IS_PREFIX, topic_query);
 
     let topic_words: Vec<String> = topic_query
         .split_whitespace()
@@ -203,19 +214,14 @@ pub async fn prefetch_web(
         .collect();
 
     let prompt_lower = prompt.to_ascii_lowercase();
-    let is_evaluative_prompt = prompt_lower.contains("advantage")
-        || prompt_lower.contains("benefit")
-        || prompt_lower.contains("pros")
-        || prompt_lower.contains("disadvantage")
-        || prompt_lower.contains("inconvenience")
-        || prompt_lower.contains("limitation")
-        || prompt_lower.contains("drawback")
-        || prompt_lower.contains("weakness")
-        || prompt_lower.contains("cons");
+    let is_evaluative_prompt = EVALUATIVE_KEYWORDS
+        .iter()
+        .any(|&keyword| prompt_lower.contains(keyword));
     let is_causal_prompt = prompt_lower.starts_with("why ")
         || prompt_lower.starts_with("how come")
-        || prompt_lower.contains(" cause")
-        || prompt_lower.contains(" reason");
+        || CAUSAL_KEYWORDS
+            .iter()
+            .any(|&keyword| prompt_lower.contains(keyword));
     let is_analogical_prompt = topic_query.to_ascii_lowercase().contains(" vs ")
         || topic_query.to_ascii_lowercase().contains(" versus ")
         || prompt_lower.contains(" vs ")
@@ -296,24 +302,16 @@ pub async fn prefetch_web(
     let is_evaluative_must_fetch = is_evaluative_prompt;
 
     let eval_queries: Vec<String> = if is_evaluative_prompt {
-        let wants_disadvantages = prompt_lower.contains("disadvantage")
-            || prompt_lower.contains("inconvenience")
-            || prompt_lower.contains("limitation")
-            || prompt_lower.contains("drawback")
-            || prompt_lower.contains("weakness")
-            || prompt_lower.contains("cons");
+        let wants_disadvantages = DISADVANTAGE_KEYWORDS
+            .iter()
+            .any(|&keyword| prompt_lower.contains(keyword));
         if wants_disadvantages {
-            vec![
-                topic_disadvantages.clone(),
-                topic_pros_cons.clone(),
-                format!("{} programming language", topic_query),
-            ]
+            vec![topic_disadvantages.clone(), topic_pros_cons.clone()]
         } else {
             vec![
                 topic_advantages.clone(),
                 topic_benefits.clone(),
                 topic_pros_cons.clone(),
-                format!("{} programming language", topic_query),
             ]
         }
     } else {
@@ -333,47 +331,18 @@ pub async fn prefetch_web(
 
     let mut ia_candidates: Vec<String> = Vec::new();
 
-    if is_causal_prompt {
-        if let Some(ref cpq) = causal_predicate_query {
-            ia_candidates.push(cpq.clone());
-            ia_candidates.push(format!("why {}", cpq));
-            ia_candidates.push(format!("{} {}", topic_query, cpq));
-        }
-        ia_candidates.push(format!("{} memory management", topic_query));
-        ia_candidates.push(format!("{} ownership", topic_query));
-        ia_candidates.push(format!("{} design decisions", topic_query));
+    if is_causal_prompt && let Some(ref cpq) = causal_predicate_query {
+        ia_candidates.push(cpq.clone());
+        ia_candidates.push(format!("why {}", cpq));
+        ia_candidates.push(format!("{} {}", topic_query, cpq));
     }
 
     if is_analogical_prompt {
         if let Some(ref ea) = entity_a {
             ia_candidates.push(ea.clone());
-            ia_candidates.push(format!("{} programming language", ea));
-            let is_ambiguous = ea.len() <= 5
-                || matches!(
-                    ea.to_ascii_lowercase().as_str(),
-                    "water" | "ice" | "fire" | "air" | "light" | "sound" | "time" | "space"
-                );
-            if is_ambiguous {
-                ia_candidates.push(format!("{} chemical", ea));
-                ia_candidates.push(format!("{} compound", ea));
-                ia_candidates.push(format!("{} element", ea));
-                ia_candidates.push(format!("{} scientific", ea));
-            }
         }
         if let Some(ref eb) = entity_b {
             ia_candidates.push(eb.clone());
-            ia_candidates.push(format!("{} programming language", eb));
-            let is_ambiguous = eb.len() <= 5
-                || matches!(
-                    eb.to_ascii_lowercase().as_str(),
-                    "water" | "ice" | "fire" | "air" | "light" | "sound" | "time" | "space"
-                );
-            if is_ambiguous {
-                ia_candidates.push(format!("{} chemical", eb));
-                ia_candidates.push(format!("{} compound", eb));
-                ia_candidates.push(format!("{} element", eb));
-                ia_candidates.push(format!("{} scientific", eb));
-            }
         }
     }
 
@@ -427,10 +396,21 @@ pub async fn prefetch_web(
             .map(|c| if c == ' ' { '+' } else { c })
             .collect::<String>();
         let ia_path = format!("?q={}&ia=web", encoded);
+        if verbose {
+            info!("{}{}", WEB_SEARCH_LOG_PREFIX, query);
+        }
         if let Ok(resp) = browser.get_api_response(&ia_path, None).await {
             if let Some(text) = resp.abstract_text.filter(|s| !s.trim().is_empty()) {
+                if verbose {
+                    info!(
+                        "{}{}{}",
+                        IA_FOUND_LOG_PREFIX,
+                        text.len(),
+                        IA_FOUND_LOG_SUFFIX
+                    );
+                }
                 let wc = text.split_whitespace().count();
-                let added = index.ingest_text("web-ia", text.trim());
+                let added = index.ingest_text(WEB_IA_SOURCE, text.trim());
                 if added > 0 && wc >= MIN_IA_WORD_COUNT {
                     prose_chunks += added;
                 }
@@ -455,13 +435,11 @@ pub async fn prefetch_web(
             for topic in resp.related_topics.iter().take(MAX_RELATED_TOPICS) {
                 if let Some(text) = topic.text.as_deref().filter(|s| !s.trim().is_empty()) {
                     let wc = text.split_whitespace().count();
-                    if wc >= MIN_IA_WORD_COUNT && SentenceFilter::is_acceptable(text.trim()) {
-                        let added = index.ingest_text("web-ia", text.trim());
+                    if wc >= MIN_IA_WORD_COUNT && text.split_whitespace().count() >= 8 {
+                        let added = index.ingest_text(WEB_IA_SOURCE, text.trim());
                         prose_chunks += added;
                         ingested += added;
-                    } else if wc >= MIN_PROVERB_WORD_COUNT
-                        && SentenceFilter::is_acceptable(text.trim())
-                    {
+                    } else if wc >= MIN_PROVERB_WORD_COUNT && text.split_whitespace().count() >= 8 {
                         ingested += index.ingest_text("web-ia", text.trim());
                     }
                 }
@@ -479,7 +457,7 @@ pub async fn prefetch_web(
             if let Ok(resp) = browser.get_api_response(&ia_path, None).await {
                 if let Some(text) = resp.abstract_text.filter(|s| !s.trim().is_empty()) {
                     let wc = text.split_whitespace().count();
-                    let added = index.ingest_text("web-ia-eval", text.trim());
+                    let added = index.ingest_text(WEB_IA_EVAL_SOURCE, text.trim());
                     if added > 0 && wc >= MIN_IA_WORD_COUNT {
                         prose_chunks += added;
                     }
@@ -507,7 +485,7 @@ pub async fn prefetch_web(
             if let Ok(resp) = browser.get_api_response(&ia_path_ea, None).await {
                 if let Some(text) = resp.abstract_text.filter(|s| !s.trim().is_empty()) {
                     let wc = text.split_whitespace().count();
-                    let added = index.ingest_text("web-ia-a", text.trim());
+                    let added = index.ingest_text(WEB_IA_A_SOURCE, text.trim());
                     if added > 0 && wc >= MIN_IA_WORD_COUNT {
                         prose_chunks += added;
                     }
@@ -530,7 +508,7 @@ pub async fn prefetch_web(
             if let Ok(resp) = browser.get_api_response(&ia_path_eb, None).await {
                 if let Some(text) = resp.abstract_text.filter(|s| !s.trim().is_empty()) {
                     let wc = text.split_whitespace().count();
-                    let added = index.ingest_text("web-ia-b", text.trim());
+                    let added = index.ingest_text(WEB_IA_B_SOURCE, text.trim());
                     if added > 0 && wc >= MIN_IA_WORD_COUNT {
                         prose_chunks += added;
                     }
@@ -538,7 +516,7 @@ pub async fn prefetch_web(
                 }
                 if let Some(def) = resp.definition.filter(|s| !s.trim().is_empty()) {
                     let wc = def.split_whitespace().count();
-                    let added = index.ingest_text("web-ia-b", def.trim());
+                    let added = index.ingest_text(WEB_IA_B_SOURCE, def.trim());
                     if added > 0 && wc >= MIN_IA_WORD_COUNT {
                         prose_chunks += added;
                     }
@@ -560,27 +538,33 @@ pub async fn prefetch_web(
             lite_q_list.push(cpq.clone());
             let topic_no_gc = format!("{} memory management", topic_query);
             lite_q_list.push(topic_no_gc);
-            let topic_ownership = format!("{} ownership model", topic_query);
+            let topic_ownership = format!("{}{}", topic_query, OWNERSHIP_MODEL_SUFFIX);
             lite_q_list.push(topic_ownership);
         }
         if is_evaluative_prompt {
-            lite_q_list.push(format!("advantages of {}", topic_query));
-            lite_q_list.push(format!("{} pros cons", topic_query));
-            lite_q_list.push(format!("benefits of {}", topic_query));
+            lite_q_list.push(format!("{}{}", ADVANTAGES_OF_PREFIX, topic_query));
+            lite_q_list.push(format!("{}{}", topic_query, PROS_CONS_SUFFIX));
+            lite_q_list.push(format!("{}{}", BENEFITS_OF_PREFIX, topic_query));
         }
         if is_analogical_prompt {
-            let ea_str = entity_a.as_deref().unwrap_or("");
-            let eb_str = entity_b.as_deref().unwrap_or("");
+            let ea_str = entity_a.as_deref().unwrap_or(EMPTY_STRING);
+            let eb_str = entity_b.as_deref().unwrap_or(EMPTY_STRING);
             if let Some(ref ea) = entity_a {
                 lite_q_list.push(ea.clone());
                 lite_q_list.push(format!("{} vs {}", ea, eb_str));
             }
             if let Some(ref eb) = entity_b {
                 lite_q_list.push(eb.clone());
-                lite_q_list.push(format!("{} vs {}", ea_str, eb));
+                lite_q_list.push(format!("{}{}{}", ea_str, VS_CONNECTOR, eb));
             }
-            lite_q_list.push(format!("compare {} and {}", ea_str, eb_str));
-            lite_q_list.push(format!("differences between {} and {}", ea_str, eb_str));
+            lite_q_list.push(format!(
+                "{}{}{}{}",
+                COMPARE_PREFIX, ea_str, AND_CONNECTOR, eb_str
+            ));
+            lite_q_list.push(format!(
+                "{}{}{}{}",
+                DIFFERENCES_BETWEEN_PREFIX, ea_str, AND_CONNECTOR, eb_str
+            ));
         }
         for eq in [entity_lang_a.as_deref(), entity_lang_b.as_deref()]
             .iter()
@@ -643,7 +627,7 @@ pub async fn prefetch_web(
                         let title = r.title.trim();
                         if !snippet.is_empty() {
                             let chunk = format!("{} {}", title, snippet);
-                            ingested += index.ingest_text("web-lite", chunk.trim());
+                            ingested += index.ingest_text(WEB_LITE_SOURCE, chunk.trim());
                             lite_snippets_found += 1;
                         }
                     }
@@ -668,13 +652,13 @@ pub async fn prefetch_web(
                             .abstract_text
                             .filter(|s| s.split_whitespace().count() >= MIN_IA_FALLBACK_WORD_COUNT)
                         {
-                            ia_added += index.ingest_text("web-ia-fallback", text.trim());
+                            ia_added += index.ingest_text(WEB_IA_FALLBACK_SOURCE, text.trim());
                         }
                         if let Some(def) = resp
                             .definition
                             .filter(|s| s.split_whitespace().count() >= MIN_IA_FALLBACK_WORD_COUNT)
                         {
-                            ia_added += index.ingest_text("web-ia-fallback", def.trim());
+                            ia_added += index.ingest_text(WEB_IA_FALLBACK_SOURCE, def.trim());
                         }
                         if ia_added > 0 {
                             ingested += ia_added;
@@ -695,12 +679,35 @@ pub async fn prefetch_web(
         }
     }
 
+    let mut unscraped_urls = Vec::new();
+    let mut all_scraped_urls = Vec::new();
+
+    if deep {
+        let topic = extract_topic(prompt);
+        let deep_result = crate::tram::deep_scrape::deep_scrape_for_topic(
+            &topic,
+            index,
+            verbose,
+            MAX_DEEP_SCRAPE_ITERATIONS,
+        )
+        .await;
+        if deep_result.relevant_content_found > 0 {
+            ingested += deep_result.total_chunks_ingested;
+        } else if verbose {
+            info!("  🔍 Deep Search: no relevant content found, skipping ingestion");
+        }
+        unscraped_urls = deep_result.unscraped_urls;
+        all_scraped_urls = deep_result.all_scraped_urls;
+    }
+
     WebFetchResult {
         total_chunks_ingested: ingested,
         prose_chunks_ingested: prose_chunks,
         lite_snippets_found,
         instant_answer_query: ia_winner,
         fetch_queries,
+        unscraped_urls,
+        all_scraped_urls,
     }
 }
 
@@ -709,6 +716,8 @@ pub async fn prefetch_web(
     _prompt: &str,
     _index: &mut KnowledgeIndex,
     _kb_provided: bool,
+    _deep: bool,
+    _verbose: bool,
 ) -> WebFetchResult {
     WebFetchResult::default()
 }

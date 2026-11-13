@@ -18,6 +18,7 @@
 //! as a human-readable trace or as a compact prose paragraph suitable for
 //! inclusion in TRAM's output.
 
+use crate::constants::expert::DEFAULT_RULE_LABEL;
 use crate::expert::uncertainty::CertaintyFactor;
 
 /// A single step in the derivation chain.
@@ -218,7 +219,7 @@ impl ExplanationTrace {
         }
 
         for step in &derived {
-            let rule = step.derived_by.as_deref().unwrap_or("a rule");
+            let rule = step.derived_by.as_deref().unwrap_or(DEFAULT_RULE_LABEL);
             let label = CertaintyFactor::new(step.certainty_factor).label();
             parts.push(format!(
                 "{rule} establishes that {} with {label} (CF={:.2})",

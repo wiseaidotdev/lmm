@@ -34,6 +34,8 @@
 //!
 //! * [Question classification - Wikipedia](https://en.wikipedia.org/wiki/Question#Semantic_classification)
 
+use crate::constants::generation_filter::DEFAULT_EMPTY_WORD;
+
 /// The kind of reasoning a user prompt calls for.
 ///
 /// Each variant drives a distinct reasoning strategy in the
@@ -351,7 +353,7 @@ impl InputClassifier {
         let first_word = lower
             .split_whitespace()
             .next()
-            .unwrap_or("")
+            .unwrap_or(DEFAULT_EMPTY_WORD)
             .trim_matches(|c: char| !c.is_ascii_alphabetic());
         !QUESTION_MARKERS.contains(&first_word) && !prompt.contains('?')
     }

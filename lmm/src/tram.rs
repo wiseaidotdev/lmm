@@ -34,17 +34,21 @@
 //! ```
 
 pub mod config;
+pub mod deep_scrape;
+pub mod intent_filter;
 pub mod pipeline;
 pub mod query;
 pub mod response;
 #[cfg(feature = "net")]
 pub mod scraper;
+#[cfg(feature = "net")]
 pub mod web_fetch;
 
 pub use config::WebFetchResult;
 pub use config::{
     DEFAULT_CF_THRESHOLD, DEFAULT_MIN_RULE_COUNT, TramConfig, TramConfigBuilder, TramResult,
 };
+pub use intent_filter::IntentFilter;
 pub use pipeline::TramPipeline;
 pub use query::{
     extract_topic, split_sentences_with_punct, strip_discourse_connector, strip_leading_articles,
@@ -55,6 +59,8 @@ pub use response::{
     enhance_with_prose_connectors, enhance_with_shaper_connectors, filter_sentences,
     frame_response, is_quality_answer, is_valid_summary, restructure_analogical_response,
 };
+// scrape_and_ingest_with_redirect has topic parameter, not re-exported for public API
+#[cfg(feature = "net")]
 pub use web_fetch::{prefetch_web, prefetch_web_for_query};
 
 // Copyright 2026 Mahmoud Harmouch.

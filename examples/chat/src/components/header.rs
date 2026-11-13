@@ -9,16 +9,17 @@ pub fn header() -> Html {
         >
             <div class="flex items-center gap-3" aria-label="VECT logo and title">
                 <div class="w-8 h-8 rounded-lg bg-vect-accent flex items-center justify-center">
-                    <i class="fa-solid fa-bolt text-white text-sm" aria-hidden="true"></i>
+                    <i class="fa-solid fa-bolt text-white text-sm" aria-hidden="true" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold tracking-tight text-vect-text leading-none">{"VECT"}</h1>
+                    <h1 class="text-lg font-bold tracking-tight text-vect-text leading-none">
+                        { "LMM CI" }
+                    </h1>
                     <p class="text-xs text-vect-muted leading-none mt-0.5 hidden sm:block">
-                        {"Variable Equation Computation Technology"}
+                        { "LMM Chat Interface" }
                     </p>
                 </div>
             </div>
-
             <div class="ml-auto flex items-center gap-2">
                 <a
                     href="https://github.com/wiseaidotdev/lmm"
@@ -28,7 +29,7 @@ pub fn header() -> Html {
                     aria-label="LMM on GitHub"
                     title="LMM on GitHub"
                 >
-                    <i class="fa-brands fa-github text-sm" aria-hidden="true"></i>
+                    <i class="fa-brands fa-github text-sm" aria-hidden="true" />
                 </a>
                 <a
                     href="https://docs.rs/lmm"
@@ -38,7 +39,7 @@ pub fn header() -> Html {
                     aria-label="LMM documentation on docs.rs"
                     title="LMM docs"
                 >
-                    <i class="fa-solid fa-book text-sm" aria-hidden="true"></i>
+                    <i class="fa-solid fa-book text-sm" aria-hidden="true" />
                 </a>
                 <a
                     href="https://wiseai.dev"
@@ -48,15 +49,11 @@ pub fn header() -> Html {
                     aria-label="Wise AI - LMM homepage"
                     title="wiseai.dev"
                 >
-                    <i class="fa-solid fa-globe text-sm" aria-hidden="true"></i>
+                    <i class="fa-solid fa-globe text-sm" aria-hidden="true" />
                 </a>
                 <div class="w-px h-5 bg-vect-border mx-1" aria-hidden="true" />
-                <span class="badge bg-vect-elevated text-vect-muted text-xs">
-                    {"LMM"}
-                </span>
-                <span class="badge bg-vect-elevated text-vect-muted text-xs">
-                    {"WASM"}
-                </span>
+                <span class="badge bg-vect-elevated text-vect-muted text-xs">{ "LMM" }</span>
+                <span class="badge bg-vect-elevated text-vect-muted text-xs">{ "WASM" }</span>
             </div>
         </header>
     }

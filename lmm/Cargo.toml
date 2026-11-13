@@ -47,9 +47,12 @@ duckduckgo = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 napi = { workspace = true, optional = true }
 napi-derive = { workspace = true, optional = true }
+html2text = { workspace = true, optional = true }
 lopdf = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 scraper = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
 
 [dev-dependencies]
 lmm-agent = { workspace = true }
@@ -85,8 +88,17 @@ net = [
     "tokio",
     "reqwest",
     "scraper",
+    "html2text",
+    "regex",
+    "url",
 ]
-wasm-net = ["duckduckgo"]
+wasm-net = [
+    "duckduckgo",
+    "reqwest",
+    "scraper",
+    "html2text",
+    "regex",
+    "url",]
 python = ["pyo3", "cli", "net", "knowledge"]
 node = ["napi", "napi-derive", "napi-build", "cli", "net", "knowledge"]
 knowledge = ["lopdf"]

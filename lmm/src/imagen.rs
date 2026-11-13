@@ -36,6 +36,12 @@
 //! ```
 
 #![cfg_attr(target_arch = "wasm32", allow(unused_imports), allow(dead_code))]
+use crate::constants::imagen::{
+    FNV_OFFSET_BASIS, FNV_PRIME, FRACTAL_C_IMAG_SEED_OFFSET, FRACTAL_C_REAL_SEED_OFFSET,
+    FRACTAL_ESCAPE_RADIUS_SQ, FRACTAL_MAX_ITERATIONS, LCG_INCREMENT, LCG_MULTIPLIER,
+    MAX_WAVE_COMPONENTS, MIN_WAVE_COMPONENTS, PROMPT_INDEX_MULTIPLIER, STYLE_SIGMA_SEED_OFFSET,
+    WAVE_BAND_STRIDE, WAVE_COMPONENT_STRIDE,
+};
 use crate::error::{LmmError, Result};
 use phf::{Map, phf_map};
 use strum_macros::{AsRefStr, Display, EnumIter, EnumString};
@@ -47,36 +53,6 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
-
-/// LCG multiplier (Knuth).
-const LCG_MULTIPLIER: u64 = 6364136223846793005;
-/// LCG additive constant.
-const LCG_INCREMENT: u64 = 1442695040888963407;
-/// FNV-1a 64-bit offset basis.
-const FNV_OFFSET_BASIS: u64 = 14695981039346656037;
-/// FNV-1a prime.
-const FNV_PRIME: u64 = 1099511628211;
-/// Per-character position multiplier used when hashing the prompt.
-const PROMPT_INDEX_MULTIPLIER: u64 = 31;
-
-/// Stride between spectral wave bands.
-const WAVE_BAND_STRIDE: u64 = 997;
-/// Stride between wave components within a band.
-const WAVE_COMPONENT_STRIDE: u64 = 31337;
-/// Minimum number of wave components.
-const MIN_WAVE_COMPONENTS: usize = 3;
-/// Maximum number of wave components.
-const MAX_WAVE_COMPONENTS: usize = 32;
-/// Maximum Mandelbrot iteration count for fractal style.
-const FRACTAL_MAX_ITERATIONS: u32 = 32;
-/// Escape radius squared for fractal iteration.
-const FRACTAL_ESCAPE_RADIUS_SQ: f64 = 4.0;
-/// Seed offset for the Gaussian sigma in the Orbital style.
-const STYLE_SIGMA_SEED_OFFSET: u64 = 99;
-/// Seed offset for the fractal c_real constant.
-const FRACTAL_C_REAL_SEED_OFFSET: u64 = 77;
-/// Seed offset for the fractal c_imag constant.
-const FRACTAL_C_IMAG_SEED_OFFSET: u64 = 78;
 
 /// Named palette constructors indexed by case-normalised name.
 ///

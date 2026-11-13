@@ -243,6 +243,20 @@ pub struct Cli {
     )]
     pub no_frame: bool,
 
+    /// Enable deep web scraping for topic-relevant content.
+    ///
+    /// When enabled, the system will iteratively scrape websites from DuckDuckGo
+    /// `!ducky` results to find content similar to the topic being asked,
+    /// and inject this new knowledge corpus into the pipeline. This is useful
+    /// when the Instant Answer API returns generic or repetitive content.
+    #[arg(
+        long,
+        global = false,
+        default_value_t = false,
+        help = "Enable deep web scraping for topic-relevant content (default: off)"
+    )]
+    pub deep: bool,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -310,6 +324,9 @@ pub enum Commands {
         /// Suppress intent-specific response framing and emit raw pipeline output.
         #[arg(long, default_value_t = false)]
         no_frame: bool,
+        /// Enable deep web scraping for topic-relevant content.
+        #[arg(long, default_value_t = false)]
+        deep: bool,
     },
     #[command(about = "Simulate continuous logical pathways")]
     Simulate {

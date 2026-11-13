@@ -1,67 +1,40 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum GenerationMode {
-    Sentence,
-    Paragraph,
-    Essay,
+    Tram,
     Summarize,
-    Predict,
-    Ask,
 }
 
 impl GenerationMode {
     pub fn label(&self) -> &'static str {
         match self {
-            Self::Sentence => "Sentence",
-            Self::Paragraph => "Paragraph",
-            Self::Essay => "Essay",
+            Self::Tram => "LMM",
             Self::Summarize => "Summarize",
-            Self::Predict => "Predict",
-            Self::Ask => "Ask",
         }
     }
 
     pub fn icon_class(&self) -> &'static str {
         match self {
-            Self::Sentence => "fa-solid fa-pen-nib",
-            Self::Paragraph => "fa-solid fa-align-left",
-            Self::Essay => "fa-solid fa-book-open",
+            Self::Tram => "fa-solid fa-brain",
             Self::Summarize => "fa-solid fa-scissors",
-            Self::Predict => "fa-solid fa-wand-magic-sparkles",
-            Self::Ask => "fa-solid fa-globe",
         }
     }
 
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Sentence => "Generate a single deterministic sentence from a seed",
-            Self::Paragraph => "Generate a multi-sentence paragraph",
-            Self::Essay => "Generate a structured essay with title and paragraphs",
+            Self::Tram => "Text Reasoning and Applied Mathematics pipeline",
             Self::Summarize => "Extract key sentences from a given corpus",
-            Self::Predict => "Symbolically continue input text",
-            Self::Ask => "Web-search-augmented knowledge synthesis",
         }
     }
 
     pub fn color_class(&self) -> &'static str {
         match self {
-            Self::Sentence => "bg-vect-elevated text-vect-text",
-            Self::Paragraph => "bg-vect-elevated text-vect-text",
-            Self::Essay => "bg-vect-elevated text-vect-text",
+            Self::Tram => "bg-vect-accent/20 text-vect-accent",
             Self::Summarize => "bg-vect-elevated text-vect-text",
-            Self::Predict => "bg-vect-elevated text-vect-text",
-            Self::Ask => "bg-vect-accent/20 text-vect-accent",
         }
     }
 
     pub fn all() -> Vec<GenerationMode> {
-        vec![
-            GenerationMode::Sentence,
-            GenerationMode::Paragraph,
-            GenerationMode::Essay,
-            GenerationMode::Summarize,
-            GenerationMode::Predict,
-            GenerationMode::Ask,
-        ]
+        vec![GenerationMode::Tram, GenerationMode::Summarize]
     }
 }
 

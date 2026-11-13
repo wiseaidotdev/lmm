@@ -42,6 +42,7 @@
 
 use crate::cognition::thought::belief::BeliefInterval;
 use crate::cognition::thought::classifier::ReasoningMode;
+use crate::constants::thought_decompose::{MIN_TOPIC_LENGTH, MIN_WORDS_FOR_TRIM};
 use std::cmp::Ordering;
 
 /// Decomposes a prompt into ordered sub-goal strings and re-prioritises them
@@ -347,7 +348,7 @@ impl GoalDecomposer {
     ///
     /// When `topic` is empty or generic, falls back to the original `prompt`.
     fn instantiate(aspect: &str, topic: &str, prompt: &str) -> String {
-        let used_topic = if topic.len() < 2 {
+        let used_topic = if topic.len() < MIN_TOPIC_LENGTH {
             prompt.trim()
         } else {
             topic
@@ -451,7 +452,7 @@ fn trim_predicate_decompose(s: &str) -> String {
         "require", "requires", "cause", "causes",
     ];
     let words: Vec<&str> = s.split_whitespace().collect();
-    if words.len() < 3 {
+    if words.len() < MIN_WORDS_FOR_TRIM {
         return s.to_string();
     }
     let cut = words

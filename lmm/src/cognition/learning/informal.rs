@@ -49,6 +49,7 @@
 //! ```
 
 use crate::cognition::knowledge::KnowledgeIndex;
+use crate::constants::learning_informal::MIN_TOKENS_FOR_PROCESSING;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -131,7 +132,7 @@ impl InformalLearner {
         }
 
         let tokens: Vec<String> = tokenise(text);
-        if tokens.len() < 2 {
+        if tokens.len() < MIN_TOKENS_FOR_PROCESSING {
             return;
         }
 

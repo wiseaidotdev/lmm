@@ -41,6 +41,7 @@
 //! assert!(answer.is_some());
 //! ```
 
+use crate::constants::knowledge::{DEFAULT_EMPTY_EXTENSION, DEFAULT_FILE_LABEL};
 use crate::generation::filter::SentenceFilter;
 use crate::text::TextSummarizer;
 use anyhow::{Result, anyhow};
@@ -131,6 +132,101 @@ impl KnowledgeIndex {
         self.chunks.len()
     }
 
+    /// Query chunks from a specific source.
+    ///
+    /// Returns chunks that match the given source label, limited to top_k results.
+    pub fn query_source(&self, source: &str, top_k: usize) -> Vec<DocumentChunk> {
+        self.chunks
+            .iter()
+            .filter(|c| c.source == source)
+            .take(top_k)
+            .cloned()
+            .collect()
+    }
+
+    /// Query chunks excluding a specific source.
+    ///
+    /// Returns chunks that do NOT match the given source label, limited to top_k results.
+    pub fn query_excluding_source(
+        &self,
+        question: &str,
+        top_k: usize,
+        exclude_source: &str,
+    ) -> Vec<&DocumentChunk> {
+        if self.chunks.is_empty() {
+            return Vec::new();
+        }
+        let q_tokens = tokenise(question);
+        let n = self.chunks.len() as f64;
+
+        let mut scores: Vec<(usize, f64)> = (0..self.chunks.len())
+            .filter(|i| self.chunks[*i].source != exclude_source)
+            .map(|i| {
+                let chunk = &self.chunks[i];
+                let score: f64 = q_tokens
+                    .iter()
+                    .filter(|t| chunk.tokens.contains(t))
+                    .map(|t| {
+                        let df = *self.doc_freq.get(t).unwrap_or(&1) as f64;
+                        (n / df).ln() + 1.0
+                    })
+                    .sum();
+                (i, score)
+            })
+            .filter(|(_, s)| *s > 0.0)
+            .collect();
+
+        scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+        scores
+            .into_iter()
+            .take(top_k)
+            .map(|(i, _)| &self.chunks[i])
+            .collect()
+    }
+
+    /// Returns an extractive answer to `question` from the knowledge base,
+    /// excluding chunks from a specific source, or `None` if no relevant chunks are found.
+    pub fn answer_excluding_source(
+        &self,
+        question: &str,
+        top_k: usize,
+        exclude_source: &str,
+    ) -> Option<String> {
+        let hits = self.query_excluding_source(question, top_k, exclude_source);
+        if hits.is_empty() {
+            return None;
+        }
+        let corpus: String = hits
+            .iter()
+            .filter(|c| SentenceFilter::is_acceptable(&c.text))
+            .map(|c| c.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        if corpus.trim().is_empty() {
+            return None;
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let run_nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .subsec_nanos() as usize;
+        #[cfg(target_arch = "wasm32")]
+        let run_nanos = {
+            let mut h: usize = 2_166_136_261;
+            for b in question.bytes() {
+                h ^= b as usize;
+                h = h.wrapping_mul(16_777_619);
+            }
+            h
+        };
+        let n_sentences = 6 + (run_nanos % 5);
+        let summariser = TextSummarizer::new(n_sentences, 4, 2);
+        summariser
+            .summarize_with_query(&corpus, question)
+            .ok()
+            .map(|sentences| sentences.join(" "))
+    }
+
     /// Ingests a raw text string under the given `source` label.
     ///
     /// The text is split into sentence-level chunks via a lightweight sentence
@@ -149,6 +245,34 @@ impl KnowledgeIndex {
                 continue;
             }
             let chunk = DocumentChunk::new(source, &sentence);
+            let idx = self.chunks.len();
+            for token in &chunk.tokens {
+                self.term_index.entry(token.clone()).or_default().push(idx);
+            }
+            self.chunks.push(chunk);
+        }
+        let added = self.chunks.len() - start;
+        self.rebuild_doc_freq();
+        added
+    }
+
+    /// Ingests text as paragraph-level chunks instead of sentence-level.
+    ///
+    /// This method preserves paragraph boundaries for better context in deep-scraped content.
+    /// Each paragraph is filtered for quality before being indexed. Returns the number of chunks created.
+    pub fn ingest_paragraphs(&mut self, source: &str, text: &str) -> usize {
+        let paragraphs: Vec<&str> = text.split("\n\n").collect();
+        let start = self.chunks.len();
+        for paragraph in paragraphs {
+            let paragraph = paragraph.trim();
+            if paragraph.split_whitespace().count() < 8 {
+                continue;
+            }
+            if !SentenceFilter::is_acceptable(paragraph) {
+                continue;
+            }
+            let cleaned = paragraph.split_whitespace().collect::<Vec<_>>().join(" ");
+            let chunk = DocumentChunk::new(source, &cleaned);
             let idx = self.chunks.len();
             for token in &chunk.tokens {
                 self.term_index.entry(token.clone()).or_default().push(idx);
@@ -363,7 +487,7 @@ fn ingest_file(index: &mut KnowledgeIndex, path: &Path) -> Result<usize> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
-        .unwrap_or("")
+        .unwrap_or(DEFAULT_EMPTY_EXTENSION)
         .to_ascii_lowercase();
 
     let parsers = default_parsers();
@@ -374,7 +498,10 @@ fn ingest_file(index: &mut KnowledgeIndex, path: &Path) -> Result<usize> {
 
     let bytes = fs::read(path).map_err(|e| anyhow!("Cannot read {}: {e}", path.display()))?;
     let text = parser.parse_bytes(&bytes)?;
-    let label = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
+    let label = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(DEFAULT_FILE_LABEL);
     Ok(index.ingest_text(label, &text))
 }
 

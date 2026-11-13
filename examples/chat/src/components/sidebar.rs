@@ -10,6 +10,12 @@ fn validate_count(v: String) -> bool {
         .unwrap_or(false)
 }
 
+fn validate_float(v: String) -> bool {
+    v.parse::<f64>()
+        .map(|n| (0.0..=1.0).contains(&n))
+        .unwrap_or(false)
+}
+
 #[derive(Properties, PartialEq)]
 pub struct SidebarProps {
     pub mode: GenerationMode,
@@ -18,29 +24,26 @@ pub struct SidebarProps {
     pub on_stochastic_change: Callback<bool>,
     pub probability: u32,
     pub on_probability_change: Callback<u32>,
-    pub web_search: bool,
-    pub on_web_search_change: Callback<bool>,
-    pub sentence_count_handle: UseStateHandle<String>,
-    pub sentence_count_valid: UseStateHandle<bool>,
-    pub paragraph_count_handle: UseStateHandle<String>,
-    pub paragraph_count_valid: UseStateHandle<bool>,
-    pub predict_length_handle: UseStateHandle<String>,
-    pub predict_length_valid: UseStateHandle<bool>,
+    pub think: bool,
+    pub on_think_change: Callback<bool>,
+    pub deep: bool,
+    pub on_deep_change: Callback<bool>,
+    pub iterations_handle: UseStateHandle<String>,
+    pub iterations_valid: UseStateHandle<bool>,
+    pub inference_depth_handle: UseStateHandle<String>,
+    pub inference_depth_valid: UseStateHandle<bool>,
+    pub cf_threshold_handle: UseStateHandle<String>,
+    pub cf_threshold_valid: UseStateHandle<bool>,
 }
 
 #[function_component(Sidebar)]
 pub fn sidebar(props: &SidebarProps) -> Html {
-    let sentence_ref = use_node_ref();
-    let paragraph_ref = use_node_ref();
-    let predict_ref = use_node_ref();
+    let iterations_ref = use_node_ref();
+    let inference_depth_ref = use_node_ref();
+    let cf_threshold_ref = use_node_ref();
 
-    let show_sentences = matches!(
-        props.mode,
-        GenerationMode::Paragraph | GenerationMode::Essay | GenerationMode::Summarize
-    );
-    let show_paragraphs = props.mode == GenerationMode::Essay;
-    let show_predict_len = props.mode == GenerationMode::Predict;
-    let show_web_search = props.mode == GenerationMode::Ask;
+    let show_tram_params = props.mode == GenerationMode::Tram;
+    let show_summarize_params = props.mode == GenerationMode::Summarize;
 
     let on_prob = {
         let cb = props.on_probability_change.clone();
@@ -57,11 +60,10 @@ pub fn sidebar(props: &SidebarProps) -> Html {
 
     html! {
         <nav class="flex flex-col gap-5 p-4 h-full" aria-label="VECT configuration">
-
             <section aria-labelledby="mode-label">
-                <h2 id="mode-label" class="sidebar-label">{"Generation Mode"}</h2>
+                <h2 id="mode-label" class="sidebar-label">{ "Generation Mode" }</h2>
                 <div class="flex flex-col gap-0.5" role="radiogroup" aria-label="Generation mode">
-                    {for GenerationMode::all().into_iter().map(|m| {
+                    { for GenerationMode::all().into_iter().map(|m| {
                         let active = m == props.mode;
                         let cb = props.on_mode_change.clone();
                         let mc = m.clone();
@@ -83,16 +85,18 @@ pub fn sidebar(props: &SidebarProps) -> Html {
                                 </div>
                             </button>
                         }
-                    })}
+                    }) }
                 </div>
             </section>
-
             <section aria-labelledby="stochastic-label">
-                <h2 id="stochastic-label" class="sidebar-label">{"Stochasticity"}</h2>
+                <h2 id="stochastic-label" class="sidebar-label">{ "Stochasticity" }</h2>
                 <div class="flex flex-col gap-3">
                     <div class="control-row">
-                        <label for="stochastic-toggle" class="text-sm text-vect-text cursor-pointer select-none">
-                            {"Enable synonym replacement"}
+                        <label
+                            for="stochastic-toggle"
+                            class="text-sm text-vect-text cursor-pointer select-none"
+                        >
+                            { "Enable synonym replacement" }
                         </label>
                         <button
                             role="switch"
@@ -100,8 +104,8 @@ pub fn sidebar(props: &SidebarProps) -> Html {
                             id="stochastic-toggle"
                             onclick={{
                                 let cb = props.on_stochastic_change.clone();
-                                let v = props.stochastic;
-                                Callback::from(move |_: MouseEvent| cb.emit(!v))
+                                let current = props.stochastic;
+                                Callback::from(move |_: MouseEvent| cb.emit(!current))
                             }}
                             class={classes!(
                                 "toggle-track",
@@ -109,18 +113,25 @@ pub fn sidebar(props: &SidebarProps) -> Html {
                                 if props.stochastic { "bg-vect-accent" } else { "bg-vect-border" }
                             )}
                         >
-                            <span class={classes!(
+                            <span
+                                class={classes!(
                                 "toggle-thumb",
                                 if props.stochastic { "translate-x-5" } else { "translate-x-0" }
-                            )} />
+                            )}
+                            />
                         </button>
                     </div>
                     if props.stochastic {
                         <div class="flex flex-col gap-1.5 animate-fade-in">
                             <div class="control-row">
-                                <label for="prob-slider" class="text-sm text-vect-text">{"Probability"}</label>
-                                <span class="text-sm font-mono font-semibold text-vect-accent" aria-live="polite">
-                                    {format!("{}%", props.probability)}
+                                <label for="prob-slider" class="text-sm text-vect-text">
+                                    { "Probability" }
+                                </label>
+                                <span
+                                    class="text-sm font-mono font-semibold text-vect-accent"
+                                    aria-live="polite"
+                                >
+                                    { format!("{}%", props.probability) }
                                 </span>
                             </div>
                             <input
@@ -137,123 +148,142 @@ pub fn sidebar(props: &SidebarProps) -> Html {
                                 aria-valuenow={props.probability.to_string()}
                             />
                             <p class="text-xs text-vect-subtle">
-                                {format!("{}% chance each word is replaced by a synonym.", props.probability)}
+                                { format!("{}% chance each word is replaced by a synonym.", props.probability) }
                             </p>
                         </div>
                     }
                 </div>
             </section>
-
-            if show_web_search || show_sentences || show_paragraphs || show_predict_len {
-                <section aria-labelledby="params-label">
-                    <h2 id="params-label" class="sidebar-label">{"Mode Parameters"}</h2>
+            if show_tram_params {
+                <section aria-labelledby="tram-label">
+                    <h2 id="tram-label" class="sidebar-label">{ "TRAM Parameters" }</h2>
                     <div class="flex flex-col gap-3">
-
-                        if show_web_search {
-                            <div class="flex flex-col gap-2">
-                                <div class="control-row">
-                                    <label for="web-search-toggle" class="text-sm text-vect-text cursor-pointer select-none">
-                                        {"Live Web Search"}
-                                    </label>
-                                    <button
-                                        role="switch"
-                                        aria-checked={props.web_search.to_string()}
-                                        id="web-search-toggle"
-                                        onclick={{
-                                            let cb = props.on_web_search_change.clone();
-                                            let v = props.web_search;
-                                            Callback::from(move |_: MouseEvent| cb.emit(!v))
-                                        }}
-                                        class={classes!(
-                                            "toggle-track",
-                                            "shrink-0",
-                                            if props.web_search { "bg-vect-accent" } else { "bg-vect-border" }
-                                        )}
-                                    >
-                                        <span class={classes!(
-                                            "toggle-thumb",
-                                            if props.web_search { "translate-x-5" } else { "translate-x-0" }
-                                        )} />
-                                    </button>
-                                </div>
-                                if props.web_search {
-                                    <p class="text-xs text-vect-accent animate-fade-in leading-relaxed">
-                                        <i class="fa-solid fa-globe mr-1" aria-hidden="true"></i>
-                                        {"DuckDuckGo search fetches live context for your query."}
-                                    </p>
-                                } else {
-                                    <p class="text-xs text-vect-subtle leading-relaxed">
-                                        {"Enable to use live web search (requires network)."}
-                                    </p>
-                                }
-                            </div>
-                        }
-
-                        if show_sentences {
-                            <Input
-                                r#type={"number"}
-                                label={"Sentences"}
-                                handle={props.sentence_count_handle.clone()}
-                                name={"sentence_count"}
-                                r#ref={sentence_ref}
-                                placeholder={"3"}
-                                input_class={"vect-input text-sm py-2"}
-                                field_class={"w-full"}
-                                label_class={"text-xs text-vect-muted block mb-1"}
-                                error_class={"text-red-400 text-xs mt-1"}
-                                error_message={"Enter 1 - 200"}
-                                valid_handle={props.sentence_count_valid.clone()}
-                                validate_function={Callback::from(validate_count)}
-                                id={"sentence-count-input"}
-                            />
-                        }
-
-                        if show_paragraphs {
-                            <Input
-                                r#type={"number"}
-                                label={"Paragraphs"}
-                                handle={props.paragraph_count_handle.clone()}
-                                name={"paragraph_count"}
-                                r#ref={paragraph_ref}
-                                placeholder={"3"}
-                                input_class={"vect-input text-sm py-2"}
-                                field_class={"w-full"}
-                                label_class={"text-xs text-vect-muted block mb-1"}
-                                error_class={"text-red-400 text-xs mt-1"}
-                                error_message={"Enter 1 - 200"}
-                                valid_handle={props.paragraph_count_valid.clone()}
-                                validate_function={Callback::from(validate_count)}
-                                id={"paragraph-count-input"}
-                            />
-                        }
-
-                        if show_predict_len {
-                            <Input
-                                r#type={"number"}
-                                label={"Predict Length (chars)"}
-                                handle={props.predict_length_handle.clone()}
-                                name={"predict_length"}
-                                r#ref={predict_ref}
-                                placeholder={"80"}
-                                input_class={"vect-input text-sm py-2"}
-                                field_class={"w-full"}
-                                label_class={"text-xs text-vect-muted block mb-1"}
-                                error_class={"text-red-400 text-xs mt-1"}
-                                error_message={"Enter 1 - 200"}
-                                valid_handle={props.predict_length_valid.clone()}
-                                validate_function={Callback::from(validate_count)}
-                                id={"predict-length-input"}
-                            />
-                        }
+                        <div class="control-row">
+                            <label
+                                for="think-toggle"
+                                class="text-sm text-vect-text cursor-pointer select-none"
+                            >
+                                { "Think Loop" }
+                            </label>
+                            <button
+                                role="switch"
+                                aria-checked={props.think.to_string()}
+                                id="think-toggle"
+                                onclick={{
+                                    let cb = props.on_think_change.clone();
+                                    let current = props.think;
+                                    Callback::from(move |_: MouseEvent| cb.emit(!current))
+                                }}
+                                class={classes!(
+                                    "toggle-track",
+                                    "shrink-0",
+                                    if props.think { "bg-vect-accent" } else { "bg-vect-border" }
+                                )}
+                            >
+                                <span
+                                    class={classes!(
+                                    "toggle-thumb",
+                                    if props.think { "translate-x-5" } else { "translate-x-0" }
+                                )}
+                                />
+                            </button>
+                        </div>
+                        <div class="control-row">
+                            <label
+                                for="deep-toggle"
+                                class="text-sm text-vect-text cursor-pointer select-none"
+                            >
+                                { "Deep Search" }
+                            </label>
+                            <button
+                                role="switch"
+                                aria-checked={props.deep.to_string()}
+                                id="deep-toggle"
+                                onclick={{
+                                    let cb = props.on_deep_change.clone();
+                                    let current = props.deep;
+                                    Callback::from(move |_: MouseEvent| cb.emit(!current))
+                                }}
+                                class={classes!(
+                                    "toggle-track",
+                                    "shrink-0",
+                                    if props.deep { "bg-vect-accent" } else { "bg-vect-border" }
+                                )}
+                            >
+                                <span
+                                    class={classes!(
+                                    "toggle-thumb",
+                                    if props.deep { "translate-x-5" } else { "translate-x-0" }
+                                )}
+                                />
+                            </button>
+                        </div>
+                        <Input
+                            r#type="number"
+                            label="Iterations"
+                            handle={props.iterations_handle.clone()}
+                            name="iterations"
+                            r#ref={iterations_ref}
+                            placeholder="10"
+                            input_class="vect-input text-sm py-2"
+                            field_class="w-full"
+                            label_class="text-xs text-vect-muted block mb-1"
+                            error_class="text-red-400 text-xs mt-1"
+                            error_message="Enter 1 - 200"
+                            valid_handle={props.iterations_valid.clone()}
+                            validate_function={Callback::from(validate_count)}
+                            id="iterations-input"
+                        />
+                        <Input
+                            r#type="number"
+                            label="Inference Depth"
+                            handle={props.inference_depth_handle.clone()}
+                            name="inference_depth"
+                            r#ref={inference_depth_ref}
+                            placeholder="3"
+                            input_class="vect-input text-sm py-2"
+                            field_class="w-full"
+                            label_class="text-xs text-vect-muted block mb-1"
+                            error_class="text-red-400 text-xs mt-1"
+                            error_message="Enter 1 - 200"
+                            valid_handle={props.inference_depth_valid.clone()}
+                            validate_function={Callback::from(validate_count)}
+                            id="inference-depth-input"
+                        />
+                        <Input
+                            r#type="number"
+                            label="CF Threshold"
+                            handle={props.cf_threshold_handle.clone()}
+                            name="cf_threshold"
+                            r#ref={cf_threshold_ref}
+                            placeholder="0.25"
+                            input_class="vect-input text-sm py-2"
+                            field_class="w-full"
+                            label_class="text-xs text-vect-muted block mb-1"
+                            error_class="text-red-400 text-xs mt-1"
+                            error_message="Enter 0.0 - 1.0"
+                            valid_handle={props.cf_threshold_valid.clone()}
+                            validate_function={Callback::from(validate_float)}
+                            id="cf-threshold-input"
+                        />
                     </div>
                 </section>
             }
-
+            if show_summarize_params {
+                <section aria-labelledby="params-label">
+                    <h2 id="params-label" class="sidebar-label">{ "Summarize Parameters" }</h2>
+                    <div class="flex flex-col gap-3">
+                        <p class="text-xs text-vect-subtle leading-relaxed">
+                            { "Summarize mode extracts key sentences from the provided text." }
+                        </p>
+                    </div>
+                </section>
+            }
             <div class="mt-auto pt-4 border-t border-vect-border/40">
                 <p class="text-[11px] text-vect-subtle leading-relaxed">
-                    {"Powered by "}
-                    <span class="text-vect-text font-semibold">{"LMM"}</span>
-                    {" - Large Mathematical Model. All text generation runs locally in your browser via WebAssembly."}
+                    { "Powered by " }
+                    <span class="text-vect-text font-semibold">{ "LMM" }</span>
+                    { " - Large Mathematical Model. All text generation runs locally in your browser via WebAssembly." }
                 </p>
             </div>
         </nav>

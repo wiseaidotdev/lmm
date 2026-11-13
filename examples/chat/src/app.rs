@@ -10,16 +10,17 @@ use yew::prelude::*;
 #[function_component(App)]
 pub fn app() -> Html {
     let messages = use_state(Vec::<ChatMessage>::new);
-    let mode = use_state(|| GenerationMode::Ask);
+    let mode = use_state(|| GenerationMode::Tram);
     let stochastic = use_state(|| false);
     let probability = use_state(|| 30u32);
-    let web_search = use_state(|| true);
-    let sentence_count_handle = use_state(|| "3".to_string());
-    let sentence_count_valid = use_state(|| true);
-    let paragraph_count_handle = use_state(|| "3".to_string());
-    let paragraph_count_valid = use_state(|| true);
-    let predict_length_handle = use_state(|| "80".to_string());
-    let predict_length_valid = use_state(|| true);
+    let think = use_state(|| false);
+    let deep = use_state(|| false);
+    let iterations_handle = use_state(|| "10".to_string());
+    let iterations_valid = use_state(|| true);
+    let inference_depth_handle = use_state(|| "3".to_string());
+    let inference_depth_valid = use_state(|| true);
+    let cf_threshold_handle = use_state(|| "0.25".to_string());
+    let cf_threshold_valid = use_state(|| true);
     let is_loading = use_state(|| false);
     let next_id = use_state(|| 0usize);
     let sidebar_open = use_state(|| false);
@@ -36,9 +37,13 @@ pub fn app() -> Html {
         let p = probability.clone();
         Callback::from(move |v: u32| p.set(v))
     };
-    let on_web_search_change = {
-        let ws = web_search.clone();
-        Callback::from(move |v: bool| ws.set(v))
+    let on_think_change = {
+        let t = think.clone();
+        Callback::from(move |v: bool| t.set(v))
+    };
+    let on_deep_change = {
+        let d = deep.clone();
+        Callback::from(move |v: bool| d.set(v))
     };
 
     let on_submit = {
@@ -46,9 +51,11 @@ pub fn app() -> Html {
         let mode = mode.clone();
         let stochastic = stochastic.clone();
         let probability = probability.clone();
-        let sc_h = sentence_count_handle.clone();
-        let pc_h = paragraph_count_handle.clone();
-        let pl_h = predict_length_handle.clone();
+        let think = think.clone();
+        let deep = deep.clone();
+        let iter_h = iterations_handle.clone();
+        let depth_h = inference_depth_handle.clone();
+        let cf_h = cf_threshold_handle.clone();
         let is_loading = is_loading.clone();
         let next_id = next_id.clone();
 
@@ -56,12 +63,13 @@ pub fn app() -> Html {
             let id = *next_id;
             next_id.set(id + 2);
 
-            let current_mode = (*mode).clone();
             let stoch = *stochastic;
             let prob = *probability as f64 / 100.0;
-            let sc = (*sc_h).parse::<usize>().unwrap_or(3);
-            let pc = (*pc_h).parse::<usize>().unwrap_or(3);
-            let pl = (*pl_h).parse::<usize>().unwrap_or(80);
+            let thnk = *think;
+            let dp = *deep;
+            let iter = (*iter_h).parse::<usize>().unwrap_or(10);
+            let depth = (*depth_h).parse::<usize>().unwrap_or(3);
+            let cf = (*cf_h).parse::<f64>().unwrap_or(0.25);
 
             let user_msg = ChatMessage {
                 id,
@@ -72,50 +80,36 @@ pub fn app() -> Html {
                 links: vec![],
             };
 
-            if current_mode == GenerationMode::Ask {
-                let mut msgs = (*messages).clone();
-                msgs.push(user_msg);
-                messages.set(msgs.clone());
-                is_loading.set(true);
-                let messages = messages.clone();
-                let is_loading = is_loading.clone();
-                spawn_local(async move {
-                    let (response, links) = lmm_bridge::ask(&text, sc, stoch, prob).await;
-                    let mut m = msgs;
-                    m.push(ChatMessage {
-                        id: id + 1,
-                        role: MessageRole::Assistant,
-                        content: response,
-                        mode: Some(GenerationMode::Ask),
-                        timestamp: String::new(),
-                        links,
-                    });
-                    messages.set(m);
-                    is_loading.set(false);
-                });
-            } else {
-                let response = match &current_mode {
-                    GenerationMode::Sentence => lmm_bridge::generate_sentence(&text, stoch, prob),
-                    GenerationMode::Paragraph => {
-                        lmm_bridge::generate_paragraph(&text, sc, stoch, prob)
+            let current_mode = (*mode).clone();
+
+            let mut msgs = (*messages).clone();
+            msgs.push(user_msg);
+            messages.set(msgs.clone());
+            is_loading.set(true);
+            let messages = messages.clone();
+            let is_loading = is_loading.clone();
+            spawn_local(async move {
+                let (response, links) = match current_mode {
+                    GenerationMode::Tram => {
+                        lmm_bridge::tram_query(&text, thnk, dp, iter, depth, cf, stoch, prob).await
                     }
-                    GenerationMode::Essay => lmm_bridge::generate_essay(&text, pc, sc, stoch, prob),
-                    GenerationMode::Summarize => lmm_bridge::summarize(&text, sc, stoch, prob),
-                    GenerationMode::Predict => lmm_bridge::predict(&text, pl, stoch, prob),
-                    GenerationMode::Ask => unreachable!(),
+                    GenerationMode::Summarize => {
+                        let resp = lmm_bridge::summarize(&text, 3, stoch, prob);
+                        (resp, vec![])
+                    }
                 };
-                let mut msgs = (*messages).clone();
-                msgs.push(user_msg);
-                msgs.push(ChatMessage {
+                let mut m = msgs;
+                m.push(ChatMessage {
                     id: id + 1,
                     role: MessageRole::Assistant,
                     content: response,
                     mode: Some(current_mode),
                     timestamp: String::new(),
-                    links: vec![],
+                    links,
                 });
-                messages.set(msgs);
-            }
+                messages.set(m);
+                is_loading.set(false);
+            });
         })
     };
 
@@ -127,14 +121,16 @@ pub fn app() -> Html {
             on_stochastic_change={on_stochastic_change.clone()}
             probability={*probability}
             on_probability_change={on_probability_change.clone()}
-            web_search={*web_search}
-            on_web_search_change={on_web_search_change.clone()}
-            sentence_count_handle={sentence_count_handle.clone()}
-            sentence_count_valid={sentence_count_valid.clone()}
-            paragraph_count_handle={paragraph_count_handle.clone()}
-            paragraph_count_valid={paragraph_count_valid.clone()}
-            predict_length_handle={predict_length_handle.clone()}
-            predict_length_valid={predict_length_valid.clone()}
+            think={*think}
+            on_think_change={on_think_change.clone()}
+            deep={*deep}
+            on_deep_change={on_deep_change.clone()}
+            iterations_handle={iterations_handle.clone()}
+            iterations_valid={iterations_valid.clone()}
+            inference_depth_handle={inference_depth_handle.clone()}
+            inference_depth_valid={inference_depth_valid.clone()}
+            cf_threshold_handle={cf_threshold_handle.clone()}
+            cf_threshold_valid={cf_threshold_valid.clone()}
         />
     };
 
@@ -142,14 +138,12 @@ pub fn app() -> Html {
         <div class="flex flex-col h-screen overflow-hidden bg-vect-bg font-sans">
             <Header />
             <div class="flex flex-1 overflow-hidden">
-
                 <aside
                     class="hidden lg:flex flex-col w-72 border-r border-vect-border bg-vect-surface overflow-y-auto shrink-0"
-                    aria-label="VECT configuration panel"
+                    aria-label="LMM CI configuration panel"
                 >
-                    {sidebar_content.clone()}
+                    { sidebar_content.clone() }
                 </aside>
-
                 if *sidebar_open {
                     <div
                         class="lg:hidden fixed inset-0 z-50 flex"
@@ -157,8 +151,10 @@ pub fn app() -> Html {
                         aria-modal="true"
                         aria-label="Configuration panel"
                     >
-                        <aside class="w-72 bg-vect-surface border-r border-vect-border overflow-y-auto">
-                            {sidebar_content}
+                        <aside
+                            class="w-72 bg-vect-surface border-r border-vect-border overflow-y-auto"
+                        >
+                            { sidebar_content }
                         </aside>
                         <div
                             class="flex-1 bg-black/60 cursor-pointer"
@@ -169,7 +165,6 @@ pub fn app() -> Html {
                         />
                     </div>
                 }
-
                 <main class="flex flex-col flex-1 overflow-hidden" id="main-content">
                     <div class="lg:hidden px-4 pt-3 shrink-0">
                         <button
@@ -181,11 +176,10 @@ pub fn app() -> Html {
                             aria-label="Toggle configuration panel"
                             aria-expanded={(*sidebar_open).to_string()}
                         >
-                            <i class="fa-solid fa-sliders w-4 h-4" aria-hidden="true"></i>
-                            {"Configure"}
+                            <i class="fa-solid fa-sliders w-4 h-4" aria-hidden="true" />
+                            { "Configure" }
                         </button>
                     </div>
-
                     <ChatWindow messages={(*messages).clone()} is_loading={*is_loading} />
                     <InputBar on_submit={on_submit} is_loading={*is_loading} />
                 </main>

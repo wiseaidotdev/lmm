@@ -21,10 +21,11 @@ pub async fn prefetch_web(
     prompt: &str,
     index: &mut KnowledgeIndex,
     kb_provided: bool,
+    deep: bool,
     verbose: bool,
 ) {
     display::divider("Web Knowledge");
-    let result = tram_prefetch_web(prompt, index, kb_provided).await;
+    let result = tram_prefetch_web(prompt, index, kb_provided, deep, verbose).await;
 
     if result.total_chunks_ingested > 0 {
         if let Some(ia_query) = &result.instant_answer_query {
@@ -47,12 +48,16 @@ pub async fn prefetch_web(
             );
         }
     } else if verbose {
-        info!("  🌐 Web fetch: no results");
+        info!("  🌐 Web Search: no results");
+    }
+
+    if deep && verbose {
+        info!("  🔍 Deep Search: enabled");
     }
 }
 
 pub async fn prefetch_web_for_query(query: &str, index: &mut KnowledgeIndex, verbose: bool) {
-    let result = tram_prefetch_web_for_query(query, index).await;
+    let result = tram_prefetch_web_for_query(query, index, verbose).await;
 
     if result.total_chunks_ingested > 0 && verbose {
         info!(
