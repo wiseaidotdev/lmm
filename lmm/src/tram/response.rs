@@ -13,153 +13,15 @@
 
 use std::collections::HashSet;
 
-const MIN_RESPONSE_LENGTH: usize = 30;
-const MAX_REPETITION_THRESHOLD: f64 = 0.4;
-const MIN_SENTENCE_LENGTH: usize = 5;
-const MIN_SENTENCE_VARIETY: usize = 3;
-const MIN_WORDS_FOR_VALID_SUMMARY: usize = 8;
-const MIN_SENTENCE_LEN_FOR_VALID_SUMMARY: usize = 3;
-const MIN_VERB_COUNT_FOR_VALID_SUMMARY: usize = 1;
-
-const RELEVANCE_KEYWORDS: [&str; 7] = [
-    "related",
-    "relevant",
-    "pertinent",
-    "connected",
-    "applicable",
-    "associated",
-    "linked",
-];
-
-const IRRELEVANCE_KEYWORDS: [&str; 6] = [
-    "unrelated",
-    "irrelevant",
-    "disconnected",
-    "inapplicable",
-    "foreign",
-    "extraneous",
-];
-
-const QUALITY_KEYWORDS: [&str; 8] = [
-    "comprehensive",
-    "thorough",
-    "detailed",
-    "complete",
-    "accurate",
-    "precise",
-    "informative",
-    "substantial",
-];
-
-const POOR_QUALITY_KEYWORDS: [&str; 8] = [
-    "brief",
-    "incomplete",
-    "limited",
-    "superficial",
-    "shallow",
-    "inadequate",
-    "fragmented",
-    "minimal",
-];
-
-const REFUSAL_PATTERNS: [&str; 5] = [
-    "i don't know",
-    "i cannot",
-    "i'm not sure",
-    "i am not sure",
-    "unknown",
-];
-
-const LOW_CONTENT_PATTERNS: [&str; 4] =
-    ["title only", "no information", "insufficient", "not enough"];
-
-const RELEVANCE_INTENT_PATTERNS: [&str; 6] = [
-    "what is", "explain", "describe", "how does", "why is", "define",
-];
-
-const INTENT_KEYWORD_MAP: [(&str, [&str; 5]); 3] = [
-    (
-        "advantages",
-        ["benefit", "pro", "strength", "merit", "gain"],
-    ),
-    (
-        "disadvantages",
-        ["drawback", "con", "weakness", "limitation", "flaw"],
-    ),
-    (
-        "comparison",
-        ["versus", "vs", "against", "compared", "difference"],
-    ),
-];
-
-const STRUCTURAL_MARKERS: [&str; 8] = [
-    "first",
-    "second",
-    "third",
-    "finally",
-    "moreover",
-    "furthermore",
-    "however",
-    "therefore",
-];
-
-const ANALOGY_PATTERNS: [&str; 5] = [
-    "like a",
-    "similar to",
-    "analogous to",
-    "resembles",
-    "comparable to",
-];
-
-const COMPARISON_PATTERNS: [&str; 5] = [
-    "compared to",
-    "in contrast to",
-    "unlike",
-    "whereas",
-    "while",
-];
-
-const PARAGRAPH_CONNECTORS: [&str; 10] = [
-    "furthermore",
-    "in addition",
-    "moreover",
-    "additionally",
-    "besides",
-    "also",
-    "moreover",
-    "consequently",
-    "as a result",
-    "therefore",
-];
-
-const PROSE_CONNECTORS: [&str; 15] = [
-    "furthermore",
-    "in addition",
-    "moreover",
-    "additionally",
-    "consequently",
-    "as a result",
-    "therefore",
-    "thus",
-    "hence",
-    "however",
-    "nevertheless",
-    "in contrast",
-    "notably",
-    "significantly",
-    "interestingly",
-];
-
-const SHAPER_CONNECTORS: [&str; 8] = [
-    "in practice",
-    "more specifically",
-    "on the technical side",
-    "from a practical standpoint",
-    "in this context",
-    "to elaborate",
-    "to be specific",
-    "building on this",
-];
+use crate::constants::tram_response::{
+    ANALOGY_PATTERNS, COMPARISON_PATTERNS, INTENT_KEYWORD_MAP, IRRELEVANCE_KEYWORDS,
+    LOW_CONTENT_PATTERNS, MAX_REPETITION_THRESHOLD, MIN_RESPONSE_LENGTH,
+    MIN_SENTENCE_LEN_FOR_VALID_SUMMARY, MIN_SENTENCE_LENGTH, MIN_SENTENCE_VARIETY,
+    MIN_VERB_COUNT_FOR_VALID_SUMMARY, MIN_WORDS_FOR_VALID_SUMMARY, PARAGRAPH_CONNECTORS,
+    POOR_QUALITY_KEYWORDS, PROSE_CONNECTORS, QUALITY_KEYWORDS, REFUSAL_PATTERNS,
+    RELEVANCE_INTENT_PATTERNS, RELEVANCE_KEYWORDS, SHAPER_CONNECTORS, STRUCTURAL_MARKERS,
+    VERB_PATTERNS,
+};
 
 /// Checks if a response meets basic quality criteria.
 ///
@@ -458,11 +320,6 @@ pub fn is_valid_summary(summary: &str) -> bool {
 
     verb_count >= MIN_VERB_COUNT_FOR_VALID_SUMMARY
 }
-
-const VERB_PATTERNS: [&str; 20] = [
-    "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did",
-    "will", "would", "could", "should", "may", "might", "must",
-];
 
 /// Enhances a response with prose-level discourse connectors.
 ///

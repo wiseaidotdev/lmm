@@ -20,13 +20,14 @@
 //!   integer domain and reconstructs text by interpreting the outputs as Unicode code-points,
 //!   with invalid bytes replaced by `U+FFFD` (Unicode replacement character).
 
+use crate::constants::encode::{
+    DEFAULT_EVALUATION_FALLBACK, DEFAULT_RESIDUAL, EMPTY_TEXT_ERROR, EQUATION_VARIABLE_NAME,
+    REPLACEMENT_CHAR, RESIDUAL_SEPARATOR, UNICODE_CODE_POINT_MAX, UNICODE_CODE_POINT_MIN,
+};
 use crate::discovery::SymbolicRegression;
 use crate::equation::Expression;
 use crate::error::{LmmError, Result};
 use std::collections::HashMap;
-
-/// The Unicode replacement character, used when equation output is not valid UTF-8.
-const REPLACEMENT_CHAR: char = '\u{FFFD}';
 
 /// The result of an encoding, including the best-fit expression and the exact numerical residuals.
 #[derive(Debug, Clone)]
@@ -80,22 +81,26 @@ impl EncodedMessage {
 /// ```
 pub fn encode_text(text: &str, iterations: usize, depth: usize) -> Result<EncodedMessage> {
     if text.is_empty() {
-        return Err(LmmError::ParseError("Cannot encode empty text".into()));
+        return Err(LmmError::ParseError(EMPTY_TEXT_ERROR.into()));
     }
     let chars: Vec<f64> = text.chars().map(|c| c as u32 as f64).collect();
     let n = chars.len();
     let inputs: Vec<Vec<f64>> = (0..n).map(|i| vec![i as f64]).collect();
     let targets: Vec<f64> = chars;
 
-    let sr = SymbolicRegression::new(iterations, depth).with_variables(vec!["x".into()]);
+    let sr = SymbolicRegression::new(iterations, depth)
+        .with_variables(vec![EQUATION_VARIABLE_NAME.into()]);
     let equation = sr.fit(&inputs, &targets)?;
 
     let mut residuals = Vec::with_capacity(text.len());
     let mut bindings = HashMap::new();
 
     for (i, c) in text.chars().enumerate() {
-        bindings.insert("x".to_string(), i as f64);
-        let base = equation.evaluate(&bindings).unwrap_or(65.0).round() as i64;
+        bindings.insert(EQUATION_VARIABLE_NAME.to_string(), i as f64);
+        let base = equation
+            .evaluate(&bindings)
+            .unwrap_or(DEFAULT_EVALUATION_FALLBACK)
+            .round() as i64;
         let char_val = c as u32 as i64;
         residuals.push(char_val - base);
     }
@@ -134,11 +139,14 @@ pub fn decode_message(msg: &EncodedMessage) -> Result<String> {
     let mut output = String::with_capacity(msg.length);
     let mut bindings = HashMap::new();
     for i in 0..msg.length {
-        bindings.insert("x".to_string(), i as f64);
-        let val = msg.equation.evaluate(&bindings).unwrap_or(65.0);
-        let residual = msg.residuals.get(i).copied().unwrap_or(0);
+        bindings.insert(EQUATION_VARIABLE_NAME.to_string(), i as f64);
+        let val = msg
+            .equation
+            .evaluate(&bindings)
+            .unwrap_or(DEFAULT_EVALUATION_FALLBACK);
+        let residual = msg.residuals.get(i).copied().unwrap_or(DEFAULT_RESIDUAL);
         let adjusted = val.round() as i64 + residual;
-        let code_point = adjusted.clamp(0, 0x10FFFF) as u32;
+        let code_point = adjusted.clamp(UNICODE_CODE_POINT_MIN, UNICODE_CODE_POINT_MAX) as u32;
         let ch = char::from_u32(code_point).unwrap_or(REPLACEMENT_CHAR);
         output.push(ch);
     }
@@ -183,7 +191,7 @@ pub fn decode_from_parts(equation: &str, length: usize, residuals: &str) -> Resu
         .map_err(|e: String| LmmError::ParseError(e))?;
 
     let parsed_residuals: Vec<i64> = residuals
-        .split(',')
+        .split(RESIDUAL_SEPARATOR)
         .filter_map(|s| s.trim().parse::<i64>().ok())
         .collect();
 
@@ -191,11 +199,13 @@ pub fn decode_from_parts(equation: &str, length: usize, residuals: &str) -> Resu
     let mut bindings = HashMap::new();
 
     for i in 0..length {
-        bindings.insert("x".to_string(), i as f64);
-        let base = expr.evaluate(&bindings).unwrap_or(65.0);
-        let residual = parsed_residuals.get(i).copied().unwrap_or(0);
+        bindings.insert(EQUATION_VARIABLE_NAME.to_string(), i as f64);
+        let base = expr
+            .evaluate(&bindings)
+            .unwrap_or(DEFAULT_EVALUATION_FALLBACK);
+        let residual = parsed_residuals.get(i).copied().unwrap_or(DEFAULT_RESIDUAL);
         let adjusted = base.round() as i64 + residual;
-        let code_point = adjusted.clamp(0, 0x10FFFF) as u32;
+        let code_point = adjusted.clamp(UNICODE_CODE_POINT_MIN, UNICODE_CODE_POINT_MAX) as u32;
         let ch = char::from_u32(code_point).unwrap_or(REPLACEMENT_CHAR);
         output.push(ch);
     }

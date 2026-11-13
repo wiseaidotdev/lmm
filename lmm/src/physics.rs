@@ -24,13 +24,11 @@
 //! # See Also
 //! - [Strogatz, S. H. (2018). Nonlinear Dynamics and Chaos. CRC Press.](https://doi.org/10.1201/9780429492563) - textbook covering the phase space dynamics of the Lorenz system and damped oscillators implemented here.
 
+use crate::constants::physics::GRAVITATIONAL_CONSTANT;
 use crate::equation::Expression::{self, *};
 use crate::error::Result;
 use crate::tensor::Tensor;
 use crate::traits::Simulatable;
-
-/// Newton's gravitational constant G (SI units: m³ kg⁻¹ s⁻²).
-const GRAVITATIONAL_CONSTANT: f64 = 6.674e-11;
 
 /// A simple harmonic oscillator with angular frequency `ω`.
 ///

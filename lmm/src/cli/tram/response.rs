@@ -10,6 +10,16 @@
 //! CLI-specific functions for assembling, filtering, and framing TRAM responses.
 
 use crate::cognition::thought::classifier::ReasoningMode;
+use crate::constants::cli_tram_response::{
+    ADDITIONAL_VERB_PATTERNS, ANALOGICAL_VS_SPLITTERS, AUX_VERBS, CAUSAL_OPENERS, CAUSAL_PREFIXES,
+    CONNECTORS, DANGLING_PREPOSITIONS, DEDUP_THRESHOLD, MAX_PARAGRAGH_LENGTH,
+    MAX_PARAGRAPH_SENTENCES, MAX_PREDICATE_WORDS, MAX_SENTENCE_LENGTH, MAX_SUMMARY_SENTENCES,
+    MIN_AVG_WORDS_PER_SENTENCE, MIN_COLD_CORPUS_WORDS, MIN_PARAGRAPH_SENTENCES,
+    MIN_QUALITY_WORD_COUNT, MIN_SENTENCE_LENGTH, MIN_SENTENCE_WORD_COUNT, MIN_SUMMARY_SENTENCES,
+    MIN_SUMMARY_WORDS, MIN_TOPIC_WORD_LENGTH, MIN_VERB_COUNT, PREDICATE_STARTERS, SITE_NAMES,
+    STOP_WORDS, SUMMARY_TOP_N, VERB_PATTERNS, VS_SPLITTERS,
+};
+use crate::constants::text_generation::DEFAULT_EMPTY_STRING;
 use crate::generation::{
     dedup::GlobalDeduplicator, filter::SentenceFilter, shaper::ParagraphShaper,
 };
@@ -17,187 +27,6 @@ use crate::text::TextSummarizer;
 use crate::tram::{extract_topic, split_sentences_with_punct, strip_discourse_connector};
 use std::cmp::Reverse;
 use std::collections::HashSet;
-
-const MIN_QUALITY_WORD_COUNT: usize = 5;
-const MIN_SENTENCE_WORD_COUNT: usize = 2;
-const MIN_AVG_WORDS_PER_SENTENCE: usize = 2;
-const MIN_VERB_COUNT: usize = 1;
-const MIN_COLD_CORPUS_WORDS: usize = 20;
-const MIN_SUMMARY_WORDS: usize = 10;
-const MIN_SUMMARY_SENTENCES: usize = 5;
-const MAX_SUMMARY_SENTENCES: usize = 8;
-const SUMMARY_TOP_N: usize = 3;
-const MIN_TOPIC_WORD_LENGTH: usize = 4;
-const MAX_PREDICATE_WORDS: usize = 7;
-const MIN_PARAGRAPH_SENTENCES: usize = 2;
-const MAX_PARAGRAPH_SENTENCES: usize = 2;
-const MIN_SENTENCE_LENGTH: usize = 5;
-const MAX_SENTENCE_LENGTH: usize = 40;
-const MAX_PARAGRAGH_LENGTH: usize = 180;
-const DEDUP_THRESHOLD: f64 = 0.65;
-
-const VERB_PATTERNS: [&str; 21] = [
-    " is ",
-    " are ",
-    " was ",
-    " were ",
-    " has ",
-    " have ",
-    " provides ",
-    " enables ",
-    " uses ",
-    " includes ",
-    " supports ",
-    " allows ",
-    " makes ",
-    " creates ",
-    " consists ",
-    " contains ",
-    " designed ",
-    " built ",
-    " formed ",
-    " released ",
-    " developed ",
-];
-
-const ADDITIONAL_VERB_PATTERNS: [&str; 8] = [
-    " developed ",
-    " began ",
-    " defines ",
-    " describe ",
-    " reason ",
-    " causes ",
-    " result ",
-    " reason",
-];
-
-pub const CAUSAL_OPENERS: &[&str] = &[
-    "why does ",
-    "why do ",
-    "why is ",
-    "why are ",
-    "why was ",
-    "why would ",
-    "why should ",
-    "why can't ",
-    "why cannot ",
-    "why doesn't ",
-    "why don't ",
-    "how come ",
-];
-
-pub const VS_SPLITTERS: &[&str] = &[" vs ", " versus "];
-
-const SITE_NAMES: &[&str] = &[
-    "geeksforgeeks",
-    "stackoverflow",
-    "reddit",
-    "medium",
-    "github",
-    "wikipedia",
-    "quora",
-    "hackernews",
-    "dev.to",
-    "towardsdatascience",
-    "freecodecamp",
-    "programiz",
-    "tutorialspoint",
-];
-
-const DANGLING_PREPOSITIONS: &[&str] = &[
-    "in", "at", "of", "to", "for", "on", "by", "with", "from", "into", "onto", "upon", "about",
-    "over", "under", "between", "among", "through", "within", "without", "during", "and", "or",
-    "but", "the", "a", "an",
-];
-
-const STOP_WORDS: [&str; 48] = [
-    "what",
-    "does",
-    "how",
-    "the",
-    "and",
-    "for",
-    "with",
-    "about",
-    "install",
-    "make",
-    "build",
-    "create",
-    "setup",
-    "configure",
-    "learn",
-    "understand",
-    "explain",
-    "describe",
-    "find",
-    "show",
-    "tell",
-    "give",
-    "help",
-    "work",
-    "works",
-    "working",
-    "used",
-    "using",
-    "uses",
-    "need",
-    "needs",
-    "want",
-    "that",
-    "this",
-    "into",
-    "from",
-    "have",
-    "been",
-    "will",
-    "would",
-    "could",
-    "should",
-    "when",
-    "where",
-    "which",
-    "who",
-    "why",
-    "also",
-];
-
-const ANALOGICAL_VS_SPLITTERS: &[&str] = &[" vs ", " versus ", " compared to "];
-
-const CONNECTORS: &[&str] = &[
-    "On the other hand,",
-    "By contrast,",
-    "Meanwhile,",
-    "In comparison,",
-    "Conversely,",
-];
-
-const CAUSAL_PREFIXES: &[(&str, &str)] = &[
-    ("why does ", "does"),
-    ("why do ", "do"),
-    ("why is ", "is"),
-    ("why are ", "are"),
-    ("why was ", "was"),
-    ("why were ", "were"),
-    ("why would ", "would"),
-    ("why should ", "should"),
-    ("why can't ", "cannot"),
-    ("why cannot ", "cannot"),
-    ("why doesn't ", "does not"),
-    ("why don't ", "do not"),
-    ("how come ", ""),
-];
-
-const AUX_VERBS: [&str; 23] = [
-    "is", "are", "was", "were", "has", "have", "had", "does", "do", "did", "will", "would",
-    "could", "should", "can", "cannot", "doesn't", "don't", "can't", "won't", "wouldn't",
-    "couldn't", "not",
-];
-
-const PREDICATE_STARTERS: &[&str] = &[
-    "not", "no", "never", "have", "has", "had", "make", "makes", "work", "works", "allow",
-    "allows", "prevent", "prevents", "require", "requires", "cause", "causes", "use", "uses",
-    "need", "needs",
-];
 
 /// Checks whether a KB answer meets basic quality thresholds.
 ///
@@ -403,7 +232,7 @@ pub fn derive_kb_query(prompt: &str, mode: ReasoningMode, topic: &str) -> String
                                 | "about"
                         )
                 })
-                .unwrap_or("");
+                .unwrap_or(DEFAULT_EMPTY_STRING);
             if !evaluative_word.is_empty() {
                 format!("{} {}", evaluative_word, topic)
             } else {
@@ -474,8 +303,16 @@ pub fn assemble_paragraphs_for(text: &str, run_seed: u64, topic: &str) -> String
                 let b = topic_ref[pos + splitter.len()..]
                     .trim()
                     .to_ascii_lowercase();
-                let a_first = a.split_whitespace().next().unwrap_or("").to_string();
-                let b_first = b.split_whitespace().next().unwrap_or("").to_string();
+                let a_first = a
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or(DEFAULT_EMPTY_STRING)
+                    .to_string();
+                let b_first = b
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or(DEFAULT_EMPTY_STRING)
+                    .to_string();
                 if !a_first.is_empty() {
                     words.push(a_first);
                 }
@@ -490,7 +327,7 @@ pub fn assemble_paragraphs_for(text: &str, run_seed: u64, topic: &str) -> String
             let first = topic_ref
                 .split_whitespace()
                 .find(|w| w.len() > 3 && !STOP_WORDS.contains(w))
-                .unwrap_or("")
+                .unwrap_or(DEFAULT_EMPTY_STRING)
                 .to_lowercase();
             if !first.is_empty() {
                 words.push(first);
@@ -559,8 +396,8 @@ pub fn assemble_paragraphs_for(text: &str, run_seed: u64, topic: &str) -> String
             if topic_words.is_empty() {
                 return true;
             }
-            let first = s.split_whitespace().next().unwrap_or("");
-            if first.len() < 4 {
+            let first = s.split_whitespace().next().unwrap_or(DEFAULT_EMPTY_STRING);
+            if first.len() < MIN_TOPIC_WORD_LENGTH {
                 return true;
             }
             let mut chars = first.chars();

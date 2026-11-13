@@ -23,6 +23,8 @@
 //! assert!(code.contains("print"));
 //! ```
 
+use crate::constants::code_responder::{MAX_CODE_LINES_TO_TAKE, MIN_CODE_LINES};
+
 /// Generates and formats code snippets for task-execution prompts.
 ///
 /// # Examples
@@ -130,9 +132,9 @@ impl CodeResponder {
                     && markers.iter().any(|m| l.contains(m))
                     && (l.contains('{') || l.contains('(') || l.contains(';') || l.contains("->"))
             })
-            .take(15)
+            .take(MAX_CODE_LINES_TO_TAKE)
             .collect();
-        if code_lines.len() < 2 {
+        if code_lines.len() < MIN_CODE_LINES {
             return None;
         }
         Some(code_lines.join("\n"))

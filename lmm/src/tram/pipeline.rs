@@ -9,34 +9,48 @@
 //!
 //! Core orchestration of the TRAM reasoning pipeline for programmatic use.
 
+#[cfg(feature = "net")]
+use crate::cognition::task_decomposer::TaskKind;
 use crate::cognition::{
     code_responder::CodeResponder,
     knowledge::KnowledgeIndex,
     r#loop::ThinkLoop,
     response_framer::ResponseFramer,
     search::SearchOracle,
-    task_decomposer::{TaskDecomposer, TaskKind},
+    task_decomposer::TaskDecomposer,
     thought::{
         AdaptiveThoughtEngine,
         classifier::{InputClassifier, ReasoningMode},
     },
 };
+use crate::constants::generation_filter::DEFAULT_EMPTY_WORD;
+use crate::constants::tram_pipeline::{
+    KB_QUERY_TOP_K, MIN_COLD_CORPUS_WORDS, MIN_SENTENCE_WORDS_FOR_PIPELINE, MIN_TOPIC_WORD_LENGTH,
+    ORACLE_CACHE_SIZE,
+};
+#[cfg(feature = "net")]
+use crate::constants::tram_web_fetch::DEEP_SCRAPE_TOP_K_MULTIPLIER;
 use crate::error::Result as LmmResult;
 use crate::expert::{inference::InferenceEngine, rule::RuleBase};
 use crate::generation::{
-    dedup::GlobalDeduplicator, filter::SentenceFilter, prose::ProseBuilder, shaper::ParagraphShaper,
+    contextual_reorder::ContextualReorder, dedup::GlobalDeduplicator, filter::SentenceFilter,
+    prose::ProseBuilder, shaper::ParagraphShaper,
 };
 use crate::stochastic::StochasticEnhancer;
 use crate::text::TextSummarizer;
+#[cfg(feature = "net")]
+#[cfg(feature = "net")]
+use crate::tram::web_fetch::prefetch_web;
+#[cfg(feature = "net")]
+use crate::tram::web_fetch::prefetch_web_for_query;
 use crate::tram::{
     config::{
         AnswerSource, AteResult, ExpertResult, KbRetrievalResult, StochasticResult,
         ThinkLoopResult, TramConfig, TramResult, WebFetchResult,
     },
-    prefetch_web,
+    intent_filter::IntentFilter,
     query::extract_topic,
     response::{is_quality_answer, restructure_analogical_response},
-    web_fetch::prefetch_web_for_query,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -44,9 +58,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
-
-const ORACLE_CACHE_SIZE: usize = 5;
-const KB_QUERY_TOP_K: usize = 8;
 
 /// Main TRAM pipeline orchestrator.
 ///
@@ -70,11 +81,13 @@ impl TramPipeline {
         let web_fetch_result = self.fetch_web_knowledge(prompt, index, kb_provided).await;
 
         let prompt_mode = InputClassifier::classify(prompt);
+        #[cfg(feature = "net")]
         let sub_tasks = TaskDecomposer::decompose(prompt, prompt_mode, self.config.max_tasks);
+        #[cfg(feature = "net")]
         if !self.config.no_web {
             for task in &sub_tasks {
                 if let TaskKind::WebSearch(q) = &task.kind {
-                    prefetch_web_for_query(q, index).await;
+                    prefetch_web_for_query(q, index, false).await;
                 }
             }
         }
@@ -148,12 +161,16 @@ impl TramPipeline {
             run_seed,
         );
 
-        let answer_text = self.merge_expert_response(
-            kb_retrieval_result.answer_text.clone(),
-            &expert_result,
-            &kb_retrieval_result.kb_chunks,
-            run_seed,
-        );
+        let answer_text = if self.config.deep {
+            kb_retrieval_result.answer_text.clone()
+        } else {
+            self.merge_expert_response(
+                kb_retrieval_result.answer_text.clone(),
+                &expert_result,
+                &kb_retrieval_result.kb_chunks,
+                run_seed,
+            )
+        };
 
         let processed_text = if self.config.use_summarizer_fallback
             && !answer_text.is_empty()
@@ -185,9 +202,18 @@ impl TramPipeline {
             answer_text
         };
 
-        let stochastic_result = self.apply_stochastic_enhancement(&processed_text);
+        let stochastic_result = if self.config.deep {
+            StochasticResult {
+                text: processed_text.clone(),
+                substitutions: 0,
+                language: "English".to_string(),
+                probability: 0.0,
+            }
+        } else {
+            self.apply_stochastic_enhancement(&processed_text)
+        };
 
-        let final_text = if self.config.no_frame {
+        let final_text = if self.config.deep || self.config.no_frame {
             stochastic_result.text.clone()
         } else if TaskDecomposer::is_creative_task(prompt) {
             self.build_creative_response(
@@ -229,7 +255,7 @@ impl TramPipeline {
 
         #[cfg(feature = "net")]
         {
-            prefetch_web(prompt, index, kb_provided).await
+            prefetch_web(prompt, index, kb_provided, self.config.deep, false).await
         }
         #[cfg(not(feature = "net"))]
         {
@@ -315,29 +341,77 @@ impl TramPipeline {
         &self,
         _prompt: &str,
         topic: &str,
-        _prompt_mode: ReasoningMode,
+        prompt_mode: ReasoningMode,
         index: &KnowledgeIndex,
         cold_corpus: &str,
         run_seed: u64,
     ) -> KbRetrievalResult {
         let kb_query = topic.to_string();
+        #[cfg(feature = "net")]
+        let top_k = if self.config.deep {
+            (self.config.top_k_min + (run_seed % self.config.top_k_var) as usize)
+                * DEEP_SCRAPE_TOP_K_MULTIPLIER
+        } else {
+            self.config.top_k_min + (run_seed % self.config.top_k_var) as usize
+        };
+        #[cfg(not(feature = "net"))]
         let top_k = self.config.top_k_min + (run_seed % self.config.top_k_var) as usize;
+
         let kb_chunks: Vec<String> = index
             .query(&kb_query, top_k)
             .into_iter()
             .map(|c| c.text.clone())
             .collect();
 
-        let kb_answer = index
+        #[cfg(feature = "net")]
+        let deep_chunks: Vec<String> = if self.config.deep {
+            index
+                .query_source("web-deep-scrape", top_k)
+                .into_iter()
+                .map(|c| c.text.clone())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        #[cfg(not(feature = "net"))]
+        let deep_chunks: Vec<String> = Vec::new();
+
+        let all_chunks: Vec<String> = if !deep_chunks.is_empty() {
+            let mut combined = kb_chunks.clone();
+            combined.extend(deep_chunks);
+            combined
+        } else {
+            kb_chunks.clone()
+        };
+
+        #[cfg(feature = "net")]
+        let filtered_chunks = IntentFilter::select_top_chunks_with_deep_mode(
+            &kb_chunks,
+            prompt_mode,
+            top_k,
+            self.config.deep,
+        );
+        #[cfg(not(feature = "net"))]
+        let filtered_chunks = IntentFilter::select_top_chunks(&kb_chunks, prompt_mode, top_k);
+
+        let ia_answer = index
             .answer(&kb_query, top_k)
             .filter(|a| a.split_whitespace().count() >= self.config.min_kb_words)
             .unwrap_or_default();
 
-        let answer_text = if !kb_answer.is_empty() {
-            kb_answer.clone()
+        let answer_text = if self.config.deep && !all_chunks.is_empty() {
+            if !ia_answer.is_empty() {
+                format!("{}\n\n{}", ia_answer, all_chunks.join(" "))
+            } else {
+                all_chunks.join(" ")
+            }
+        } else if !ia_answer.is_empty() {
+            ia_answer.clone()
+        } else if !filtered_chunks.is_empty() {
+            filtered_chunks.join(" ")
         } else if !kb_chunks.is_empty() {
             kb_chunks.join(" ")
-        } else if cold_corpus.split_whitespace().count() >= 20 {
+        } else if cold_corpus.split_whitespace().count() >= MIN_COLD_CORPUS_WORDS {
             cold_corpus.to_string()
         } else {
             let fallback_phrases = [
@@ -351,7 +425,7 @@ impl TramPipeline {
             format!("{} {}", topic, fallback_phrases[fallback_idx])
         };
 
-        let answer_found = !kb_answer.is_empty() || !kb_chunks.is_empty();
+        let answer_found = !ia_answer.is_empty() || !all_chunks.is_empty();
 
         let answer_quality = is_quality_answer(&answer_text);
         let intent_relevant = true;
@@ -360,17 +434,21 @@ impl TramPipeline {
             answer_found,
             answer_quality,
             intent_relevant,
-            answer_source: if !kb_answer.is_empty() {
+            answer_source: if !ia_answer.is_empty() {
                 AnswerSource::KnowledgeBase
-            } else if !kb_chunks.is_empty() {
+            } else if !filtered_chunks.is_empty() || !kb_chunks.is_empty() {
                 AnswerSource::SymbolicFallback
             } else {
                 AnswerSource::ColdCorpusSummary
             },
             topic: topic.to_string(),
             kb_query: topic.to_string(),
-            top_k: kb_chunks.len(),
-            kb_chunks,
+            top_k: filtered_chunks.len(),
+            kb_chunks: if self.config.deep {
+                all_chunks
+            } else {
+                filtered_chunks
+            },
             answer_text,
         }
     }
@@ -472,7 +550,7 @@ impl TramPipeline {
                             | "over"
                     )
             })
-            .unwrap_or("")
+            .unwrap_or(DEFAULT_EMPTY_WORD)
             .to_lowercase();
 
         let sentences: Vec<String> = text
@@ -480,7 +558,7 @@ impl TramPipeline {
             .flat_map(|line| {
                 line.split(". ")
                     .map(|s| s.trim().trim_end_matches('.').trim().to_string())
-                    .filter(|s| s.split_whitespace().count() >= 6)
+                    .filter(|s| s.split_whitespace().count() >= MIN_SENTENCE_WORDS_FOR_PIPELINE)
             })
             .map(|s| self.strip_discourse_prefix(&s))
             .filter(|s| SentenceFilter::is_acceptable(s))
@@ -503,20 +581,26 @@ impl TramPipeline {
         }
 
         let deduplicator = GlobalDeduplicator::new(self.config.dedup_threshold);
-        let mut unique = deduplicator.deduplicate(shuffled);
+        let unique = deduplicator.deduplicate(shuffled);
 
         if unique.is_empty() {
             return text.to_string();
         }
 
-        if let Some(pos) = unique
+        let query = topic;
+        let mode = InputClassifier::classify(query);
+        let reordered = ContextualReorder::reorder(&unique, query, mode);
+
+        if let Some(pos) = reordered
             .iter()
             .position(|s| SentenceFilter::is_good_opener(s))
         {
-            unique.swap(0, pos);
+            let mut final_reordered = reordered;
+            final_reordered.swap(0, pos);
+            ParagraphShaper::new(2, 2, 5, 40, 180).shape(&final_reordered, seed)
+        } else {
+            ParagraphShaper::new(2, 2, 5, 40, 180).shape(&reordered, seed)
         }
-
-        ParagraphShaper::new(2, 2, 5, 40, 180).shape(&unique, seed)
     }
 
     fn strip_discourse_prefix(&self, s: &str) -> String {
@@ -562,7 +646,7 @@ impl TramPipeline {
             Some(w) => w,
             None => return true,
         };
-        if first.len() < 4 || !first.chars().all(|c| c.is_alphabetic()) {
+        if first.len() < MIN_TOPIC_WORD_LENGTH || !first.chars().all(|c| c.is_alphabetic()) {
             return true;
         }
         let mut chars = first.chars();
@@ -580,9 +664,7 @@ impl TramPipeline {
 
     fn apply_stochastic_enhancement(&self, text: &str) -> StochasticResult {
         let effective_prob = self.config.effective_probability();
-        let enhanced = StochasticEnhancer::new(effective_prob)
-            .curated_only()
-            .enhance_detailed(text);
+        let enhanced = StochasticEnhancer::new(effective_prob).enhance_detailed(text);
 
         StochasticResult {
             text: enhanced.text,

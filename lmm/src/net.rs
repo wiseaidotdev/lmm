@@ -18,6 +18,12 @@
 //! - **`SearchAggregator`** derives [`Default`] instead of maintaining a manual
 //!   `Default` impl.
 
+#[cfg(feature = "net")]
+use crate::constants::net::{DEFAULT_BROWSER_AGENT, DEFAULT_USER_AGENT};
+use crate::constants::net::{
+    MAX_RELATED_TOPICS, MAX_TOPIC_WORDS, MIN_WORDS_FOR_SNIPPET, MIN_WORDS_FOR_TITLE,
+    MIN_WORDS_FOR_TOPIC_PREFIX,
+};
 use anyhow::Result;
 pub use duckduckgo::browser::Browser;
 pub use duckduckgo::response::{LiteSearchResult, Response, ResultFormat};
@@ -131,9 +137,31 @@ impl SearchAggregator {
     /// Executes a search and displays the results to stdout.
     ///
     /// This is a thin wrapper around the `duckduckgo` crate's Detailed mode.
+    #[cfg(feature = "net")]
     pub async fn search_and_display(&self, query: &str, limit: usize) -> Result<()> {
         self.browser
             .search(query, false, ResultFormat::Detailed, Some(limit), None)
+            .await
+    }
+
+    /// Executes a search and displays the results to stdout.
+    ///
+    /// This is a thin wrapper around the `duckduckgo` crate's Detailed mode.
+    #[cfg(not(feature = "net"))]
+    pub async fn search_and_display(&self, _query: &str, _limit: usize) -> Result<()> {
+        Ok(())
+    }
+
+    /// Fetches `limit` lite search results for `query`.
+    ///
+    /// # Returns
+    ///
+    /// (`Result<Vec<LiteSearchResult>>`): A list of title + snippet pairs.
+    #[cfg(feature = "net")]
+    pub async fn fetch(&self, query: &str, limit: usize) -> Result<Vec<LiteSearchResult>> {
+        let ua = agent(DEFAULT_BROWSER_AGENT).unwrap_or(DEFAULT_USER_AGENT);
+        self.browser
+            .lite_search(query, &self.region, Some(limit), ua)
             .await
     }
 
@@ -142,11 +170,9 @@ impl SearchAggregator {
     /// # Returns
     ///
     /// (`Result<Vec<LiteSearchResult>>`): A list of title + snippet pairs.
-    pub async fn fetch(&self, query: &str, limit: usize) -> Result<Vec<LiteSearchResult>> {
-        let ua = agent("firefox").unwrap_or("Mozilla/5.0");
-        self.browser
-            .lite_search(query, &self.region, Some(limit), ua)
-            .await
+    #[cfg(not(feature = "net"))]
+    pub async fn fetch(&self, _query: &str, _limit: usize) -> Result<Vec<LiteSearchResult>> {
+        Ok(Vec::new())
     }
 
     /// Fetches the DuckDuckGo Instant Answer API response for `query`.
@@ -241,7 +267,7 @@ fn is_category_label(text: &str) -> bool {
 fn strip_topic_prefix(text: &str) -> String {
     if let Some(dash_pos) = text.find(" - ") {
         let after = text[dash_pos + 3..].trim();
-        if after.split_whitespace().count() >= 5 {
+        if after.split_whitespace().count() >= MIN_WORDS_FOR_TOPIC_PREFIX {
             return after.to_string();
         }
     }
@@ -265,13 +291,16 @@ pub fn corpus_from_results(results: &[LiteSearchResult]) -> String {
         .filter_map(|r| {
             let mut parts: Vec<String> = Vec::new();
             let title = r.title.trim();
-            if !title.is_empty() && !title.contains('|') && title.split_whitespace().count() >= 3 {
+            if !title.is_empty()
+                && !title.contains('|')
+                && title.split_whitespace().count() >= MIN_WORDS_FOR_TITLE
+            {
                 parts.push(ensure_terminal_punct(title));
             }
             let snippet = r.snippet.trim();
             if !snippet.is_empty()
                 && !snippet.contains('|')
-                && snippet.split_whitespace().count() >= 7
+                && snippet.split_whitespace().count() >= MIN_WORDS_FOR_SNIPPET
             {
                 parts.push(ensure_terminal_punct(snippet));
             }
@@ -327,7 +356,7 @@ pub fn corpus_from_response(resp: &Response) -> String {
         }
     }
 
-    for topic in resp.related_topics.iter().take(15) {
+    for topic in resp.related_topics.iter().take(MAX_RELATED_TOPICS) {
         if let Some(raw_text) = &topic.text {
             let cleaned = strip_topic_prefix(&sanitize(raw_text));
             if !is_category_label(&cleaned) {
@@ -363,7 +392,7 @@ pub fn seed_from_results(query: &str, results: &[LiteSearchResult]) -> String {
             let low = w.to_lowercase();
             w.len() > 3 && !STOPWORDS.contains(&low.as_str())
         })
-        .take(6)
+        .take(MAX_TOPIC_WORDS)
         .collect();
 
     if topic_words.is_empty() {

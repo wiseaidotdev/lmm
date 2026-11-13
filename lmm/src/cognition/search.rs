@@ -45,6 +45,10 @@
 use std::collections::HashMap;
 
 #[cfg(any(feature = "net", feature = "wasm-net"))]
+use crate::constants::cognition_search::MAX_RELATED_TOPICS_SEARCH;
+#[cfg(feature = "net")]
+use crate::constants::net::{DEFAULT_BROWSER_AGENT, DEFAULT_USER_AGENT};
+#[cfg(any(feature = "net", feature = "wasm-net"))]
 use duckduckgo::browser::Browser;
 #[cfg(feature = "net")]
 use duckduckgo::user_agents::get as get_ua;
@@ -169,7 +173,7 @@ impl SearchOracle {
 
         #[cfg(feature = "net")]
         {
-            let ua = get_ua("firefox").unwrap_or("Mozilla/5.0");
+            let ua = get_ua(DEFAULT_BROWSER_AGENT).unwrap_or(DEFAULT_USER_AGENT);
             return lite_snippets(&browser, query, ua, self.limit).await;
         }
 
@@ -231,7 +235,7 @@ async fn instant_answer(browser: &Browser, query: &str) -> Option<String> {
         parts.push(a);
     }
 
-    for topic in resp.related_topics.iter().take(5) {
+    for topic in resp.related_topics.iter().take(MAX_RELATED_TOPICS_SEARCH) {
         if let Some(text) = topic.text.as_deref().filter(|s| !s.trim().is_empty()) {
             parts.push(text.to_string());
         }

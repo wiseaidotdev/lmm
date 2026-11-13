@@ -22,6 +22,15 @@
 //! verbs, function words, and adjectives. This is now replaced by a compile-time
 //! `phf::Set` with O(1) lookups and zero runtime allocation.
 
+use crate::constants::text_generation::{
+    DEDUP_WORD_LIMIT, DEFAULT_EMPTY_STRING, DEFAULT_TONE, DEFAULT_TOPIC, KEYWORD_COUNT,
+    MIN_WORDS_FOR_SENTENCE, TITLE_WORD_LIMIT, TONE_OFFSET_ADJ_MAX, TONE_OFFSET_ADJ_NEG,
+    TONE_OFFSET_OBJ_NEG, TONE_OFFSET_OBJ_POS, TONE_OFFSET_STEP, TONE_OFFSET_STEP_DBL,
+    TONE_OFFSET_SUBJ_POS, TONE_OFFSET_VARIANT_3_VERB, TONE_OFFSET_VARIANT_4_ADJ,
+    TONE_OFFSET_VARIANT_4_OBJ, TONE_OFFSET_VARIANT_4_SUBJ, TONE_OFFSET_VARIANT_5_ADJ,
+    TONE_OFFSET_VARIANT_5_SUBJ, TONE_OFFSET_VARIANT_5_VERB, VARIANT_COUNT, VARIANT_INDEX_OFFSET_1,
+    VARIANT_INDEX_OFFSET_2, VARIANT_INDEX_OFFSET_3, VARIANT_INDEX_OFFSET_4,
+};
 use crate::error::{LmmError, Result};
 use crate::lexicon::word_tone;
 use phf::{Set, phf_set};
@@ -192,7 +201,7 @@ static PREPOSITIONS_RICH: &[&str] = &[
 fn text_tone(s: &str) -> f64 {
     let bytes: Vec<u8> = s.bytes().filter(|b| b.is_ascii_alphabetic()).collect();
     if bytes.is_empty() {
-        return 110.0;
+        return DEFAULT_TONE;
     }
     bytes.iter().map(|&b| b as f64).sum::<f64>() / bytes.len() as f64
 }
@@ -206,7 +215,7 @@ fn offset_by_tone<'a>(pool: &'a [(&'a str, f64)], target: f64, offset: usize) ->
     scored
         .get(offset % scored.len().max(1))
         .map(|(_, w)| *w)
-        .unwrap_or("")
+        .unwrap_or(DEFAULT_EMPTY_STRING)
 }
 
 fn offset_by_tone_not<'a>(
@@ -224,7 +233,7 @@ fn offset_by_tone_not<'a>(
     scored
         .get(offset % scored.len().max(1))
         .map(|(_, w)| *w)
-        .unwrap_or("")
+        .unwrap_or(DEFAULT_EMPTY_STRING)
 }
 
 fn split_into_sentences(text: &str) -> Vec<String> {
@@ -246,14 +255,14 @@ fn split_into_sentences(text: &str) -> Vec<String> {
                 continue;
             }
             let s = current.trim().to_string();
-            if s.split_whitespace().count() >= 5 {
+            if s.split_whitespace().count() >= MIN_WORDS_FOR_SENTENCE {
                 sentences.push(s);
             }
             current.clear();
         }
     }
     let tail = current.trim().to_string();
-    if tail.split_whitespace().count() >= 5 {
+    if tail.split_whitespace().count() >= MIN_WORDS_FOR_SENTENCE {
         sentences.push(tail);
     }
     sentences
@@ -302,17 +311,32 @@ impl SentenceGenerator {
         let tone = text_tone(seed);
         let sh = seed_hash(seed);
 
-        let keywords = keywords_from_text(seed, 3);
-        let topic = keywords.first().map(|s| s.as_str()).unwrap_or("reality");
+        let keywords = keywords_from_text(seed, KEYWORD_COUNT);
+        let topic = keywords
+            .first()
+            .map(|s| s.as_str())
+            .unwrap_or(DEFAULT_TOPIC);
 
         let v = variant.wrapping_add(sh);
 
-        let sentence = match variant % 6 {
+        let sentence = match variant % VARIANT_COUNT {
             0 => {
                 let subj = offset_by_tone(SUBJECT_NOUNS, tone, v);
-                let verb = offset_by_tone(TRANSITIVE_VERBS, tone, v + 1);
-                let adj = offset_by_tone(ADJECTIVES, tone - 2.0, v + 2);
-                let obj = offset_by_tone(OBJECT_NOUNS, tone + 1.0, v + 3);
+                let verb = offset_by_tone(
+                    TRANSITIVE_VERBS,
+                    tone,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_1),
+                );
+                let adj = offset_by_tone(
+                    ADJECTIVES,
+                    tone - TONE_OFFSET_ADJ_NEG,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_1),
+                );
+                let obj = offset_by_tone(
+                    OBJECT_NOUNS,
+                    tone + TONE_OFFSET_OBJ_POS,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_3),
+                );
                 format!(
                     "{} {} the {} {} of the {}.",
                     capitalize(subj),
@@ -324,17 +348,39 @@ impl SentenceGenerator {
             }
             1 => {
                 let adj = offset_by_tone(ADJECTIVES, tone, v);
-                let subj = offset_by_tone(SUBJECT_NOUNS, tone + 2.0, v + 1);
-                let verb = offset_by_tone(TRANSITIVE_VERBS, tone + 1.0, v + 2);
-                let obj = offset_by_tone(OBJECT_NOUNS, tone - 2.0, v + 3);
+                let subj = offset_by_tone(
+                    SUBJECT_NOUNS,
+                    tone + TONE_OFFSET_STEP * TONE_OFFSET_STEP_DBL,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_1),
+                );
+                let verb = offset_by_tone(
+                    TRANSITIVE_VERBS,
+                    tone + TONE_OFFSET_STEP,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_2),
+                );
+                let obj = offset_by_tone(
+                    OBJECT_NOUNS,
+                    tone - TONE_OFFSET_OBJ_NEG,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_3),
+                );
                 format!("The {} {} {} {}.", adj, subj, verb, obj)
             }
             2 => {
-                let subj = offset_by_tone(SUBJECT_NOUNS, tone + 1.5, v);
-                let link = offset_by_tone(LINKING_VERBS, tone, v + 1);
-                let adj = offset_by_tone(ADJECTIVES, tone + 3.0, v + 2);
+                let subj = offset_by_tone(SUBJECT_NOUNS, tone + TONE_OFFSET_SUBJ_POS, v);
+                let link =
+                    offset_by_tone(LINKING_VERBS, tone, v.wrapping_add(VARIANT_INDEX_OFFSET_1));
+                let adj = offset_by_tone(
+                    ADJECTIVES,
+                    tone + TONE_OFFSET_ADJ_MAX,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_2),
+                );
                 let prep = PREPOSITIONS_RICH[v % PREPOSITIONS_RICH.len()];
-                let obj = offset_by_tone_not(OBJECT_NOUNS, tone - 1.0, v + 3, topic);
+                let obj = offset_by_tone_not(
+                    OBJECT_NOUNS,
+                    tone - TONE_OFFSET_STEP,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_3),
+                    topic,
+                );
                 format!(
                     "{} {} the {} {} {} {}.",
                     capitalize(subj),
@@ -346,25 +392,63 @@ impl SentenceGenerator {
                 )
             }
             3 => {
-                let subj = offset_by_tone(SUBJECT_NOUNS, tone, v + 1);
-                let verb = offset_by_tone(TRANSITIVE_VERBS, tone + 2.0, v + 2);
-                let obj = offset_by_tone(OBJECT_NOUNS, tone, v + 3);
+                let subj =
+                    offset_by_tone(SUBJECT_NOUNS, tone, v.wrapping_add(VARIANT_INDEX_OFFSET_1));
+                let verb = offset_by_tone(
+                    TRANSITIVE_VERBS,
+                    tone + TONE_OFFSET_VARIANT_3_VERB,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_2),
+                );
+                let obj =
+                    offset_by_tone(OBJECT_NOUNS, tone, v.wrapping_add(VARIANT_INDEX_OFFSET_3));
                 format!("The {} of {} {} {}.", subj, topic, verb, obj)
             }
             4 => {
                 let connector = SENTENCE_CONNECTORS[v % SENTENCE_CONNECTORS.len()];
-                let adj = offset_by_tone(ADJECTIVES, tone - 1.0, v + 2);
-                let subj = offset_by_tone(SUBJECT_NOUNS, tone + 1.0, v + 3);
-                let verb = offset_by_tone(TRANSITIVE_VERBS, tone, v + 4);
-                let obj = offset_by_tone(OBJECT_NOUNS, tone + 2.0, v + 5);
+                let adj = offset_by_tone(
+                    ADJECTIVES,
+                    tone - TONE_OFFSET_VARIANT_4_ADJ,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_2),
+                );
+                let subj = offset_by_tone(
+                    SUBJECT_NOUNS,
+                    tone + TONE_OFFSET_VARIANT_4_SUBJ,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_3),
+                );
+                let verb = offset_by_tone(
+                    TRANSITIVE_VERBS,
+                    tone,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_3)
+                        .wrapping_add(VARIANT_INDEX_OFFSET_1),
+                );
+                let obj = offset_by_tone(
+                    OBJECT_NOUNS,
+                    tone + TONE_OFFSET_VARIANT_4_OBJ,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_3)
+                        .wrapping_add(VARIANT_INDEX_OFFSET_2),
+                );
                 format!("{} the {} {} {} {}.", connector, adj, subj, verb, obj)
             }
             _ => {
-                let subj = offset_by_tone(SUBJECT_NOUNS, tone + 3.0, v + 1);
-                let verb = offset_by_tone(TRANSITIVE_VERBS, tone + 1.5, v + 2);
-                let adj = offset_by_tone(ADJECTIVES, tone - 3.0, v + 3);
-                let obj = offset_by_tone(OBJECT_NOUNS, tone, v + 4);
-                let prep = PREPOSITIONS_RICH[(v + 2) % PREPOSITIONS_RICH.len()];
+                let subj = offset_by_tone(
+                    SUBJECT_NOUNS,
+                    tone + TONE_OFFSET_VARIANT_5_SUBJ,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_1),
+                );
+                let verb = offset_by_tone(
+                    TRANSITIVE_VERBS,
+                    tone + TONE_OFFSET_VARIANT_5_VERB,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_2),
+                );
+                let adj = offset_by_tone(
+                    ADJECTIVES,
+                    tone - TONE_OFFSET_VARIANT_5_ADJ,
+                    v.wrapping_add(VARIANT_INDEX_OFFSET_3),
+                );
+                let obj =
+                    offset_by_tone(OBJECT_NOUNS, tone, v.wrapping_add(VARIANT_INDEX_OFFSET_4));
+                let prep = PREPOSITIONS_RICH
+                    [(v.wrapping_add(VARIANT_INDEX_OFFSET_2)) % PREPOSITIONS_RICH.len()];
                 format!(
                     "{} {} {} {} {} {}.",
                     capitalize(subj),
@@ -597,7 +681,7 @@ fn deduplicate_sentences(sentences: Vec<String>) -> Vec<String> {
         .filter(|s| {
             let key = s
                 .split_whitespace()
-                .take(6)
+                .take(DEDUP_WORD_LIMIT)
                 .collect::<Vec<_>>()
                 .join(" ")
                 .to_lowercase();
@@ -675,7 +759,7 @@ impl EssayGenerator {
     pub fn generate(&self, topic: &str) -> Result<EssayOutput> {
         let title = topic
             .split_whitespace()
-            .take(7)
+            .take(TITLE_WORD_LIMIT)
             .map(capitalize)
             .collect::<Vec<_>>()
             .join(" ");

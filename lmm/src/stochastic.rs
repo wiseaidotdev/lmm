@@ -39,7 +39,7 @@
 //! ## Enhancement Pipeline
 //!
 //! For each non-stop token in the input text, [`StochasticEnhancer`] samples a
-//! uniform Bernoulli draw with probability `p` (default 0.03).  On a "hit", the
+//! uniform Bernoulli draw with probability `p` (default 0.12).  On a "hit", the
 //! language-specific synonym table is consulted first; if no entry exists, a
 //! same-length word from the system wordlist is substituted.  Case style
 //! (ALL_CAPS, Capitalised, lowercase) is mirror-copied to the substituted word.
@@ -51,32 +51,19 @@ pub mod french;
 pub mod german;
 pub mod spanish;
 
+use crate::constants::stochastic::{
+    DEFAULT_REPLACEMENT_PROBABILITY, PROBABILITY_MAX, PROBABILITY_MIN,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::constants::stochastic::{
+    SYSTEM_DICT_PATHS, WORDLIST_MAX_WORD_LEN, WORDLIST_MIN_WORD_LEN,
+};
 use detect::{LanguageHint, detect_language, synonyms_for};
 use phf::{Set, phf_set};
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs;
-
-/// Default synonym-substitution probability (3%).
-const DEFAULT_REPLACEMENT_PROBABILITY: f64 = 0.03;
-
-/// Minimum word length to include from the system dictionary.
-#[cfg(not(target_arch = "wasm32"))]
-const WORDLIST_MIN_WORD_LEN: usize = 5;
-
-/// Maximum word length to include from the system dictionary.
-#[cfg(not(target_arch = "wasm32"))]
-const WORDLIST_MAX_WORD_LEN: usize = 14;
-
-/// System dictionary file paths tried in order.
-#[cfg(not(target_arch = "wasm32"))]
-static SYSTEM_DICT_PATHS: &[&str] = &[
-    "/usr/share/dict/american-english",
-    "/usr/share/dict/english",
-    "/usr/share/dict/words",
-    "/usr/dict/words",
-];
 
 /// A compile-time perfect-hash set of words that must **never** be substituted.
 ///
@@ -420,18 +407,18 @@ impl StochasticEnhancer {
     pub fn new(probability: f64) -> Self {
         Self {
             bank: SynonymBank::new(),
-            probability: probability.clamp(0.0, 1.0),
+            probability: probability.clamp(PROBABILITY_MIN, PROBABILITY_MAX),
             curated_only: false,
         }
     }
 
-    /// Creates a [`StochasticEnhancer`] with `p = 0.03`.
+    /// Creates a [`StochasticEnhancer`] with `p = 0.12`.
     ///
     /// # Examples
     ///
     /// ```
     /// use lmm::stochastic::StochasticEnhancer;
-    /// assert_eq!(StochasticEnhancer::with_default_probability().probability(), 0.03);
+    /// assert_eq!(StochasticEnhancer::with_default_probability().probability(), 0.08);
     /// ```
     pub fn with_default_probability() -> Self {
         Self::new(DEFAULT_REPLACEMENT_PROBABILITY)

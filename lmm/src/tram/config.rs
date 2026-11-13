@@ -15,23 +15,23 @@ pub const DEFAULT_ITERATIONS: usize = 10;
 pub const DEFAULT_INFERENCE_DEPTH: usize = 5;
 pub const DEFAULT_CF_THRESHOLD: f64 = 0.25;
 pub const DEFAULT_THINK_STEPS: usize = 8;
-pub const DEFAULT_THINK_THRESHOLD: f64 = 0.40;
+pub const DEFAULT_THINK_THRESHOLD: f64 = 0.30;
 pub const DEFAULT_THINK_PATIENCE: usize = 3;
 pub const DEFAULT_MAX_TASKS: usize = 3;
-pub const DEFAULT_STOCHASTIC_PROBABILITY: f64 = 0.03;
-pub const DEFAULT_CONVERGENCE_THRESHOLD: f64 = 0.45;
+pub const DEFAULT_STOCHASTIC_PROBABILITY: f64 = 0.12;
+pub const DEFAULT_CONVERGENCE_THRESHOLD: f64 = 0.35;
 pub const DEFAULT_K_PROPORTIONAL: f64 = 1.2;
 pub const DEFAULT_K_INTEGRAL: f64 = 0.08;
 pub const DEFAULT_THINKLOOP_ITERATIONS_WITH_KB: usize = 6;
 pub const DEFAULT_TOP_K_MIN: usize = 6;
 pub const DEFAULT_TOP_K_VAR: u64 = 5;
-pub const DEFAULT_MIN_RULE_COUNT: usize = 1;
+pub const DEFAULT_MIN_RULE_COUNT: usize = 3;
 pub const DEFAULT_MIN_EXPERT_WORDS: usize = 25;
-pub const DEFAULT_DEDUP_THRESHOLD: f64 = 0.65;
+pub const DEFAULT_DEDUP_THRESHOLD: f64 = 0.70;
 pub const DEFAULT_PROSE_MIN_SENTENCES: usize = 2;
-pub const DEFAULT_PROSE_MAX_SENTENCES: usize = 5;
+pub const DEFAULT_PROSE_MAX_SENTENCES: usize = 7;
 pub const DEFAULT_MIN_KB_WORDS: usize = 15;
-pub const DEFAULT_MIN_PROSE_WORDS: usize = 30;
+pub const DEFAULT_MIN_PROSE_WORDS: usize = 25;
 pub const DEFAULT_RULE_SOURCE_LIMIT: usize = 12;
 pub const DEFAULT_USE_ASSEMBLY: bool = true;
 pub const DEFAULT_USE_SUMMARIZER_FALLBACK: bool = true;
@@ -50,6 +50,7 @@ pub struct TramConfig {
     pub probability: Option<f64>,
     pub no_frame: bool,
     pub no_web: bool,
+    pub deep: bool,
     pub convergence_threshold: f64,
     pub k_proportional: f64,
     pub k_integral: f64,
@@ -74,6 +75,8 @@ pub struct WebFetchResult {
     pub lite_snippets_found: usize,
     pub instant_answer_query: Option<String>,
     pub fetch_queries: Vec<String>,
+    pub unscraped_urls: Vec<String>,
+    pub all_scraped_urls: Vec<String>,
 }
 
 impl Default for TramConfig {
@@ -90,6 +93,7 @@ impl Default for TramConfig {
             probability: None,
             no_frame: false,
             no_web: false,
+            deep: false,
             convergence_threshold: DEFAULT_CONVERGENCE_THRESHOLD,
             k_proportional: DEFAULT_K_PROPORTIONAL,
             k_integral: DEFAULT_K_INTEGRAL,
@@ -142,6 +146,7 @@ pub struct TramConfigBuilder {
     probability: Option<f64>,
     no_frame: bool,
     no_web: bool,
+    deep: bool,
     convergence_threshold: Option<f64>,
     k_proportional: Option<f64>,
     k_integral: Option<f64>,
@@ -215,6 +220,11 @@ impl TramConfigBuilder {
         self
     }
 
+    pub fn deep(mut self, value: bool) -> Self {
+        self.deep = value;
+        self
+    }
+
     pub fn convergence_threshold(mut self, value: f64) -> Self {
         self.convergence_threshold = Some(value);
         self
@@ -273,6 +283,7 @@ impl TramConfigBuilder {
             probability: self.probability,
             no_frame: self.no_frame,
             no_web: self.no_web,
+            deep: self.deep,
             convergence_threshold: self
                 .convergence_threshold
                 .unwrap_or(DEFAULT_CONVERGENCE_THRESHOLD),

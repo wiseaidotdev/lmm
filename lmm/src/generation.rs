@@ -22,9 +22,14 @@
 //! | [`shaper`]    | `ParagraphShaper`: structural paragraph constraint enforcer |
 
 pub mod coherence;
+pub mod contextual_reorder;
 pub mod dedup;
 pub mod filter;
 pub mod prose;
+pub mod relevance;
 pub mod shaper;
+
+pub use contextual_reorder::ContextualReorder;
+pub use relevance::RelevanceScorer;
 
 // Copyright 2026 Mahmoud Harmouch, licensed under MIT.

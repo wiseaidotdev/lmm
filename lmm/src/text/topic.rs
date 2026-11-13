@@ -7,269 +7,12 @@
 
 //! Topic extraction utilities for summarizing responses into specific topics.
 
-const TECH_SIGNALS: &[&str] = &[
-    "programming",
-    "language",
-    "algorithm",
-    "software",
-    "compiler",
-    "framework",
-    "library",
-    "database",
-    "runtime",
-    "protocol",
-    "rust",
-    "python",
-    "java",
-    "javascript",
-    "typescript",
-    "golang",
-    "swift",
-    "kotlin",
-    "scala",
-    "haskell",
-    "lisp",
-    "functional",
-    "object-oriented",
-    "systems",
-    "embedded",
-    "async",
-    "concurrent",
-    "machine learning",
-    "deep learning",
-    "neural",
-    "blockchain",
-    "kubernetes",
-    "docker",
-    "linux",
-    "unix",
-    "assembly",
-    "llvm",
-];
-
-const PROGRAMMING_ASPECTS: &[&str] = &[
-    "ownership model",
-    "pattern matching",
-    "type system",
-    "memory safety",
-    "concurrency model",
-    "error handling",
-    "trait objects",
-    "generic programming",
-    "functional programming",
-    "async programming",
-    "borrow checker",
-    "package manager",
-    "standard library",
-    "systems programming",
-    "compiler design",
-    "zero-cost abstractions",
-    "algebraic data types",
-    "higher-order functions",
-    "memory management",
-    "embedded systems",
-];
-
-const GENERAL_ASPECTS: &[&str] = &[
-    "history",
-    "culture",
-    "geography",
-    "people",
-    "economy",
-    "architecture",
-    "religion",
-    "politics",
-    "society",
-    "notable",
-    "overview",
-    "characteristics",
-    "development",
-    "influence",
-    "significance",
-];
-
-const STOPWORDS: &[&str] = &[
-    "the", "this", "that", "these", "those", "a", "an", "and", "but", "or", "nor", "yet", "so",
-    "for", "both", "of", "in", "on", "at", "to", "from", "with", "by", "as", "into", "over",
-    "under", "about", "above", "below", "between", "through", "before", "after", "since", "until",
-    "while", "within", "without", "it", "its", "they", "their", "them", "we", "our", "you", "your",
-    "who", "which", "what", "when", "where", "how", "is", "are", "was", "were", "be", "been",
-    "being", "has", "have", "had", "do", "does", "did", "will", "would", "can", "could", "may",
-    "might", "shall", "should", "must", "make", "made", "get", "gets", "got", "use", "uses",
-    "used", "using", "not", "only", "just", "even", "also", "back", "well", "very", "first",
-    "second", "third", "last", "next", "include", "includes", "however", "than", "then",
-];
-
-const FALSE_TOPIC_WORDS: &[&str] = &[
-    "given",
-    "axiom",
-    "theorem",
-    "lemma",
-    "corollary",
-    "proof",
-    "definition",
-    "statement",
-    "conditional",
-    "probability",
-    "since",
-    "however",
-    "therefore",
-    "thus",
-    "hence",
-    "whereas",
-    "although",
-    "despite",
-    "section",
-    "chapter",
-    "figure",
-    "note",
-    "remark",
-    "example",
-    "case",
-    "result",
-    "summary",
-    "january",
-    "february",
-    "march",
-    "april",
-    "june",
-    "july",
-    "august",
-    "september",
-    "october",
-    "november",
-    "december",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-    "various",
-    "several",
-    "other",
-    "another",
-];
-
-const GENERIC_NOUNS: &[&str] = &[
-    "computing",
-    "computer",
-    "programming",
-    "language",
-    "languages",
-    "software",
-    "hardware",
-    "system",
-    "systems",
-    "process",
-    "processing",
-    "data",
-    "information",
-    "technology",
-    "implementation",
-    "interface",
-    "library",
-    "framework",
-    "runtime",
-    "compiler",
-    "interpreter",
-    "modern",
-    "advanced",
-    "basic",
-    "simple",
-    "complex",
-    "world",
-    "country",
-    "region",
-    "area",
-    "place",
-    "city",
-    "town",
-    "people",
-    "person",
-    "group",
-    "organization",
-    "community",
-    "society",
-    "history",
-    "culture",
-    "time",
-    "period",
-    "century",
-    "decade",
-    "years",
-    "research",
-    "study",
-    "field",
-    "domain",
-    "theory",
-    "practice",
-];
-
-const PERSON_TITLES: &[&str] = &[
-    "developer",
-    "architect",
-    "engineer",
-    "researcher",
-    "professor",
-    "scientist",
-    "creator",
-    "inventor",
-    "designer",
-    "coder",
-    "programmer",
-    "author",
-    "founder",
-    "ceo",
-    "cto",
-    "phd",
-    "student",
-    "graduate",
-    "undergraduate",
-    "lecturer",
-    "scholar",
-    "musician",
-    "singer",
-    "songwriter",
-    "artist",
-    "painter",
-    "composer",
-    "writer",
-    "journalist",
-    "director",
-    "producer",
-    "actor",
-    "actress",
-    "politician",
-    "president",
-    "minister",
-    "senator",
-    "general",
-];
-
-const TECH_COMPOUNDS: &[&str] = &[
-    "ownership model",
-    "borrow checker",
-    "type system",
-    "type inference",
-    "pattern matching",
-    "algebraic data types",
-    "higher-order functions",
-    "memory safety",
-    "memory management",
-    "garbage collection",
-    "concurrency model",
-    "async runtime",
-    "async programming",
-    "trait objects",
-    "zero-cost abstractions",
-    "standard library",
-    "systems programming",
-    "compiler design",
-    "error handling",
-    "package manager",
-];
+use crate::constants::text_topic::{
+    DEFAULT_TOPIC_FALLBACK, ELLIPSIS_PATTERN, FALSE_TOPIC_WORDS, FIRST_SENTENCES_LIMIT,
+    GENERAL_ASPECTS, GENERIC_NOUNS, GENERIC_TOPIC_PHRASES, MIN_CORE_WORD_LENGTH,
+    MIN_ELLIPSIS_COUNT, MIN_TOPIC_WORD_LENGTH, MIN_WORD_COUNT_FOR_BAD_RESPONSE, PERSON_TITLES,
+    PROGRAMMING_ASPECTS, STOPWORDS, TECH_COMPOUNDS, TECH_SIGNALS, TOPIC_CANDIDATE_LIMIT,
+};
 
 fn is_tech_domain(domain: &str) -> bool {
     let lo = domain.to_lowercase();
@@ -285,7 +28,12 @@ fn domain_key(domain: &str) -> &str {
                 && !STOPWORDS.contains(&lo.as_str())
                 && !FALSE_TOPIC_WORDS.contains(&lo.as_str())
         })
-        .unwrap_or_else(|| domain.split_whitespace().next().unwrap_or("knowledge"))
+        .unwrap_or_else(|| {
+            domain
+                .split_whitespace()
+                .next()
+                .unwrap_or(DEFAULT_TOPIC_FALLBACK)
+        })
 }
 
 fn is_person_name_context(words: &[&str], i: usize) -> bool {
@@ -307,26 +55,16 @@ fn is_person_name_context(words: &[&str], i: usize) -> bool {
 }
 
 fn is_bad_response(text: &str) -> bool {
-    if text.contains("spans many interconnected areas")
-        || text.contains("spans many dimensions of knowledge")
-        || text.contains("active area of research and practical application")
-        || text.contains("continues to evolve with contributions")
-        || text.contains("underpins key ideas in systems")
-        || text.contains("widely studied across academia")
-        || text.contains("foundational topic in modern software")
-        || text.contains("spans many dimensions")
-        || text.contains("is a foundational topic with many")
-        || text.contains("spans many dimensions of knowledge")
-        || text.contains("has shaped thought and practice")
-        || text.contains("is widely explored across academic")
-        || text.contains("continues to be studied and discussed")
+    if GENERIC_TOPIC_PHRASES
+        .iter()
+        .any(|&phrase| text.contains(phrase))
     {
         return true;
     }
-    if text.matches("...").count() >= 2 {
+    if text.matches(ELLIPSIS_PATTERN).count() >= MIN_ELLIPSIS_COUNT {
         return true;
     }
-    if text.split_whitespace().count() < 20 {
+    if text.split_whitespace().count() < MIN_WORD_COUNT_FOR_BAD_RESPONSE {
         return true;
     }
     false
@@ -362,19 +100,22 @@ pub fn summarize_to_topic(text: &str, domain: &str, current_topic: &str, turn: u
         return aspect_topic(domain, turn + 1);
     }
 
-    let first_sentences: Vec<&str> = clean.split(['.', '!', '?']).take(3).collect();
+    let first_sentences: Vec<&str> = clean
+        .split(['.', '!', '?'])
+        .take(FIRST_SENTENCES_LIMIT)
+        .collect();
 
     for sentence in &first_sentences {
         let words: Vec<&str> = sentence.split_whitespace().collect();
         for (i, &word) in words.iter().enumerate() {
-            if i == 0 || word.len() < 4 {
+            if i == 0 || word.len() < MIN_TOPIC_WORD_LENGTH {
                 continue;
             }
             if word.contains('-') || word.contains('_') {
                 continue;
             }
             let core: String = word.chars().filter(|c| c.is_alphabetic()).collect();
-            if core.len() < 4 {
+            if core.len() < MIN_TOPIC_WORD_LENGTH {
                 continue;
             }
             let mut chars = core.chars();
@@ -446,11 +187,11 @@ pub fn summarize_to_topic(text: &str, domain: &str, current_topic: &str, turn: u
     }
 
     for word in clean.split_whitespace() {
-        if word.len() < 5 || word.contains('-') {
+        if word.len() < MIN_CORE_WORD_LENGTH || word.contains('-') {
             continue;
         }
         let core: String = word.chars().filter(|c| c.is_alphabetic()).collect();
-        if core.len() < 5 {
+        if core.len() < MIN_CORE_WORD_LENGTH {
             continue;
         }
         let mut ch = core.chars();
@@ -485,7 +226,7 @@ pub fn summarize_to_topic(text: &str, domain: &str, current_topic: &str, turn: u
                 && !w.contains('-')
                 && w.chars().any(|c| c.is_alphabetic())
         })
-        .take(2)
+        .take(TOPIC_CANDIDATE_LIMIT)
         .collect();
 
     if content_words.len() >= 2 {

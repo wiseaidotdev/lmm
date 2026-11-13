@@ -10,182 +10,13 @@
 //! Functions for extracting topics, stripping common patterns, and deriving
 //! knowledge base queries from user prompts.
 
-use phf::phf_set;
-
-const FILLER_PREFIXES: &[&str] = &[
-    "what is a ",
-    "what is an ",
-    "what is the ",
-    "what is ",
-    "what are the ",
-    "what are ",
-    "what was ",
-    "what were ",
-    "how does a ",
-    "how does an ",
-    "how does ",
-    "how do ",
-    "how is ",
-    "how are ",
-    "how to ",
-    "explain ",
-    "describe ",
-    "define ",
-    "tell me about ",
-    "what's ",
-    "whats ",
-    "who is ",
-    "who was ",
-    "why is a ",
-    "why is an ",
-    "why is the ",
-    "why is ",
-    "why are ",
-    "why does ",
-    "why do ",
-    "where is ",
-    "when is ",
-    "give me information about ",
-    "give me info on ",
-    "write a ",
-    "write an ",
-    "write ",
-    "generate a ",
-    "generate an ",
-    "create a ",
-    "create an ",
-    "implement a ",
-    "implement an ",
-    "code a ",
-    "build a ",
-    "show me how to ",
-    "show me a ",
-    "show me ",
-    "give me a ",
-    "give me an ",
-    "compare ",
-];
-
-const MODE_KEYWORD_PREFIXES: &[&str] = &[
-    "advantages of ",
-    "advantage of ",
-    "benefits of ",
-    "benefit of ",
-    "disadvantages of ",
-    "disadvantage of ",
-    "pros and cons of ",
-    "pros of ",
-    "cons of ",
-    "drawbacks of ",
-    "drawback of ",
-    "strengths of ",
-    "strength of ",
-    "weaknesses of ",
-    "weakness of ",
-    "limitations of ",
-    "limitation of ",
-    "inconveniences of ",
-    "inconvenience of ",
-    "upsides of ",
-    "downsides of ",
-    "merits of ",
-    "merit of ",
-    "demerits of ",
-    "demerit of ",
-    "causes of ",
-    "cause of ",
-    "reason for ",
-    "reasons for ",
-    "explanation for ",
-    "effect of ",
-    "effects of ",
-    "definition of ",
-    "meaning of ",
-    "concept of ",
-    "examples of ",
-    "overview of ",
-    "history of ",
-    "installation of ",
-    "setup of ",
-    "usage of ",
-    "use of ",
-    "uses of ",
-    "comparison of ",
-    "difference between ",
-    "differences between ",
-    "similarities between ",
-    "relationship between ",
-    "why is ",
-    "why are ",
-    "why does ",
-    "why do ",
-];
-
-const PREDICATE_WORDS: &[&str] = &[
-    "not", "no", "never", "have", "has", "had", "is", "are", "was", "were", "do", "does", "did",
-    "will", "would", "could", "should", "can", "cannot", "work", "works", "make", "makes", "use",
-    "uses", "need", "needs", "allow", "allows", "prevent", "prevents", "require", "requires",
-    "cause", "causes",
-];
-
-const TRAILING_VERBS: &[&str] = &[
-    " work",
-    " works",
-    " function",
-    " functions",
-    " operate",
-    " operates",
-    " run",
-    " runs",
-    "do",
-    "does",
-    " mean",
-    " means",
-    " help",
-    "helps",
-    "differ",
-    "differs",
-];
-
-const CONNECTOR_PREFIXES: &[&str] = &[
-    "Furthermore, ",
-    "In addition, ",
-    "Notably, ",
-    "Moreover, ",
-    "As a result, ",
-    "In practice, ",
-    "Interestingly, ",
-    "Consequently, ",
-    "Building on this, ",
-    "To elaborate, ",
-    "More specifically, ",
-    "On the technical side, ",
-    "From a practical standpoint, ",
-    "In this context, ",
-    "Also, ",
-    "However, ",
-    "Therefore, ",
-    "Thus, ",
-    "Hence, ",
-    "More precisely, ",
-    "This is because ",
-    "To be specific, ",
-    "It is well established that ",
-    "At its core, ",
-    "Put simply, ",
-    "Broadly speaking, ",
-    "In technical terms, ",
-    "By design, ",
-    "In essence, ",
-    "Based on observed knowledge ",
-    "To elaborate on this, ",
-];
-
-const ABBREVIATIONS: phf::Set<&'static str> = phf_set! {
-    "e.g", "i.e", "vs", "dr", "mr", "mrs", "ms", "prof", "sr", "jr",
-    "no", "fig", "cf", "etc", "approx", "dept", "est", "govt", "inc",
-    "ltd", "corp", "jan", "feb", "mar", "apr", "jun", "jul", "aug",
-    "sep", "oct", "nov", "dec",
+use crate::constants::generation_filter::DEFAULT_EMPTY_WORD;
+use crate::constants::tram_query::{
+    ABBREVIATIONS, AND_CONNECTOR, ARTICLE_A, ARTICLE_AN, ARTICLE_THE, CONNECTOR_PREFIXES,
+    ENTITY_INDEX_WHY_PATTERN, FILLER_PREFIXES, MIN_WORDS_FOR_SENTENCE,
+    MIN_WORDS_FOR_TRIM_PREDICATE, MIN_WORDS_FOR_WHY_PATTERN, MODE_KEYWORD_PREFIXES,
+    PREDICATE_WORDS, PUNCTUATION_EXCLAMATION, PUNCTUATION_PERIOD, PUNCTUATION_QUESTION,
+    TRAILING_VERBS, VS_CONNECTOR, WHY_ARE_PREFIX, WHY_IS_PREFIX,
 };
 
 /// Extracts a clean topic keyword phrase from a natural-language prompt by
@@ -207,40 +38,40 @@ pub fn extract_topic(prompt: &str) -> String {
         .map(|&prefix| &prompt[prefix.len()..]);
     let raw_after_filler = if let Some(r) = after_filler {
         r.trim()
-            .trim_end_matches('?')
-            .trim_end_matches('.')
-            .trim_end_matches('!')
+            .trim_end_matches(PUNCTUATION_QUESTION)
+            .trim_end_matches(PUNCTUATION_PERIOD)
+            .trim_end_matches(PUNCTUATION_EXCLAMATION)
             .trim()
     } else {
         prompt
             .trim()
-            .trim_end_matches('?')
-            .trim_end_matches('.')
-            .trim_end_matches('!')
+            .trim_end_matches(PUNCTUATION_QUESTION)
+            .trim_end_matches(PUNCTUATION_PERIOD)
+            .trim_end_matches(PUNCTUATION_EXCLAMATION)
             .trim()
     };
     let raw_lower = raw_after_filler.to_ascii_lowercase();
 
-    if raw_lower.starts_with("why is ") || raw_lower.starts_with("why are ") {
+    if raw_lower.starts_with(WHY_IS_PREFIX) || raw_lower.starts_with(WHY_ARE_PREFIX) {
         let words: Vec<&str> = raw_after_filler.split_whitespace().collect();
-        if words.len() >= 3 {
-            let entity = words[2];
+        if words.len() >= MIN_WORDS_FOR_WHY_PATTERN {
+            let entity = words[ENTITY_INDEX_WHY_PATTERN];
             if !entity.is_empty() {
                 return entity.to_string();
             }
         }
     }
 
-    if raw_lower.contains(" vs ") {
+    if raw_lower.contains(VS_CONNECTOR) {
         return raw_after_filler.to_string();
     }
 
-    if raw_lower.contains(" and ") {
-        let parts: Vec<&str> = raw_after_filler.split(" and ").collect();
+    if raw_lower.contains(AND_CONNECTOR) {
+        let parts: Vec<&str> = raw_after_filler.split(AND_CONNECTOR).collect();
         if parts.len() == 2 {
             let entity_a = parts[0].trim();
             let entity_b = parts[1].trim();
-            return format!("{} vs {}", entity_a, entity_b);
+            return format!("{}{}{}", entity_a, VS_CONNECTOR, entity_b);
         }
     }
     let after_mode = MODE_KEYWORD_PREFIXES
@@ -263,7 +94,7 @@ pub fn extract_topic(prompt: &str) -> String {
 /// O(|s|)
 pub fn strip_leading_articles(s: &str) -> String {
     let lower = s.to_lowercase();
-    for article in &["a ", "an ", "the "] {
+    for article in &[ARTICLE_A, ARTICLE_AN, ARTICLE_THE] {
         if lower.starts_with(article) {
             return s[article.len()..].trim().to_string();
         }
@@ -285,7 +116,7 @@ pub fn strip_leading_articles(s: &str) -> String {
 /// O(|s|)
 pub fn trim_predicate(s: &str) -> String {
     let words: Vec<&str> = s.split_whitespace().collect();
-    if words.len() < 3 {
+    if words.len() < MIN_WORDS_FOR_TRIM_PREDICATE {
         return s.to_string();
     }
     let cut = words
@@ -351,7 +182,7 @@ pub fn split_sentences_with_punct(text: &str) -> Vec<String> {
                     .trim_end_matches('.')
                     .split_whitespace()
                     .last()
-                    .unwrap_or("")
+                    .unwrap_or(DEFAULT_EMPTY_WORD)
                     .chars()
                     .filter(|c| c.is_ascii_alphabetic() || *c == '.')
                     .collect::<String>()
@@ -373,7 +204,7 @@ pub fn split_sentences_with_punct(text: &str) -> Vec<String> {
             }
 
             let s = cur.trim().to_string();
-            if s.split_whitespace().count() >= 8 {
+            if s.split_whitespace().count() >= MIN_WORDS_FOR_SENTENCE {
                 out.push(s);
             }
             cur.clear();
@@ -381,7 +212,7 @@ pub fn split_sentences_with_punct(text: &str) -> Vec<String> {
     }
 
     let tail = cur.trim().to_string();
-    if tail.split_whitespace().count() >= 8 {
+    if tail.split_whitespace().count() >= MIN_WORDS_FOR_SENTENCE {
         if !tail.ends_with('.') && !tail.ends_with('!') && !tail.ends_with('?') {
             out.push(format!("{}.", tail));
         } else {

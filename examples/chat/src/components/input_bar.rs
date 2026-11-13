@@ -21,18 +21,9 @@ fn do_submit(input_ref: &NodeRef, on_submit: &Callback<String>) {
 #[function_component(InputBar)]
 pub fn input_bar(props: &InputBarProps) -> Html {
     let input_ref = use_node_ref();
-    let input_handle = use_state(String::default);
+    let input_handle =
+        use_state(|| "What are the advantages of the Rust Programming Language?".to_string());
     let input_valid = use_state(|| true);
-
-    {
-        let r = input_ref.clone();
-        use_effect_with((), move |_| {
-            if let Some(el) = r.cast::<HtmlTextAreaElement>() {
-                el.set_value("What is the Rust programming language?");
-            }
-            || ()
-        });
-    }
 
     let on_send: Callback<MouseEvent> = {
         let r = input_ref.clone();
@@ -59,18 +50,18 @@ pub fn input_bar(props: &InputBarProps) -> Html {
             <div class="flex items-end gap-3 max-w-4xl mx-auto">
                 <div class="flex-1">
                     <Input
-                        r#type={"textarea"}
-                        label={""}
+                        r#type="textarea"
+                        label=""
                         handle={input_handle}
-                        name={"message"}
+                        name="message"
                         r#ref={input_ref}
-                        placeholder={"Ask anything..."}
-                        input_class={"vect-textarea"}
-                        field_class={"w-full"}
-                        error_class={""}
+                        placeholder="Ask anything..."
+                        input_class="vect-textarea"
+                        field_class="w-full"
+                        error_class=""
                         valid_handle={input_valid}
                         validate_function={Callback::from(|v: String| !v.trim().is_empty())}
-                        id={"message-input"}
+                        id="message-input"
                     />
                 </div>
                 <button
@@ -82,14 +73,14 @@ pub fn input_bar(props: &InputBarProps) -> Html {
                     type="button"
                 >
                     if props.is_loading {
-                        <i class="fa-solid fa-spinner fa-spin text-sm" aria-hidden="true"></i>
+                        <i class="fa-solid fa-spinner fa-spin text-sm" aria-hidden="true" />
                     } else {
-                        <i class="fa-solid fa-arrow-up text-sm" aria-hidden="true"></i>
+                        <i class="fa-solid fa-arrow-up text-sm" aria-hidden="true" />
                     }
                 </button>
             </div>
             <p class="text-center text-xs text-vect-subtle mt-2">
-                {"Enter to send  •  Shift+Enter for newline  •  All generation runs locally in WASM"}
+                { "Enter to send  •  Shift+Enter for newline  •  All generation runs locally in WASM" }
             </p>
         </div>
     }

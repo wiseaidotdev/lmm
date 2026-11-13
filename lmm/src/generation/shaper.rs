@@ -29,6 +29,8 @@
 //!
 //! Sentence boundaries are always respected, no sentence is split in half.
 
+use crate::constants::generation_filter::DEFAULT_EMPTY_WORD;
+
 /// Discourse connectors prepended to the opening sentence of non-first paragraphs.
 ///
 /// Only connectors that work grammatically in front of a sentence beginning with
@@ -290,7 +292,7 @@ fn lower_first_common(s: &str) -> String {
     let first_word: String = s
         .split_whitespace()
         .next()
-        .unwrap_or("")
+        .unwrap_or(DEFAULT_EMPTY_WORD)
         .chars()
         .filter(|c| c.is_ascii_alphabetic())
         .collect::<String>()

@@ -77,10 +77,12 @@ pub mod decompose;
 
 use crate::cognition::search::SearchOracle;
 use crate::cognition::signal::error_from_texts;
-use crate::cognition::thought::belief::BeliefInterval;
-use crate::cognition::thought::classifier::{InputClassifier, ReasoningMode};
-use crate::cognition::thought::critic::{CritiqueResult, InternalCritic, StepView};
-use crate::cognition::thought::decompose::GoalDecomposer;
+use crate::cognition::thought::{
+    belief::BeliefInterval,
+    classifier::{InputClassifier, ReasoningMode},
+    critic::{CritiqueResult, InternalCritic, StepView},
+    decompose::GoalDecomposer,
+};
 
 /// The reasoning mode applied to derive a single [`ThoughtStep`].
 ///

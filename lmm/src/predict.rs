@@ -24,6 +24,13 @@
 //! stored as compile-time [`phf::Set`]s, replacing the previous O(n) `slice.contains(&w)`
 //! linear scans in `detect_pos` with **O(1) perfect-hash lookups**.
 
+use crate::constants::predict::{
+    DEFAULT_EVALUATION_FALLBACK, DEFAULT_FALLBACK_WORD, DEFAULT_LENGTH, DEFAULT_WORD,
+    EQUATION_VARIABLE_NAME, LENGTH_MAX, LENGTH_MIN, MIN_POSITIONS_FOR_TRAJECTORY,
+    MIN_SUFFIX_LENGTH, MIN_TOKENS_FOR_PREDICTION, SYMBOLIC_REGRESSION_DEPTH_LIMIT,
+    SYMBOLIC_REGRESSION_POPULATION_DEFAULT, SYMBOLIC_REGRESSION_POPULATION_RHYTHM,
+    TONE_DEVIATION_THRESHOLD, TONE_MAX, TONE_MIN,
+};
 use crate::discovery::SymbolicRegression;
 use crate::equation::Expression;
 use crate::error::{LmmError, Result};
@@ -426,11 +433,11 @@ fn pick_function_word(pos: CoarsePos, recency: &HashMap<String, usize>) -> &'sta
         .iter()
         .min_by_key(|&&w| recency.get(w).copied().unwrap_or(0))
         .copied()
-        .unwrap_or("the")
+        .unwrap_or(DEFAULT_WORD)
 }
 
 fn suffix_match(window: &[String], recent: &[String], max_suffix: usize) -> Option<String> {
-    for len in (2..=max_suffix.min(recent.len())).rev() {
+    for len in (MIN_SUFFIX_LENGTH..=max_suffix.min(recent.len())).rev() {
         let suffix = &recent[recent.len() - len..];
         for pos in 0..window.len().saturating_sub(len) {
             if window[pos..pos + len] == *suffix && pos + len < window.len() {
@@ -443,27 +450,27 @@ fn suffix_match(window: &[String], recent: &[String], max_suffix: usize) -> Opti
 
 fn evaluate_at(eq: &Expression, pos: f64) -> f64 {
     let mut vars = HashMap::new();
-    vars.insert("x".to_string(), pos);
-    eq.evaluate(&vars).unwrap_or(107.0)
+    vars.insert(EQUATION_VARIABLE_NAME.to_string(), pos);
+    eq.evaluate(&vars).unwrap_or(DEFAULT_EVALUATION_FALLBACK)
 }
 
 fn stable_target_tone(eq: &Expression, pos: f64, context_tones: &[f64]) -> f64 {
     let mean = context_tones.iter().sum::<f64>() / context_tones.len().max(1) as f64;
     let gp = evaluate_at(eq, pos);
-    (if !gp.is_finite() || (gp - mean).abs() > 6.0 {
+    (if !gp.is_finite() || (gp - mean).abs() > TONE_DEVIATION_THRESHOLD {
         mean
     } else {
         gp
     })
-    .clamp(97.0, 122.0)
+    .clamp(TONE_MIN, TONE_MAX)
 }
 
 fn stable_target_length(eq: &Expression, pos: f64) -> usize {
     let raw = evaluate_at(eq, pos).round();
-    if raw.is_finite() && (3.0..=10.0).contains(&raw) {
+    if raw.is_finite() && (LENGTH_MIN..=LENGTH_MAX).contains(&raw) {
         raw as usize
     } else {
-        5
+        DEFAULT_LENGTH
     }
 }
 
@@ -564,25 +571,28 @@ impl TextPredictor {
     }
 
     fn fit_trajectory(&self, positions: &[f64], tones: &[f64]) -> Result<Expression> {
-        if positions.len() < 2 {
+        if positions.len() < MIN_POSITIONS_FOR_TRAJECTORY {
             return Err(LmmError::Discovery("Need at least 2 tokens".into()));
         }
         let inputs: Vec<Vec<f64>> = positions.iter().map(|&p| vec![p]).collect();
         SymbolicRegression::new(self.depth, self.iterations)
             .with_variables(vec!["x".into()])
-            .with_population(60)
+            .with_population(SYMBOLIC_REGRESSION_POPULATION_DEFAULT)
             .fit(&inputs, tones)
     }
 
     fn fit_rhythm(&self, positions: &[f64], lengths: &[f64]) -> Result<Expression> {
-        if positions.len() < 2 {
+        if positions.len() < MIN_POSITIONS_FOR_TRAJECTORY {
             return Err(LmmError::Discovery("Need at least 2 tokens".into()));
         }
         let inputs: Vec<Vec<f64>> = positions.iter().map(|&p| vec![p]).collect();
-        SymbolicRegression::new(self.depth.min(3), self.iterations / 2)
-            .with_variables(vec!["x".into()])
-            .with_population(40)
-            .fit(&inputs, lengths)
+        SymbolicRegression::new(
+            self.depth.min(SYMBOLIC_REGRESSION_DEPTH_LIMIT),
+            self.iterations / 2,
+        )
+        .with_variables(vec!["x".into()])
+        .with_population(SYMBOLIC_REGRESSION_POPULATION_RHYTHM)
+        .fit(&inputs, lengths)
     }
 
     fn curated_pool_for_pos(next_pos: CoarsePos) -> &'static [&'static str] {
@@ -638,7 +648,7 @@ impl TextPredictor {
         candidates.extend_from_slice(Self::curated_pool_for_pos(next_pos));
 
         best_from_pool(&candidates, target_tone, target_len, recency)
-            .unwrap_or("world")
+            .unwrap_or(DEFAULT_FALLBACK_WORD)
             .to_string()
     }
 
@@ -677,7 +687,7 @@ impl TextPredictor {
             return Err(LmmError::Perception("Input text is empty".into()));
         }
         let all_tokens: Vec<String> = text.split_whitespace().map(String::from).collect();
-        if all_tokens.len() < 2 {
+        if all_tokens.len() < MIN_TOKENS_FOR_PREDICTION {
             return Err(LmmError::Perception("Need at least 2 words".into()));
         }
         let window_start = all_tokens.len().saturating_sub(self.window_size);

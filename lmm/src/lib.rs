@@ -22,6 +22,7 @@ pub mod cli;
 pub mod cognition;
 pub mod compression;
 pub mod consciousness;
+pub mod constants;
 pub mod discovery;
 pub mod encode;
 pub mod equation;
