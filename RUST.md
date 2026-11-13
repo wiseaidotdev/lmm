@@ -8,7 +8,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-lmm = "0.4.0"
+lmm = "0.4.1"
 ```
 
 ### Cargo Features
