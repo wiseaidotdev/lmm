@@ -24,6 +24,9 @@ lmm [OPTIONS] [COMMAND]
 The `-p` / `--prompt` flag invokes **TRAM mode** directly at the top level without requiring a subcommand. All TRAM parameters (`--knowledge-base`, `--probability`, `--iterations`, `--depth`, `--think`) are available both at the top level and under the explicit `tram` subcommand:
 
 ```sh
+# Launch the TUI:
+lmm
+
 # Top-level direct execution:
 lmm -p "rust programming" --verbose
 lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose

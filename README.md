@@ -24,10 +24,10 @@
 
 |                                 🐧 Linux `(Recommended)`                                  |                                            🪟 Windows                                             |                                  🐳 Docker                                   |
 | :---------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------: |
-|       ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png)        |          ![lmm-windows](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png)           | ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/linux.png) |
+|       ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/tui-demo.png)        |          ![lmm-windows](https://github.com/wiseaidotdev/lmm/blob/main/assets/tui-demo.png)           | ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/tui-demo.png) |
 | [Download `lmm` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm) | [Download `lmm.exe` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm.exe) |                         `docker pull wiseaidev/lmm`                          |
 |                            `cargo install lmm --all-features`                             |                                `cargo install lmm --all-features`                                 |                        `docker run -it wiseaidev/lmm`                        |
-|                                   `lmm` ← launches CLI                                    |                                       `lmm` ← launches CLI                                        |  [Read DOCKER.md](https://github.com/wiseaidotdev/lmm/blob/main/DOCKER.md)   |
+|                                   `lmm` ← launches TUI                                    |                                       `lmm` ← launches TUI                                        |  [Read DOCKER.md](https://github.com/wiseaidotdev/lmm/blob/main/DOCKER.md)   |
 
 </div>
 
@@ -35,7 +35,7 @@
 
 The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics) pipeline generating coherent, non-repetitive English prose powered entirely by deterministic mathematics and transparent symbolic reasoning. The pipeline runs through six stages: web knowledge retrieval, **adaptive thought engine reasoning**, symbolic inference, global deduplication, structural shaping, and stochastic enhancement.
 
-<video src="https://github.com/user-attachments/assets/0d4ff87e-bf09-4a2e-bcf4-00a4e9754885"></video>
+<video src="https://github.com/user-attachments/assets/6bf9b86f-0dcf-44a6-9bae-ea6575cf6edc"></video>
 
 ### 🔬 Key Capabilities
 
@@ -65,6 +65,9 @@ The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics
 TRAM is LMM's default reasoning engine. All TRAM options are available directly at the top-level CLI command or via the explicit `tram` subcommand:
 
 ```sh
+# Launch the TUI:
+lmm
+
 # Top-level direct execution (default TRAM mode):
 lmm -p "rust programming" --verbose
 lmm -p "machine learning" --probability=0.1 --knowledge-base ./papers --iterations 20 --verbose
