@@ -33,7 +33,7 @@ derivative = "2.2.0"
 clap = { version = "4.6.1", features = ["derive"] }
 duckduckgo = "0.3.2"
 html2text = "0.17.4"
-lopdf = { version = "0.42.0" }
+lopdf = { version = "0.47.0" }
 regex = "1.12.3"
 reqwest = { version = "0.13", features = ["json"] }
 scraper = "0.29.0"
@@ -43,7 +43,7 @@ pyo3 = { version = "0.29.0", features = ["extension-module"] }
 napi = { version = "3.16.1", default-features = false, features = ["napi4"] }
 napi-derive = "3.5.4"
 napi-build = "2.3.1"
-syn = { version = "2.0.117", features = ["full"] }
+syn = { version = "3.0.9", features = ["full"] }
 quote = "1.0.45"
 proc-macro2 = "1.0.106"
 lmm-derive = { version = "0.0.2", path = "./lmm-derive" }
