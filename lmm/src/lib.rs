@@ -47,6 +47,8 @@ pub mod symbolic;
 pub mod tensor;
 pub mod text;
 pub mod tram;
+#[cfg(feature = "cli")]
+pub mod tui;
 
 pub use text::{
     EssayGenerator, ParagraphGenerator, SentenceGenerator, TextSummarizer, aspect_topic,

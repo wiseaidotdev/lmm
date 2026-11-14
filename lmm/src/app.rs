@@ -462,7 +462,7 @@ pub async fn handle_tram(
                         .iter()
                         .any(|&keyword| prompt_lower.contains(keyword))
                     {
-                        let topic_name = extract_topic_name(&prompt);
+                        let topic_name = extract_topic(&prompt);
                         format!(
                             "The advantages of {} are as follows. {}",
                             topic_name, filtered_ia
