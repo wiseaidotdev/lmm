@@ -33,7 +33,7 @@ derivative = "2.2.0"
 clap = { version = "4.6.1", features = ["derive"] }
 duckduckgo = "0.3.2"
 html2text = "0.17.4"
-lopdf = { version = "0.42.0" }
+lopdf = { version = "0.47.0" }
 regex = "1.12.3"
 reqwest = { version = "0.13", features = ["json"] }
 scraper = "0.29.0"
