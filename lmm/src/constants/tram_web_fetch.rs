@@ -97,9 +97,7 @@ pub const AND_CONNECTOR: &str = " and ";
 pub const DIFFERENCES_BETWEEN_PREFIX: &str = "differences between ";
 pub const VS_CONNECTOR: &str = " vs ";
 
-pub const DEFAULT_USER_AGENT: &str = "Mozilla/5.0";
 pub const EMPTY_STRING: &str = "";
-pub const FIREFOX_AGENT: &str = "firefox";
 
 pub const OWNERSHIP_MODEL_SUFFIX: &str = " ownership model";
 pub const ADVANTAGES_OF_PREFIX: &str = "advantages of ";
@@ -120,6 +118,8 @@ pub const DEEP_SCRAPE_IA_PARAM_SOFTWARE: &str = "software";
 pub const DEEP_SCRAPE_IA_PARAM_WEB: &str = "web";
 pub const DEEP_SCRAPE_DOMAIN_FILTER: &str = "duckduckgo.com";
 pub const DEEP_SCRAPE_HTTP_PREFIX: &str = "http";
+pub const DEEP_SCRAPE_DDG_REDIRECT_PREFIX: &str = "/l/?uddg=";
+pub const DEEP_SCRAPE_DDG_REDIRECT_PARAM: &str = "uddg=";
 
 pub const HTML2TEXT_WIDTH: usize = 120;
 pub const TEXT_FILTER_PATTERNS: &[&str] = &[
@@ -176,3 +176,19 @@ pub const MAX_LINKED_URLS_TO_FOLLOW: usize = 4;
 pub const DEEP_SCRAPE_CHUNK_SIZE: usize = 250;
 pub const DEEP_SCRAPE_TOP_K_MULTIPLIER: usize = 3;
 pub const DEEP_SCRAPE_MIN_RELEVANCE_THRESHOLD: f64 = 0.2;
+
+pub const MAX_DEEP_SCRAPE_LITE_RESULTS: usize = 8;
+pub const DEEP_SCRAPE_BACK_OFF_BASE_MS: u64 = 300;
+pub const DEEP_SCRAPE_ASPECT_ADVANTAGE: &str = "advantage";
+pub const DEEP_SCRAPE_ASPECT_BENEFIT: &str = "benefit";
+pub const DEEP_SCRAPE_ASPECT_DISADVANTAGE: &str = "disadvantage";
+pub const DEEP_SCRAPE_LITE_QUERY_REGION: &str = "wt-wt";
+pub const DEEP_SEARCH_URL_FOOTER_HEADER: &str = "\n\nFor more information, see:\n";
+pub const DEEP_SEARCH_URL_FOOTER_BULLET: &str = "  • ";
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

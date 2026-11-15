@@ -12,6 +12,11 @@
 //! **mode-aware**: evaluative prompts generate advantages/disadvantages queries,
 //! task-execution prompts generate code-example queries, and so on.
 //!
+//! An intelligent variant, [`TaskDecomposer::decompose_intelligent`], inspects
+//! the last reinforcement-learning reward signal and prepends an
+//! [`TaskKind::AcquireSkill`] sub-task when the agent needs to build knowledge
+//! before answering.
+//!
 //! ## Examples
 //!
 //! ```rust
@@ -23,6 +28,11 @@
 //! ```
 
 use crate::cognition::thought::classifier::ReasoningMode;
+use crate::constants::task_decomposer::{
+    TASK_ACQUIRE_SKILL_LABEL, TASK_CREATIVE_PREFIXES, TASK_CREATIVE_VERBS, TASK_FALLBACK_LANGUAGE,
+    TASK_FMT_ADVANTAGES, TASK_FMT_BENEFITS, TASK_FMT_HOW_TO, TASK_IN_LANG_PATTERNS, TASK_LANGUAGES,
+    TASK_LOW_REWARD_THRESHOLD, TASK_SKILL_REWARD_BOOST, TASK_STRIP_PREFIXES, TASK_VS_SPLITTERS,
+};
 
 /// The kind of work a [`SubTask`] represents.
 ///
@@ -48,6 +58,17 @@ pub enum TaskKind {
     Comparison(String, String),
     /// Look up the definition of a term.
     Definition(String),
+    /// Acquire knowledge about `topic` before attempting a full answer.
+    ///
+    /// Generated when the last RL reward is below
+    /// [`TASK_LOW_REWARD_THRESHOLD`][crate::constants::task_decomposer::TASK_LOW_REWARD_THRESHOLD],
+    /// signalling that the agent lacks sufficient grounding.
+    AcquireSkill {
+        /// The topic to research.
+        topic: String,
+        /// Pre-built search queries ordered by expected relevance.
+        search_queries: Vec<String>,
+    },
 }
 
 /// A single decomposed sub-task with a typed kind and a search query.
@@ -112,8 +133,8 @@ impl TaskDecomposer {
         let topic = extract_simple_topic(prompt);
         let mut tasks: Vec<SubTask> = match mode {
             ReasoningMode::TaskExecution => {
-                let lang =
-                    Self::extract_code_language(prompt).unwrap_or_else(|| "unknown".to_string());
+                let lang = Self::extract_code_language(prompt)
+                    .unwrap_or_else(|| TASK_FALLBACK_LANGUAGE.to_string());
                 let task_desc = extract_task_description(prompt);
                 vec![
                     SubTask {
@@ -146,13 +167,13 @@ impl TaskDecomposer {
             }
             ReasoningMode::Evaluative => vec![
                 SubTask {
-                    kind: TaskKind::WebSearch(format!("advantages of {}", topic)),
-                    query: format!("advantages of {}", topic),
+                    kind: TaskKind::WebSearch(format!("{} {}", TASK_FMT_ADVANTAGES, topic)),
+                    query: format!("{} {}", TASK_FMT_ADVANTAGES, topic),
                     priority: 0,
                 },
                 SubTask {
-                    kind: TaskKind::WebSearch(format!("benefits of {}", topic)),
-                    query: format!("benefits of {}", topic),
+                    kind: TaskKind::WebSearch(format!("{} {}", TASK_FMT_BENEFITS, topic)),
+                    query: format!("{} {}", TASK_FMT_BENEFITS, topic),
                     priority: 1,
                 },
                 SubTask {
@@ -213,8 +234,8 @@ impl TaskDecomposer {
             }
             ReasoningMode::Procedural => vec![
                 SubTask {
-                    kind: TaskKind::WebSearch(format!("how to {}", topic)),
-                    query: format!("how to {}", topic),
+                    kind: TaskKind::WebSearch(format!("{} {}", TASK_FMT_HOW_TO, topic)),
+                    query: format!("{} {}", TASK_FMT_HOW_TO, topic),
                     priority: 0,
                 },
                 SubTask {
@@ -250,6 +271,75 @@ impl TaskDecomposer {
         tasks
     }
 
+    /// Decomposes `prompt` intelligently, prepending an [`TaskKind::AcquireSkill`]
+    /// task when `last_reward` is below the low-reward threshold.
+    ///
+    /// This is the preferred entry point for the TRAM pipeline because it adapts
+    /// to the RL reward signal: when the agent has low confidence in its knowledge
+    /// of the topic, it schedules a knowledge-acquisition pass before answering.
+    ///
+    /// # Arguments
+    ///
+    /// * `prompt`      - Raw user prompt.
+    /// * `mode`        - Classified reasoning mode.
+    /// * `max`         - Maximum number of sub-tasks to return.
+    /// * `last_reward` - Most-recent episode reward from the learning engine
+    ///   (range 0.0-1.0).  Values below
+    ///   [`TASK_LOW_REWARD_THRESHOLD`] trigger skill acquisition.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::cognition::task_decomposer::TaskDecomposer;
+    /// use lmm::cognition::thought::classifier::ReasoningMode;
+    ///
+    /// let tasks = TaskDecomposer::decompose_intelligent(
+    ///     "what are the advantages of rust?",
+    ///     ReasoningMode::Evaluative,
+    ///     6,
+    ///     0.1,
+    /// );
+    /// // Low reward → first task is AcquireSkill.
+    /// assert!(matches!(
+    ///     tasks[0].kind,
+    ///     lmm::cognition::task_decomposer::TaskKind::AcquireSkill { .. }
+    /// ));
+    /// ```
+    pub fn decompose_intelligent(
+        prompt: &str,
+        mode: ReasoningMode,
+        max: usize,
+        last_reward: f64,
+    ) -> Vec<SubTask> {
+        let mut base = Self::decompose(prompt, mode, max.saturating_sub(1));
+
+        if last_reward < TASK_LOW_REWARD_THRESHOLD {
+            let topic = extract_simple_topic(prompt);
+            let acquire = SubTask {
+                kind: TaskKind::AcquireSkill {
+                    topic: topic.clone(),
+                    search_queries: vec![
+                        format!("{} {}", TASK_FMT_ADVANTAGES, topic),
+                        format!("{} overview", topic),
+                        format!("{} introduction", topic),
+                    ],
+                },
+                query: format!(
+                    "{} {} {}",
+                    TASK_ACQUIRE_SKILL_LABEL, topic, TASK_SKILL_REWARD_BOOST
+                ),
+                priority: 0,
+            };
+            for t in base.iter_mut() {
+                t.priority = t.priority.saturating_add(1);
+            }
+            base.insert(0, acquire);
+        }
+
+        base.truncate(max);
+        base
+    }
+
     /// Returns `true` when the prompt describes a creative/generative task.
     ///
     /// Detects verbs like "write", "generate", "create", "implement",
@@ -265,21 +355,8 @@ impl TaskDecomposer {
     /// assert!(!TaskDecomposer::is_creative_task("what is rust?"));
     /// ```
     pub fn is_creative_task(prompt: &str) -> bool {
-        static CREATIVE_VERBS: &[&str] = &[
-            "write ",
-            "generate ",
-            "create ",
-            "implement ",
-            "code ",
-            "build ",
-            "make ",
-            "produce ",
-            "develop ",
-            "program ",
-            "script ",
-        ];
         let lower = prompt.to_ascii_lowercase();
-        CREATIVE_VERBS.iter().any(|v| lower.starts_with(v))
+        TASK_CREATIVE_VERBS.iter().any(|v| lower.starts_with(v))
     }
 
     /// Extracts the target programming language from a prompt like "... in python".
@@ -302,37 +379,8 @@ impl TaskDecomposer {
     /// assert_eq!(TaskDecomposer::extract_code_language("hello world"), None);
     /// ```
     pub fn extract_code_language(prompt: &str) -> Option<String> {
-        static LANGUAGES: &[(&str, &str)] = &[
-            ("python", "python"),
-            ("rust", "rust"),
-            ("javascript", "javascript"),
-            ("typescript", "typescript"),
-            ("java", "java"),
-            ("kotlin", "kotlin"),
-            ("golang", "go"),
-            (" go ", "go"),
-            ("c++", "cpp"),
-            ("cpp", "cpp"),
-            ("c#", "csharp"),
-            ("csharp", "csharp"),
-            ("ruby", "ruby"),
-            ("php", "php"),
-            ("swift", "swift"),
-            ("scala", "scala"),
-            ("haskell", "haskell"),
-            ("elixir", "elixir"),
-            ("erlang", "erlang"),
-            ("clojure", "clojure"),
-            ("lua", "lua"),
-            ("perl", "perl"),
-            ("bash", "bash"),
-            ("shell", "bash"),
-            ("julia", "julia"),
-            ("dart", "dart"),
-            ("zig", "zig"),
-        ];
         let lower = prompt.to_ascii_lowercase();
-        for &(pattern, canonical) in LANGUAGES {
+        for &(pattern, canonical) in TASK_LANGUAGES {
             if lower.contains(pattern) {
                 return Some(canonical.to_string());
             }
@@ -347,32 +395,8 @@ impl TaskDecomposer {
 ///
 /// O(|prompt|)
 fn extract_simple_topic(prompt: &str) -> String {
-    static STRIP_PREFIXES: &[&str] = &[
-        "what are the advantages of ",
-        "what are the disadvantages of ",
-        "what are the pros and cons of ",
-        "what are the ",
-        "what are ",
-        "what is the ",
-        "what is ",
-        "how to ",
-        "why does ",
-        "why is ",
-        "why are ",
-        "explain ",
-        "describe ",
-        "define ",
-        "write ",
-        "generate ",
-        "create ",
-        "implement ",
-        "make ",
-        "build ",
-        "show me ",
-        "give me ",
-    ];
     let lower = prompt.to_ascii_lowercase();
-    for prefix in STRIP_PREFIXES {
+    for prefix in TASK_STRIP_PREFIXES {
         if lower.starts_with(prefix) {
             return prompt[prefix.len()..]
                 .trim()
@@ -396,9 +420,8 @@ fn extract_simple_topic(prompt: &str) -> String {
 ///
 /// O(|prompt|)
 fn extract_vs_entities(prompt: &str) -> Option<(String, String)> {
-    static SPLITTERS: &[&str] = &[" vs ", " versus ", " compared to "];
     let lower = prompt.to_ascii_lowercase();
-    for &splitter in SPLITTERS {
+    for &splitter in TASK_VS_SPLITTERS {
         if let Some(pos) = lower.find(splitter) {
             let a = extract_simple_topic(&prompt[..pos]);
             let b = prompt[pos + splitter.len()..]
@@ -422,57 +445,15 @@ fn extract_vs_entities(prompt: &str) -> Option<(String, String)> {
 ///
 /// O(|prompt|)
 fn extract_task_description(prompt: &str) -> String {
-    static CREATIVE_PREFIXES: &[&str] = &[
-        "write ",
-        "generate ",
-        "create ",
-        "implement ",
-        "make ",
-        "build ",
-        "show me ",
-        "give me ",
-        "produce ",
-        "develop ",
-        "program ",
-    ];
     let lower = prompt.to_ascii_lowercase();
-    let stripped = CREATIVE_PREFIXES
+    let stripped = TASK_CREATIVE_PREFIXES
         .iter()
         .find_map(|p| lower.strip_prefix(*p))
         .map(|s| &prompt[lower.len() - s.len()..])
         .unwrap_or(prompt);
 
-    static IN_PATTERNS: &[&str] = &[
-        " in python",
-        " in rust",
-        " in javascript",
-        " in typescript",
-        " in java",
-        " in kotlin",
-        " in go",
-        " in golang",
-        " in c++",
-        " in cpp",
-        " in c#",
-        " in csharp",
-        " in ruby",
-        " in php",
-        " in swift",
-        " in scala",
-        " in haskell",
-        " in elixir",
-        " in erlang",
-        " in clojure",
-        " in lua",
-        " in perl",
-        " in bash",
-        " in shell",
-        " in julia",
-        " in dart",
-        " in zig",
-    ];
     let lower2 = stripped.to_ascii_lowercase();
-    for &pat in IN_PATTERNS {
+    for &pat in TASK_IN_LANG_PATTERNS {
         if let Some(pos) = lower2.find(pat) {
             return stripped[..pos].trim().to_string();
         }

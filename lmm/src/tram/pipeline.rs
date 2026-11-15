@@ -30,11 +30,15 @@ use crate::constants::tram_pipeline::{
 };
 #[cfg(feature = "net")]
 use crate::constants::tram_web_fetch::DEEP_SCRAPE_TOP_K_MULTIPLIER;
+#[cfg(feature = "net")]
+use crate::constants::tram_web_fetch::{
+    DEEP_SEARCH_URL_FOOTER_BULLET, DEEP_SEARCH_URL_FOOTER_HEADER,
+};
 use crate::error::Result as LmmResult;
 use crate::expert::{inference::InferenceEngine, rule::RuleBase};
 use crate::generation::{
     contextual_reorder::ContextualReorder, dedup::GlobalDeduplicator, filter::SentenceFilter,
-    prose::ProseBuilder, shaper::ParagraphShaper,
+    phrases_mixer::PhrasesMixer, prose::ProseBuilder, shaper::ParagraphShaper,
 };
 use crate::stochastic::StochasticEnhancer;
 use crate::text::TextSummarizer;
@@ -82,7 +86,12 @@ impl TramPipeline {
 
         let prompt_mode = InputClassifier::classify(prompt);
         #[cfg(feature = "net")]
-        let sub_tasks = TaskDecomposer::decompose(prompt, prompt_mode, self.config.max_tasks);
+        let sub_tasks = TaskDecomposer::decompose_intelligent(
+            prompt,
+            prompt_mode,
+            self.config.max_tasks,
+            self.config.last_reward,
+        );
         #[cfg(feature = "net")]
         if !self.config.no_web {
             for task in &sub_tasks {
@@ -202,19 +211,35 @@ impl TramPipeline {
             answer_text
         };
 
+        let enriched_text = if !processed_text.is_empty() && !self.config.no_frame {
+            PhrasesMixer::global().apply_opener_if_needed(&processed_text, run_seed)
+        } else {
+            processed_text
+        };
+
         let stochastic_result = if self.config.deep {
             StochasticResult {
-                text: processed_text.clone(),
+                text: enriched_text.clone(),
                 substitutions: 0,
                 language: "English".to_string(),
                 probability: 0.0,
             }
         } else {
-            self.apply_stochastic_enhancement(&processed_text)
+            self.apply_stochastic_enhancement(&enriched_text)
         };
 
         let final_text = if self.config.deep || self.config.no_frame {
-            stochastic_result.text.clone()
+            let mut text = stochastic_result.text.clone();
+            #[cfg(feature = "net")]
+            if self.config.deep && !web_fetch_result.all_scraped_urls.is_empty() {
+                text.push_str(DEEP_SEARCH_URL_FOOTER_HEADER);
+                for url in &web_fetch_result.all_scraped_urls {
+                    text.push_str(DEEP_SEARCH_URL_FOOTER_BULLET);
+                    text.push_str(url);
+                    text.push('\n');
+                }
+            }
+            text
         } else if TaskDecomposer::is_creative_task(prompt) {
             self.build_creative_response(
                 prompt,

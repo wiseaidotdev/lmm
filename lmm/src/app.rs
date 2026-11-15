@@ -81,7 +81,7 @@ use {
         error::Result as LmmResult,
         expert::{inference::InferenceEngine, rule::RuleBase},
         field::Field,
-        generation::{dedup::GlobalDeduplicator, prose::ProseBuilder},
+        generation::{dedup::GlobalDeduplicator, phrases_mixer::PhrasesMixer, prose::ProseBuilder},
         imagen::{ImagenParams, StyleMode, render as imagen_render},
         lexicon::Lexicon,
         physics::{HarmonicOscillator, LorenzSystem, Pendulum, SIRModel},
@@ -105,6 +105,7 @@ use {
 #[cfg(all(feature = "cli", feature = "net"))]
 use crate::{
     cli::commands::Commands,
+    constants::tram_web_fetch::{DEEP_SEARCH_URL_FOOTER_BULLET, DEEP_SEARCH_URL_FOOTER_HEADER},
     net::{SearchAggregator, corpus_from_response, corpus_from_results, corpus_from_results_raw},
 };
 
@@ -221,7 +222,7 @@ pub async fn handle_tram(
         crate::tram::web_fetch::prefetch_web(&prompt, &mut index, kb_provided, deep, verbose).await;
 
     let prompt_mode = InputClassifier::classify(&prompt);
-    let sub_tasks = TaskDecomposer::decompose(&prompt, prompt_mode, max_tasks);
+    let sub_tasks = TaskDecomposer::decompose_intelligent(&prompt, prompt_mode, max_tasks, 1.0);
     for task in &sub_tasks {
         if let TaskKind::WebSearch(q) = &task.kind {
             prefetch_web_for_query(q, &mut index, verbose).await;
@@ -710,7 +711,12 @@ pub async fn handle_tram(
         Some(p) => p.clamp(PROBABILITY_MIN, PROBABILITY_MAX),
         None => DEFAULT_STOCHASTIC_PROBABILITY,
     };
-    let enhanced = StochasticEnhancer::new(0.0).enhance_detailed(&answer_text);
+    let enriched_answer = if !answer_text.is_empty() && !no_frame {
+        PhrasesMixer::global().apply_opener_if_needed(&answer_text, run_seed)
+    } else {
+        answer_text.clone()
+    };
+    let enhanced = StochasticEnhancer::new(effective_prob).enhance_detailed(&enriched_answer);
     info!(
         "  🎲 substitutions={} language={:?} prob={:.2}",
         enhanced.substitutions, enhanced.language, effective_prob
@@ -748,16 +754,14 @@ pub async fn handle_tram(
     };
 
     let answer_text = if deep && !web_result.all_scraped_urls.is_empty() {
-        let urls_text = web_result
-            .all_scraped_urls
-            .iter()
-            .map(|url| format!("- {}", url))
-            .collect::<Vec<_>>()
-            .join("\n");
-        format!(
-            "{}\n\nFor further information, please refer to the following resources:\n{}",
-            final_text, urls_text
-        )
+        let mut out = final_text.clone();
+        out.push_str(DEEP_SEARCH_URL_FOOTER_HEADER);
+        for url in &web_result.all_scraped_urls {
+            out.push_str(DEEP_SEARCH_URL_FOOTER_BULLET);
+            out.push_str(url);
+            out.push('\n');
+        }
+        out
     } else {
         final_text
     };

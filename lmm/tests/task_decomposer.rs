@@ -5,7 +5,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use lmm::cognition::task_decomposer::TaskDecomposer;
+use lmm::cognition::task_decomposer::{TaskDecomposer, TaskKind};
 use lmm::cognition::thought::classifier::ReasoningMode;
 
 #[test]
@@ -40,7 +40,6 @@ fn decompose_evaluative_includes_disadvantage_query() {
 
 #[test]
 fn decompose_task_execution_contains_code_generation_task() {
-    use lmm::cognition::task_decomposer::TaskKind;
     let tasks = TaskDecomposer::decompose(
         "write hello world in python",
         ReasoningMode::TaskExecution,
@@ -58,7 +57,6 @@ fn decompose_task_execution_contains_code_generation_task() {
 
 #[test]
 fn decompose_task_execution_extracts_python_language() {
-    use lmm::cognition::task_decomposer::TaskKind;
     let tasks = TaskDecomposer::decompose(
         "write hello world in python",
         ReasoningMode::TaskExecution,
@@ -98,7 +96,6 @@ fn decompose_analogical_produces_vs_query() {
 
 #[test]
 fn decompose_analogical_produces_comparison_task_kind() {
-    use lmm::cognition::task_decomposer::TaskKind;
     let tasks = TaskDecomposer::decompose("rust vs python", ReasoningMode::Analogical, 4);
     let has_comparison = tasks
         .iter()
@@ -124,7 +121,6 @@ fn decompose_procedural_produces_how_to_query() {
 
 #[test]
 fn decompose_definitional_produces_definition_task_kind() {
-    use lmm::cognition::task_decomposer::TaskKind;
     let tasks =
         TaskDecomposer::decompose("define ownership in rust", ReasoningMode::Definitional, 4);
     assert!(!tasks.is_empty());
@@ -245,6 +241,76 @@ fn task_priorities_are_ordered_ascending() {
     assert_eq!(
         priorities, sorted,
         "Tasks should be ordered by ascending priority"
+    );
+}
+
+#[test]
+fn decompose_intelligent_low_reward_adds_acquire_skill() {
+    let tasks = TaskDecomposer::decompose_intelligent(
+        "what are the advantages of rust?",
+        ReasoningMode::Evaluative,
+        6,
+        0.1,
+    );
+    assert!(!tasks.is_empty(), "Should produce at least one task");
+    assert!(
+        matches!(tasks[0].kind, TaskKind::AcquireSkill { .. }),
+        "First task should be AcquireSkill when reward is low, got: {:?}",
+        tasks[0].kind
+    );
+}
+
+#[test]
+fn decompose_intelligent_high_reward_no_acquire_skill() {
+    let tasks = TaskDecomposer::decompose_intelligent(
+        "what are the advantages of rust?",
+        ReasoningMode::Evaluative,
+        6,
+        0.9,
+    );
+    assert!(!tasks.is_empty(), "Should produce at least one task");
+    assert!(
+        !matches!(tasks[0].kind, TaskKind::AcquireSkill { .. }),
+        "First task should NOT be AcquireSkill when reward is high"
+    );
+}
+
+#[test]
+fn acquire_skill_has_search_queries() {
+    let tasks = TaskDecomposer::decompose_intelligent(
+        "what are the advantages of rust?",
+        ReasoningMode::Evaluative,
+        6,
+        0.0,
+    );
+    if let TaskKind::AcquireSkill {
+        topic,
+        search_queries,
+    } = &tasks[0].kind
+    {
+        assert!(!topic.is_empty(), "AcquireSkill topic must not be empty");
+        assert!(
+            !search_queries.is_empty(),
+            "AcquireSkill must have at least one search query"
+        );
+    } else {
+        panic!("Expected AcquireSkill as first task");
+    }
+}
+
+#[test]
+fn decompose_intelligent_respects_max_bound() {
+    let tasks = TaskDecomposer::decompose_intelligent(
+        "what are the advantages of rust?",
+        ReasoningMode::Evaluative,
+        3,
+        0.0,
+    );
+    assert!(
+        tasks.len() <= 3,
+        "decompose_intelligent must respect max={}, got {}",
+        3,
+        tasks.len()
     );
 }
 

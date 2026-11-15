@@ -39,7 +39,7 @@ pub const ESSAY_LABEL_INTRODUCTION: &str = "Introduction";
 pub const ESSAY_LABEL_CONCLUSION: &str = "Conclusion";
 pub const ESSAY_LABEL_BODY_PREFIX: &str = "Body · §";
 
-pub const DEFAULT_STOCHASTIC_PROBABILITY: f64 = 0.12;
+pub const DEFAULT_STOCHASTIC_PROBABILITY: f64 = 0.08;
 pub const PROBABILITY_MIN: f64 = 0.0;
 pub const PROBABILITY_MAX: f64 = 1.0;
 pub const MIN_EXPERT_PROSE_WORDS: usize = 30;

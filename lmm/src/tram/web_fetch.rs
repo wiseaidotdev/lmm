@@ -11,6 +11,8 @@
 
 use crate::cognition::knowledge::KnowledgeIndex;
 #[cfg(feature = "net")]
+use crate::constants::net::DEFAULT_BROWSER_AGENT;
+#[cfg(feature = "net")]
 use crate::constants::tram_logging::{
     IA_FOUND_LOG_PREFIX, IA_FOUND_LOG_SUFFIX, WEB_SEARCH_LOG_PREFIX,
 };
@@ -18,9 +20,9 @@ use crate::constants::tram_logging::{
 use crate::constants::tram_web_fetch::{
     ADVANTAGES_OF_PREFIX, ADVANTAGES_PREFIX, AMBIGUOUS_LENGTH_THRESHOLD, AMBIGUOUS_WORDS,
     AND_CONNECTOR, BENEFITS_OF_PREFIX, BENEFITS_PREFIX, CAUSAL_KEYWORDS, CAUSAL_OPENERS,
-    CHEMICAL_SUFFIX, COMPARE_PREFIX, COMPOUND_SUFFIX, DEFAULT_USER_AGENT, DESIGN_DECISIONS_SUFFIX,
+    CHEMICAL_SUFFIX, COMPARE_PREFIX, COMPOUND_SUFFIX, DESIGN_DECISIONS_SUFFIX,
     DIFFERENCES_BETWEEN_PREFIX, DISADVANTAGE_KEYWORDS, DISADVANTAGES_PREFIX, DUCKY_PREFIX,
-    ELEMENT_SUFFIX, EMPTY_STRING, EVALUATIVE_KEYWORDS, FIREFOX_AGENT, MAX_DEEP_SCRAPE_ITERATIONS,
+    ELEMENT_SUFFIX, EMPTY_STRING, EVALUATIVE_KEYWORDS, MAX_DEEP_SCRAPE_ITERATIONS,
     MAX_DUCKY_RESULTS, MAX_LITE_RESULTS, MAX_RELATED_TOPICS, MAX_TOPIC_PAIR_WORDS,
     MEMORY_MANAGEMENT_SUFFIX, MIN_ENTITY_WORD_LENGTH, MIN_IA_FALLBACK_WORD_COUNT,
     MIN_IA_WORD_COUNT, MIN_LITE_SNIPPET_WORD_COUNT, MIN_PROVERB_WORD_COUNT, OWNERSHIP_MODEL_SUFFIX,
@@ -30,7 +32,7 @@ use crate::constants::tram_web_fetch::{
     WEB_LITE_SOURCE, WEB_SCRAPE_SOURCE, WHAT_IS_PREFIX,
 };
 #[cfg(feature = "net")]
-use crate::net::{Browser, agent};
+use crate::net::{Browser, agent, user_agent_by_seed};
 use crate::tram::config::WebFetchResult;
 #[cfg(feature = "net")]
 use crate::tram::query::extract_topic;
@@ -64,7 +66,7 @@ pub async fn prefetch_web_for_query(
     verbose: bool,
 ) -> WebFetchResult {
     let browser = Browser::new();
-    let ua = agent(FIREFOX_AGENT).unwrap_or(DEFAULT_USER_AGENT);
+    let ua = agent(DEFAULT_BROWSER_AGENT).unwrap_or_else(|| user_agent_by_seed(0));
     let encoded: String = query
         .chars()
         .map(|c| if c == ' ' { '+' } else { c })
@@ -191,7 +193,7 @@ pub async fn prefetch_web(
     }
 
     let browser = Browser::new();
-    let ua = agent(FIREFOX_AGENT).unwrap_or(DEFAULT_USER_AGENT);
+    let ua = agent(DEFAULT_BROWSER_AGENT).unwrap_or_else(|| user_agent_by_seed(0));
     let mut ingested = 0usize;
     let mut prose_chunks = 0usize;
     let mut lite_snippets_found = 0usize;

@@ -7,11 +7,20 @@
 
 //! # Stochastic Constants
 
-pub const DEFAULT_REPLACEMENT_PROBABILITY: f64 = 0.12;
+pub const DEFAULT_REPLACEMENT_PROBABILITY: f64 = 0.22;
 
 pub const PROBABILITY_MIN: f64 = 0.0;
 
 pub const PROBABILITY_MAX: f64 = 1.0;
+
+/// Rate at which random entropy (novel word swaps) is injected into the
+/// stochastic enhancement pass, independent of the synonym replacement
+/// probability.
+pub const ENTROPY_INJECTION_RATE: f64 = 0.35;
+
+/// Maximum number of recursive phrase substitution passes applied to a
+/// single sentence during stochastic enhancement.
+pub const PHRASE_SUBSTITUTION_DEPTH: usize = 3;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub const WORDLIST_MIN_WORD_LEN: usize = 5;
