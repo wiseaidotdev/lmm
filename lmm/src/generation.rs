@@ -25,6 +25,7 @@ pub mod coherence;
 pub mod contextual_reorder;
 pub mod dedup;
 pub mod filter;
+pub mod phrases_mixer;
 pub mod prose;
 pub mod relevance;
 pub mod shaper;

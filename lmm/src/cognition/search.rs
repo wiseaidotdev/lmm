@@ -47,7 +47,9 @@ use std::collections::HashMap;
 #[cfg(any(feature = "net", feature = "wasm-net"))]
 use crate::constants::cognition_search::MAX_RELATED_TOPICS_SEARCH;
 #[cfg(feature = "net")]
-use crate::constants::net::{DEFAULT_BROWSER_AGENT, DEFAULT_USER_AGENT};
+use crate::constants::net::DEFAULT_BROWSER_AGENT;
+#[cfg(feature = "net")]
+use crate::net::user_agent_by_seed;
 #[cfg(any(feature = "net", feature = "wasm-net"))]
 use duckduckgo::browser::Browser;
 #[cfg(feature = "net")]
@@ -173,7 +175,7 @@ impl SearchOracle {
 
         #[cfg(feature = "net")]
         {
-            let ua = get_ua(DEFAULT_BROWSER_AGENT).unwrap_or(DEFAULT_USER_AGENT);
+            let ua = get_ua(DEFAULT_BROWSER_AGENT).unwrap_or_else(|| user_agent_by_seed(0));
             return lite_snippets(&browser, query, ua, self.limit).await;
         }
 

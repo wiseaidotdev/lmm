@@ -19,7 +19,7 @@
 //!   `Default` impl.
 
 #[cfg(feature = "net")]
-use crate::constants::net::{DEFAULT_BROWSER_AGENT, DEFAULT_USER_AGENT};
+use crate::constants::net::DEFAULT_BROWSER_AGENT;
 use crate::constants::net::{
     MAX_RELATED_TOPICS, MAX_TOPIC_WORDS, MIN_WORDS_FOR_SNIPPET, MIN_WORDS_FOR_TITLE,
     MIN_WORDS_FOR_TOPIC_PREFIX,
@@ -27,7 +27,51 @@ use crate::constants::net::{
 use anyhow::Result;
 pub use duckduckgo::browser::Browser;
 pub use duckduckgo::response::{LiteSearchResult, Response, ResultFormat};
+use duckduckgo::user_agents::USER_AGENTS;
 pub use duckduckgo::user_agents::get as agent;
+
+/// Returns a user-agent string selected deterministically from the full
+/// [`duckduckgo::user_agents::USER_AGENTS`] map (≈ 9 600 entries) using
+/// `seed` as a rotation index.
+///
+/// Because [`phf::Map`] is not random-access, the selection is done by
+/// skipping `seed % len` entries in the iterator.  The same seed always
+/// returns the same string within a single binary run, and different seeds
+/// produce meaningfully different agents across the full catalogue.
+///
+/// # Arguments
+///
+/// * `seed` - Any `u64` value used to pick an entry (e.g. the pipeline
+///   run seed, an iteration counter, or a timestamp subsecond nanos value).
+///
+/// # Returns
+///
+/// A `'static` reference to the selected user-agent string.
+/// Falls back to `"Mozilla/5.0"` only when the map is somehow empty
+/// (which cannot happen in practice).
+///
+/// # Examples
+///
+/// ```rust
+/// use lmm::net::user_agent_by_seed;
+///
+/// let ua = user_agent_by_seed(0);
+/// assert!(!ua.is_empty());
+/// let ua2 = user_agent_by_seed(42);
+/// assert!(!ua2.is_empty());
+/// ```
+pub fn user_agent_by_seed(seed: u64) -> &'static str {
+    let len = USER_AGENTS.len();
+    if len == 0 {
+        return "Mozilla/5.0";
+    }
+    let idx = (seed as usize) % len;
+    USER_AGENTS
+        .values()
+        .nth(idx)
+        .copied()
+        .unwrap_or("Mozilla/5.0")
+}
 
 /// Percent-encodes a query string for safe inclusion in a URL query parameter.
 ///
@@ -159,7 +203,7 @@ impl SearchAggregator {
     /// (`Result<Vec<LiteSearchResult>>`): A list of title + snippet pairs.
     #[cfg(feature = "net")]
     pub async fn fetch(&self, query: &str, limit: usize) -> Result<Vec<LiteSearchResult>> {
-        let ua = agent(DEFAULT_BROWSER_AGENT).unwrap_or(DEFAULT_USER_AGENT);
+        let ua = agent(DEFAULT_BROWSER_AGENT).unwrap_or_else(|| user_agent_by_seed(0));
         self.browser
             .lite_search(query, &self.region, Some(limit), ua)
             .await

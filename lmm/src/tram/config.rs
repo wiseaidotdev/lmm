@@ -66,6 +66,12 @@ pub struct TramConfig {
     pub rule_source_limit: usize,
     pub use_assembly: bool,
     pub use_summarizer_fallback: bool,
+    /// Most-recent episode reward from the learning engine (0.0-1.0).
+    ///
+    /// A value below [`crate::constants::task_decomposer::TASK_LOW_REWARD_THRESHOLD`]
+    /// causes [`TaskDecomposer::decompose_intelligent`] to prepend an
+    /// `AcquireSkill` sub-task.
+    pub last_reward: f64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -109,6 +115,7 @@ impl Default for TramConfig {
             rule_source_limit: DEFAULT_RULE_SOURCE_LIMIT,
             use_assembly: DEFAULT_USE_ASSEMBLY,
             use_summarizer_fallback: DEFAULT_USE_SUMMARIZER_FALLBACK,
+            last_reward: 1.0,
         }
     }
 }
@@ -162,6 +169,7 @@ pub struct TramConfigBuilder {
     rule_source_limit: Option<usize>,
     use_assembly: bool,
     use_summarizer_fallback: bool,
+    last_reward: Option<f64>,
 }
 
 impl TramConfigBuilder {
@@ -270,6 +278,21 @@ impl TramConfigBuilder {
         self
     }
 
+    /// Sets the last RL reward for use in intelligent task decomposition.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::tram::config::TramConfig;
+    ///
+    /// let cfg = TramConfig::builder().last_reward(0.2).build();
+    /// assert_eq!(cfg.last_reward, 0.2);
+    /// ```
+    pub fn last_reward(mut self, value: f64) -> Self {
+        self.last_reward = Some(value);
+        self
+    }
+
     pub fn build(self) -> TramConfig {
         TramConfig {
             iterations: self.iterations.unwrap_or(DEFAULT_ITERATIONS),
@@ -305,6 +328,7 @@ impl TramConfigBuilder {
             rule_source_limit: self.rule_source_limit.unwrap_or(DEFAULT_RULE_SOURCE_LIMIT),
             use_assembly: self.use_assembly,
             use_summarizer_fallback: self.use_summarizer_fallback,
+            last_reward: self.last_reward.unwrap_or(1.0),
         }
     }
 }

@@ -2,7 +2,7 @@
 
 # 🌟 LMM 🦀
 
-[![LMM](https://github.com/wiseaidotdev/lmm/blob/main/assets/logo.png)](https://docs.rs/lmm/)
+[![LMM](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/logo.png)](https://docs.rs/lmm/)
 
 [![Work In Progress](https://img.shields.io/badge/Work%20In%20Progress-orange)](https://github.com/wiseaidotdev/lmm)
 [![ASI (Best Run)](https://img.shields.io/badge/ASI-14.55%25-brown)](https://arcprize.org/replay/69c86b04-c9ff-4ae2-98e8-eade2e4c2214)
@@ -12,22 +12,22 @@
 [![PyPI version](https://img.shields.io/pypi/v/lmm-rs.svg)](https://pypi.org/project/lmm-rs/)
 [![NPM version](https://img.shields.io/npm/v/@wiseaidev/lmm.svg)](https://www.npmjs.com/package/@wiseaidev/lmm)
 [![made-with-rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg?logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Rust](https://img.shields.io/badge/Rust-1.86%2B-blue.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/Rust-1.89%2B-blue.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/wiseaidev)
 
-[![Share On Reddit](https://img.shields.io/badge/share%20on-reddit-red?logo=reddit)](https://reddit.com/submit?url=https://github.com/wiseaidotdev/lmm&title=LMM%3A%20Large%20Mathematical%20Model%20%E2%80%94%20Encode%20Reality%20as%20Equations)
-[![Share On X](https://img.shields.io/badge/share%20on-X-03A9F4?logo=x)](https://twitter.com/share?url=https://github.com/wiseaidotdev/lmm&text=LMM%3A%20Large%20Mathematical%20Model%20%E2%80%94%20Encode%20Reality%20as%20Equations)
+[![Share On Reddit](https://img.shields.io/badge/share%20on-reddit-red?logo=reddit)](https://reddit.com/submit?url=https://github.com/wiseaidotdev/lmm&title=LMM%3A%20Large%20Mathematical%20Model)
+[![Share On X](https://img.shields.io/badge/share%20on-X-03A9F4?logo=x)](https://twitter.com/share?url=https://github.com/wiseaidotdev/lmm&text=LMM%3A%20Large%20Mathematical%20Model)
 [![Share On Linkedin](https://img.shields.io/badge/share%20on-linkedin-3949AB?logo=linkedin)](https://www.linkedin.com/shareArticle?url=https://github.com/wiseaidotdev/lmm&title=LMM%3A%20Large%20Mathematical%20Model)
 
 > **LMM (Large Mathematical Model)** empowers you to build ethical AI systems, without GPUs, training data, or API keys. Grounded in pure mathematics and transparent symbolic reasoning, LMM gives every developer, regardless of compute budget, the ability to create AI that is auditable, explainable, and bias-free by design. No data exploitation. No environmental cost. Just mathematics.
 
-|                                 🐧 Linux `(Recommended)`                                  |                                            🪟 Windows                                             |                                  🐳 Docker                                   |
-| :---------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------: |
-|       ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/tui-demo.png)        |          ![lmm-windows](https://github.com/wiseaidotdev/lmm/blob/main/assets/tui-demo.png)           | ![lmm-linux](https://github.com/wiseaidotdev/lmm/blob/main/assets/tui-demo.png) |
-| [Download `lmm` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm) | [Download `lmm.exe` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm.exe) |                         `docker pull wiseaidev/lmm`                          |
-|                            `cargo install lmm --all-features`                             |                                `cargo install lmm --all-features`                                 |                        `docker run -it wiseaidev/lmm`                        |
-|                                   `lmm` ← launches TUI                                    |                                       `lmm` ← launches TUI                                        |  [Read DOCKER.md](https://github.com/wiseaidotdev/lmm/blob/main/DOCKER.md)   |
+|                                       🐧 Linux `(Recommended)`                                       |                                               🪟 Windows                                               |                                              🐳 Docker                                               |
+| :--------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------: |
+| ![lmm-linux](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/tui-demo.png) | ![lmm-windows](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/tui-demo.png) | ![lmm-linux](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/tui-demo.png) |
+|      [Download `lmm` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm)       |   [Download `lmm.exe` binary](https://github.com/wiseaidotdev/lmm/releases/latest/download/lmm.exe)    |                                     `docker pull wiseaidev/lmm`                                      |
+|                                  `cargo install lmm --all-features`                                  |                                   `cargo install lmm --all-features`                                   |                                    `docker run -it wiseaidev/lmm`                                    |
+|                                         `lmm` ← launches TUI                                         |                                          `lmm` ← launches TUI                                          |              [Read DOCKER.md](https://github.com/wiseaidotdev/lmm/blob/main/DOCKER.md)               |
 
 </div>
 
@@ -36,31 +36,6 @@
 The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics) pipeline generating coherent, non-repetitive English prose powered entirely by deterministic mathematics and transparent symbolic reasoning. The pipeline runs through six stages: web knowledge retrieval, **adaptive thought engine reasoning**, symbolic inference, global deduplication, structural shaping, and stochastic enhancement.
 
 <video src="https://github.com/user-attachments/assets/6bf9b86f-0dcf-44a6-9bae-ea6575cf6edc"></video>
-
-### 🔬 Key Capabilities
-
-- 🛡️ **Ethical AI by design**: no training-data bias, no GPU requirement, no proprietary API dependencies. Full auditability, transparency, and explainability baked in.
-- 🧬 **Genetic Programming**: population-based symbolic regression with template seeding (linear, quadratic, periodic) and variable-enforcement guards.
-- 📐 **Symbolic Calculus**: automatic differentiation (chain rule, product rule, trig) and constant-folding simplification.
-- 🌀 **Physics Suite**: Harmonic Oscillator, Lorenz Attractor, Pendulum, SIR Epidemic, N-body Gravity; All implement `Simulatable`.
-- 🔢 **Field Calculus**: N-D gradient, Laplacian, divergence, and 3-D curl via central differences.
-- 🔗 **Causal Reasoning**: structural causal models, `do(X=v)` interventions, and counterfactual queries.
-- 🧩 **Neural Operators**: circular convolution with SGD kernel learning and Fourier spectral operators.
-- 🔤 **Text ↔ Equation**: losslessly encode any text string into a symbolic equation and recover it exactly via integer residuals.
-- 🔮 **Symbolic Prediction**: equation-native text continuation using sliding-window GP regression and vocabulary anchoring.
-- 🔍 **Sentence Filter**: declarative pre-ingestion noise gate, discards metadata lines, disambiguation fragments, low information-density text, and sub-8-word snippets before they enter the KnowledgeIndex.
-- 🔄 **Global Deduplicator**: Jaccard-similarity deduplication (threshold 0.65) eliminates near-duplicate sentences after expert + extractive prose is merged, ensuring clean, non-repetitive output.
-- 🏗️ **Paragraph Shaper**: structural output formatter enforcing 2 paragraphs, 2-5 sentences per paragraph, and 40-180 words per paragraph with discourse connector injection between paragraphs.
-- 🎲 **Stochastic Enhancement**: synonym-bank word replacement (`--stochastic`) delivers unique output each run while preserving mathematical sentence structure.
-- 🎨 **Spectral Image Synthesis**: generate procedural PPM images from a text prompt by hashing it into Fourier wave components.
-- 🧠 **Expert System**: IF-THEN production rules auto-derived from KB chunks at runtime; backward-chaining inference engine with Prospector-model certainty factors; how/why explanation facility; slot-filling `ProseBuilder` that constructs novel paragraphs, never copies verbatim.
-- 🔀 **Coherence Scoring**: greedy nearest-neighbour sentence reordering by token overlap maximises topical flow across generated paragraphs.
-- 💡 **Adaptive Thought Engine (ATE)**: multi-step symbolic reasoner that classifies each prompt into one of eight reasoning modes (`factual`, `causal`, `procedural`, `analogical`, `definitional`, `exploratory`, `evaluative`, `task`) and iterates through typed thought steps to build a goal-directed reasoning chain before the main pipeline runs. Activated with `--think` / `-t`.
-- 🎯 **Context-Aware Response Framing**: the final answer is prefixed with an intent-specific phrase (e.g. "The advantages of Rust are..."). Always-on; suppressible with `--no-frame`.
-- 🔍 **Task Decomposer**: fires up to `--max-tasks` intent-specific web queries to enrich the KB with mode-relevant content before reasoning.
-- 💻 **Code Responder**: for `task`-mode prompts, renders a fenced code block with templates or KB-extracted snippets.
-
-## 🧮 TRAM: Text Reasoning and Applied Mathematics
 
 TRAM is LMM's default reasoning engine. All TRAM options are available directly at the top-level CLI command or via the explicit `tram` subcommand:
 
@@ -97,94 +72,41 @@ lmm tram -p "what is WebAssembly?" --think --verbose
 lmm tram -p "write hello world in rust" --max-tasks 4 --verbose
 ```
 
-### ⚙️ Architecture
+## 🎛️ Modes of Operations
 
-```mermaid
-flowchart TD
-    A["User: lmm -p 'topic'"] --> B["handle_tram()"]
-    B --> WEB["Web Prefetch\nSearchAggregator\n(DuckDuckGo IA → CORS proxy → Wikipedia)"]
-    WEB --> DEAMB["remove_disambiguation_snippets()\nStrip (band) / (film) / (song) artefacts"]
-    DEAMB --> SFILT["SentenceFilter\nPre-ingestion noise gate\n(metadata · low-density · too-short · bare-question-titles)"]
-    SFILT --> IDX["KnowledgeIndex\n(IDF-weighted ingestion)"]
+LMM supports 4 modes of operations: ask (regular web search), think (think & ate engine), deep search. The following demostrates the output of two of these modes:
 
-    B --> TDEC["TaskDecomposer\nClassify prompt mode\nFire intent-specific sub-queries\n(advantages of · vs · how to · code example)"]
-    TDEC --> IDX
+|                                             Search                                              |                                            Think + Deep Search                                            |
+| :---------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: |
+| ![search](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/search.png) | ![deep search](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/deep-search.png) |
 
-    B --> ATE_CHECK{"--think flag?"}
-    ATE_CHECK -- yes --> ATE["Adaptive Thought Engine\nClassify prompt mode\n(factual/causal/procedural/analogical/\ndefinitional/exploratory/evaluative/task)"]
-    ATE --> ATE_STEPS["Typed Thought Steps\n(deductive · abductive · analogical · corrective)\nSearchOracle queries per sub-goal"]
-    ATE_STEPS --> ATE_CHAIN["ThoughtChain\nfactual_insight → KB seed\nprioritized_queries → ThinkLoop goal"]
-    ATE_CHAIN --> TL
-    ATE_CHECK -- no --> TL
-
-    B --> TL["ThinkLoop.run()\nPID-style closed-loop reasoning"]
-    TL --> TL1["Reflector.formulate_query()"]
-    TL1 --> TL2["SearchOracle.fetch()"]
-    TL2 --> TL3["CognitionSignal: Jaccard error"]
-    TL3 --> TL4{"error < 0.70?"}
-    TL4 -- yes --> TL5["converged = true"]
-    TL4 -- no --> TL6{"observation empty?"}
-    TL6 -- yes --> TL7["stall_streak++"]
-    TL6 -- no --> TL8["stall_streak = 0"]
-    TL7 & TL8 --> TL1
-    TL5 --> COLD["ColdStore: memory chunks → KB"]
-    COLD --> IDX
-
-    IDX --> KA["KnowledgeIndex.answer(prompt, top_k)"]
-    KA --> RULES["RuleBase.from_chunks()\nIF-THEN production rules"]
-    RULES --> INFER["InferenceEngine\nBackward chaining · max_depth=3"]
-    INFER --> CF{"CF ≥ 0.20?"}
-    CF -- yes --> PROSE["ProseBuilder\nSlot-filling paragraph synthesis\n+ CoherenceScorer"]
-    CF -- no --> PROSE_SKIP["Skip expert path"]
-
-    KA --> MRG["Merge expert + extractive prose"]
-    PROSE --> MRG
-    PROSE_SKIP --> MRG
-
-    MRG --> DEDUP["GlobalDeduplicator\nJaccard similarity dedup\n(threshold = 0.65)"]
-    DEDUP --> SFILT2["SentenceFilter.is_acceptable()\nPost-merge quality gate\n+ dangling-preposition filter\n+ bare-question-title filter"]
-    SFILT2 --> OPENER["is_good_opener()\nBAD_OPENERS + CONTINUATION_ADVERBS check\nSwap best opener to position 0"]
-    OPENER --> SHAPER["ParagraphShaper\n2 paragraphs · 2-5 sentences each\n40-180 words per paragraph"]
-    SHAPER --> STOCH["StochasticEnhancer\nSynonym substitution (p = 0.05)"]
-    STOCH --> FRAME["ResponseFramer\nIntent-specific opening phrase\n(evaluative/causal/analogical/procedural/task)"]
-    FRAME --> OUT["Final Output\ncoherent · intent-aware · unique · bias-free"]
-```
+For more information, see the **[Architecture](https://github.com/wiseaidotdev/lmm/blob/main/ARCH.md)** document.
 
 ## 📦 Installation
 
-The `lmm` crate ships the following Cargo features:
-
-| Feature       | Description                                          |
-| ------------- | ---------------------------------------------------- |
-| `rust-binary` | Enables the standalone `lmm` terminal CLI executable |
-| `cli`         | Core CLI scaffolding (subsets of `rust-binary`)      |
-| `net`         | Internet-aware `ask` command via DuckDuckGo search   |
-| `python`      | Python extension module via `pyo3` / maturin         |
-| `node`        | Node.js native add-on via `napi-derive`              |
-
-## 🦀 Rust
+### 🦀 Rust
 
 The `lmm` library is available on [crates.io](https://crates.io/crates/lmm). For the complete API reference, installation guide, and worked examples, see the **[Rust usage guide](https://github.com/wiseaidotdev/lmm/blob/main/RUST.md)**.
 
-## 💻 Command-Line Interface
+### 💻 Command-Line Interface
 
 The `lmm` binary supports 15 subcommands spanning simulation, discovery, encoding, prediction, summarisation, and rich text generation: all powered by pure equations.
 
 For the full option reference and usage examples, see the **[CLI documentation](https://github.com/wiseaidotdev/lmm/blob/main/CLI.md)** or run `lmm --help` after installing with `cargo install lmm --all-features`.
 
-## 🐍 Python
+### 🐍 Python
 
 The Python bindings are published to PyPI as **`lmm-rs`** and are installed with `pip install lmm-rs`. Built with [maturin](https://www.maturin.rs/), the package ships pre-compiled wheels for major CPython versions and runs a fully embedded Tokio runtime; no `asyncio` required.
 
 For installation instructions, configuration options, and full method signatures, see the **[Python usage guide](https://github.com/wiseaidotdev/lmm/blob/main/PYTHON.md)**.
 
-## 🟩 Node.js
+### 🟩 Node.js
 
 The Node.js bindings are published to npm as **`@wiseaidev/lmm`** and are installed with `npm install @wiseaidev/lmm`. Built with [napi-rs](https://napi.rs/), the package ships a pre-compiled `.node` add-on with TypeScript type definitions.
 
 For installation instructions, type definitions, and examples, see the **[Node.js usage guide](https://github.com/wiseaidotdev/lmm/blob/main/NODE.md)**.
 
-## 🌐 WebAssembly (WASM)
+### 🌐 WebAssembly (WASM)
 
 LMM natively targets `wasm32-unknown-unknown`. Because `reqwest` switches to the browser `fetch` API automatically, you can deploy LMM inside Rust frontend frameworks such as **Yew**, **Dioxus**, and **Leptos** without any additional glue code.
 
@@ -239,7 +161,7 @@ Contributions are welcome! Feel free to open issues or pull requests on [GitHub]
 
 ## 📄 License
 
-Licensed under the [MIT License](LICENSE).
+Licensed under the [MIT License](https://github.com/wiseaidotdev/lmm/blob/main/LICENSE).
 
 ## ⭐ Star Us
 

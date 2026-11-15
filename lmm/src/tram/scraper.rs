@@ -20,6 +20,8 @@ use crate::constants::tram_web_fetch::{
     STANDALONE_CITATION_REGEX, TEXT_FILTER_DOMAINS, TEXT_FILTER_PATTERNS, URL_FILTER_DOMAINS,
     URL_FILTER_KEYWORDS, URL_FILTER_PATHS, URL_FILTER_SCHEMES,
 };
+#[cfg(feature = "net")]
+use crate::net::user_agent_by_seed;
 use regex::Regex;
 use scraper::{Html, Selector};
 
@@ -42,8 +44,11 @@ pub async fn scrape_and_ingest(url: &str, index: &mut KnowledgeIndex, source_lab
         return 0;
     }
 
+    let seed: u64 = url
+        .bytes()
+        .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
     let client = reqwest::Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .user_agent(user_agent_by_seed(seed))
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .ok();
@@ -97,8 +102,11 @@ pub async fn scrape_and_ingest_with_redirect(
         return (0, Vec::new());
     }
 
+    let seed: u64 = url
+        .bytes()
+        .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
     let client = reqwest::Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .user_agent(user_agent_by_seed(seed))
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .ok();

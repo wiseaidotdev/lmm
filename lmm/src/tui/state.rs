@@ -388,6 +388,7 @@ impl TuiState {
             rule_source_limit: settings.rule_source_limit,
             use_assembly: settings.use_assembly,
             use_summarizer_fallback: settings.use_summarizer_fallback,
+            last_reward: 1.0,
         };
         Some(Arc::new(TramPipeline::new(config)))
     }
