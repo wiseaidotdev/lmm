@@ -3046,7 +3046,7 @@ dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "phf 0.13.1",
+ "phf 0.14.0",
  "pyo3",
  "rand 0.10.3",
  "ratatui",
