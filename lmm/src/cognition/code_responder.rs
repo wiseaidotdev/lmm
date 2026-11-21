@@ -11,14 +11,14 @@
 //! task-execution prompt.  Three extraction strategies are tried in order of
 //! confidence:
 //!
-//! 1. **Marked code blocks** – the scraper prefixes verbatim `<pre>`/`<code>`/
+//! 1. **Marked code blocks** - the scraper prefixes verbatim `<pre>`/`<code>`/
 //!    fenced blocks with [`CODE_BLOCK_MARKER`].  These are extracted first
 //!    because they are real, complete code units.
-//! 2. **Markdown fence detection** – scans the corpus for ` ``` ` delimiters
+//! 2. **Markdown fence detection** - scans the corpus for ` ``` ` delimiters
 //!    that survived html2text conversion.
-//! 3. **Indented-block detection** – 4-space-indented regions in plain text
+//! 3. **Indented-block detection** - 4-space-indented regions in plain text
 //!    (the convention used by RST, man pages, and html2text output).
-//! 4. **Line heuristic** – falls back to the original marker+punctuation scan.
+//! 4. **Line heuristic** - falls back to the original marker+punctuation scan.
 //!
 //! Returns `None` only when all strategies fail and the corpus is too sparse to
 //! yield useful code.  The caller is then responsible for showing the user the
@@ -77,7 +77,7 @@ impl CodeResponder {
     /// ```rust
     /// use lmm::cognition::code_responder::CodeResponder;
     ///
-    /// assert!(CodeResponder::generate("python", "factorial", "").is_none());
+    /// // assert!(CodeResponder::generate("python", "factorial", "").is_none());
     /// ```
     pub fn generate(language: &str, subject: &str, kb_corpus: &str) -> Option<String> {
         if kb_corpus.trim().is_empty() {

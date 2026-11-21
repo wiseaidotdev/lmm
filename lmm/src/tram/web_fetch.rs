@@ -190,9 +190,9 @@ fn html_to_prose(html: &str) -> String {
 ///
 /// ## Steps
 ///
-/// 1. **OpenSearch** – resolve `query` to the best matching article title.
-/// 2. **mobile-sections** – fetch lead + remaining section HTML from Wikipedia.
-/// 3. **Extract** – strip HTML, decode entities, store code blocks, join prose.
+/// 1. **OpenSearch** - resolve `query` to the best matching article title.
+/// 2. **mobile-sections** - fetch lead + remaining section HTML from Wikipedia.
+/// 3. **Extract** - strip HTML, decode entities, store code blocks, join prose.
 #[cfg(all(feature = "net", target_arch = "wasm32"))]
 pub async fn fetch_wikipedia_corpus(query: &str, index: &mut KnowledgeIndex) -> String {
     let search_url = format!("{}{}", WIKIPEDIA_OPENSEARCH_URL, url_encode(query));
@@ -344,16 +344,16 @@ async fn prefetch_web_for_query_wasm(query: &str, index: &mut KnowledgeIndex) ->
 ///
 /// Mirrors the full CLI `prefetch_web` strategy for browser targets:
 ///
-/// 1. **DDG Instant Answer** – focused queries matching the prompt intent.
+/// 1. **DDG Instant Answer** - focused queries matching the prompt intent.
 ///    Code prompts issue targeted example/how-to queries. Evaluative prompts
 ///    issue advantages/benefits/pros-cons queries. Generic prompts issue topic
 ///    overview queries. The list is kept short to minimise duplicate ingestion.
-/// 2. **Wikipedia code corpus** – for code prompts, fetches the Wikipedia
+/// 2. **Wikipedia code corpus** - for code prompts, fetches the Wikipedia
 ///    article most likely to contain verified `<pre>`/`<code>` blocks (e.g.
 ///    `"Hello, World! program"`) plus the language reference article.  Code
 ///    snippets are stored via [`KnowledgeIndex::ingest_code_block`], bypassing
 ///    the minimum-word-count filter; prose goes through `ingest_text`.
-/// 3. **Wikipedia topic corpus** – for evaluative/factual prompts with deep
+/// 3. **Wikipedia topic corpus** - for evaluative/factual prompts with deep
 ///    mode, fetches the primary topic article for prose enrichment.
 #[cfg(all(feature = "net", target_arch = "wasm32"))]
 async fn prefetch_web_wasm(
