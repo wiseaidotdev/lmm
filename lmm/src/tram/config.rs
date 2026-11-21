@@ -82,7 +82,11 @@ pub struct WebFetchResult {
     pub instant_answer_query: Option<String>,
     pub fetch_queries: Vec<String>,
     pub unscraped_urls: Vec<String>,
+    /// All URLs visited during deep scraping, including sidebar hrefs discovered within pages.
     pub all_scraped_urls: Vec<String>,
+    /// Only the top-level page URLs that were directly scraped (not sidebar/nav hrefs).
+    /// Used for the response URL footer.
+    pub successful_urls: Vec<String>,
 }
 
 impl Default for TramConfig {
@@ -400,3 +404,9 @@ pub struct StochasticResult {
     pub language: String,
     pub probability: f64,
 }
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

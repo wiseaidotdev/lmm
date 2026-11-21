@@ -25,7 +25,7 @@ pub fn handle_consciousness(lookahead: usize, verbose: bool) -> LmmResult<()> {
         display::divider("Mean Prediction Error");
         info!("  {:.6}", consc.mean_prediction_error());
     } else {
-        println!("{:?}\n{:.6}", state.data, consc.mean_prediction_error());
+        info!("{:?}\n{:.6}", state.data, consc.mean_prediction_error());
     }
     Ok(())
 }

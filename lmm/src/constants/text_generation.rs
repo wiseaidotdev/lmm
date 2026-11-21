@@ -38,3 +38,9 @@ pub const TONE_OFFSET_STEP_DBL: f64 = 2.0;
 pub const MIN_WORDS_FOR_SENTENCE: usize = 5;
 pub const DEDUP_WORD_LIMIT: usize = 6;
 pub const TITLE_WORD_LIMIT: usize = 7;
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

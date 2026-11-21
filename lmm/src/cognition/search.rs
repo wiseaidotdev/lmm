@@ -44,13 +44,13 @@
 
 use std::collections::HashMap;
 
-#[cfg(any(feature = "net", feature = "wasm-net"))]
+#[cfg(feature = "net")]
 use crate::constants::cognition_search::MAX_RELATED_TOPICS_SEARCH;
 #[cfg(feature = "net")]
 use crate::constants::net::DEFAULT_BROWSER_AGENT;
 #[cfg(feature = "net")]
 use crate::net::user_agent_by_seed;
-#[cfg(any(feature = "net", feature = "wasm-net"))]
+#[cfg(feature = "net")]
 use duckduckgo::browser::Browser;
 #[cfg(feature = "net")]
 use duckduckgo::user_agents::get as get_ua;
@@ -165,7 +165,7 @@ impl SearchOracle {
     /// # Time Complexity
     ///
     /// O(1) network round-trips; O(|result|) string concatenation.
-    #[cfg(any(feature = "net", feature = "wasm-net"))]
+    #[cfg(feature = "net")]
     async fn fetch_live(&self, query: &str) -> String {
         let browser = Browser::new();
 
@@ -183,7 +183,7 @@ impl SearchOracle {
         String::new()
     }
 
-    #[cfg(not(any(feature = "net", feature = "wasm-net")))]
+    #[cfg(not(feature = "net"))]
     async fn fetch_live(&self, _query: &str) -> String {
         String::new()
     }
@@ -195,7 +195,7 @@ impl SearchOracle {
 /// # Time Complexity
 ///
 /// O(|query|)
-#[cfg(any(feature = "net", feature = "wasm-net"))]
+#[cfg(feature = "net")]
 fn url_encode_query(query: &str) -> String {
     query
         .chars()
@@ -219,7 +219,7 @@ fn url_encode_query(query: &str) -> String {
 /// # Time Complexity
 ///
 /// O(|related_topics|): linear over the topic list.
-#[cfg(any(feature = "net", feature = "wasm-net"))]
+#[cfg(feature = "net")]
 async fn instant_answer(browser: &Browser, query: &str) -> Option<String> {
     let encoded = url_encode_query(query);
     let path = format!("?q={}&ia=web", encoded);
@@ -280,3 +280,9 @@ async fn lite_snippets(browser: &Browser, query: &str, ua: &str, limit: usize) -
         Err(_) => String::new(),
     }
 }
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

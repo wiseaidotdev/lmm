@@ -14,13 +14,13 @@
 //! | Mode           | Opening pattern                                   |
 //! |----------------|---------------------------------------------------|
 //! | FactualLookup  | pass-through (first sentence is usually factual)   |
-//! | Causal         | "The reason ... is that "                           |
-//! | Analogical     | "Comparing ... and ...: "                             |
-//! | Definitional   | "By definition, ... refers to "                     |
-//! | Procedural     | "Here is how to ...: "                              |
-//! | Evaluative     | "The advantages / pros and cons of ... are "        |
+//! | Causal         | varied academic opener + causal clause             |
+//! | Analogical     | comparative phrase from PhrasesMixer               |
+//! | Definitional   | \"By definition, ... refers to\"                     |
+//! | Procedural     | \"Here is how to ...:\"                              |
+//! | Evaluative     | varied opener from PhrasesMixer + topic phrase     |
 //! | Exploratory    | pass-through (broad topic, no framing bias)        |
-//! | TaskExecution  | "Here is the ... for ...:\n\n"                        |
+//! | TaskExecution  | \"Here is the ... for ...:\\n\\n\"                      |
 //!
 //! ## Examples
 //!
@@ -28,13 +28,27 @@
 //! use lmm::cognition::response_framer::ResponseFramer;
 //! use lmm::cognition::thought::classifier::ReasoningMode;
 //!
-//! let framed = ResponseFramer::frame(ReasoningMode::Evaluative, "Rust", "what are the advantages of rust", "Rust is fast and safe.");
-//! assert!(framed.starts_with("The advantages of Rust"));
+//! let framed = ResponseFramer::frame(ReasoningMode::Evaluative, "Rust", "what are the advantages of rust", "Rust is fast and safe.", 0);
+//! assert!(!framed.is_empty());
 //! ```
 
 use crate::cognition::thought::classifier::ReasoningMode;
+use crate::constants::tram_response::{
+    FRAMER_ANALOGICAL_COMPARING_SUFFIX, FRAMER_ANALOGICAL_KEY_DIFFERENCES,
+    FRAMER_CAUSAL_BECAUSE_SUFFIX, FRAMER_CAUSAL_SHORT_PREFIX, FRAMER_CAUSAL_WHAT_KNOWN_PREFIX,
+    FRAMER_DEFINITIONAL_PREFIX, FRAMER_EVAL_SUFFIX_AS_FOLLOWS, FRAMER_EVAL_SUFFIX_EXAMINATION,
+    FRAMER_EVAL_SUFFIX_NOTABLE, FRAMER_EVAL_SUFFIX_REVEALS, FRAMER_EVAL_SUFFIX_STAND_OUT,
+    FRAMER_EVALUATIVE_ADVANTAGES, FRAMER_EVALUATIVE_DISADVANTAGES, FRAMER_EVALUATIVE_DRAWBACKS,
+    FRAMER_EVALUATIVE_INCONVENIENCES, FRAMER_EVALUATIVE_LIMITATIONS, FRAMER_EVALUATIVE_PROS_CONS,
+    FRAMER_EVALUATIVE_WEAKNESSES, FRAMER_PROCEDURAL_PREFIX, FRAMER_TASK_EXECUTION_PREFIX,
+};
+use crate::generation::phrases_mixer::PhrasesMixer;
 
 /// Stateless response framer that prepends mode-specific opening phrases.
+///
+/// Opening phrases are selected deterministically from `seed` via
+/// [`PhrasesMixer`] so that each pipeline run produces a distinct opener
+/// while remaining reproducible for a given seed value.
 ///
 /// # Examples
 ///
@@ -42,8 +56,8 @@ use crate::cognition::thought::classifier::ReasoningMode;
 /// use lmm::cognition::response_framer::ResponseFramer;
 /// use lmm::cognition::thought::classifier::ReasoningMode;
 ///
-/// let out = ResponseFramer::frame(ReasoningMode::Causal, "garbage collection", "why does rust avoid garbage collection", "It slows programs.");
-/// // assert!(out.starts_with("The reason"));
+/// let out = ResponseFramer::frame(ReasoningMode::Causal, "garbage collection", "why does rust avoid garbage collection", "It slows programs.", 7);
+/// assert!(!out.is_empty());
 /// ```
 pub struct ResponseFramer;
 
@@ -59,8 +73,9 @@ impl ResponseFramer {
     /// * `mode`       - Classified reasoning mode for this prompt.
     /// * `topic`      - Core topic phrase extracted from the prompt.
     /// * `raw_prompt` - Original user prompt (used to detect evaluative sub-intent
-    ///   such as "inconveniences" vs "advantages").
+    ///   such as \"inconveniences\" vs \"advantages\").
     /// * `answer`     - Raw text produced by the pipeline.
+    /// * `seed`       - Deterministic selection seed (pipeline run seed).
     ///
     /// # Examples
     ///
@@ -68,11 +83,17 @@ impl ResponseFramer {
     /// use lmm::cognition::response_framer::ResponseFramer;
     /// use lmm::cognition::thought::classifier::ReasoningMode;
     ///
-    /// let out = ResponseFramer::frame(ReasoningMode::Procedural, "install Rust", "", "Download rustup...");
-    /// // assert!(out.starts_with("Here is how to install Rust"));
+    /// let out = ResponseFramer::frame(ReasoningMode::Procedural, "install Rust", "", "Download rustup...", 3);
+    /// assert!(!out.is_empty());
     /// ```
-    pub fn frame(mode: ReasoningMode, topic: &str, raw_prompt: &str, answer: &str) -> String {
-        let opener = Self::opening_phrase(mode, topic, raw_prompt, answer);
+    pub fn frame(
+        mode: ReasoningMode,
+        topic: &str,
+        raw_prompt: &str,
+        answer: &str,
+        seed: u64,
+    ) -> String {
+        let opener = Self::opening_phrase(mode, topic, raw_prompt, answer, seed);
         if opener.is_empty() {
             return answer.to_string();
         }
@@ -90,6 +111,8 @@ impl ResponseFramer {
                 lower.starts_with("comparing")
                     || lower.starts_with("the difference")
                     || lower.starts_with("the key difference")
+                    || lower.starts_with("when comparing")
+                    || lower.starts_with("a side-by-side")
             }
             ReasoningMode::Definitional => {
                 lower.starts_with("by definition")
@@ -109,6 +132,10 @@ impl ResponseFramer {
                     || lower.starts_with("the disadvantage")
                     || lower.starts_with("the limitation")
                     || lower.starts_with("the inconvenience")
+                    || lower.starts_with("among the chief")
+                    || lower.starts_with("chief among the")
+                    || lower.starts_with("a close examination")
+                    || lower.starts_with("examining")
             }
             ReasoningMode::TaskExecution => {
                 lower.starts_with("here is")
@@ -120,22 +147,29 @@ impl ResponseFramer {
         if already_framed {
             return answer.to_string();
         }
-        format!("{} {}", opener.trim_end(), trimmed)
+        if matches!(mode, ReasoningMode::Evaluative) {
+            format!("{}\n\n{}", opener.trim_end(), trimmed)
+        } else {
+            format!("{} {}", opener.trim_end(), trimmed)
+        }
     }
 
     /// Returns just the opening phrase for `mode` and `topic`.
     ///
     /// An empty string is returned for pass-through modes (`Exploratory`,
-    /// `FactualLookup`).
+    /// `FactualLookup`).  The `seed` parameter selects which phrase variant
+    /// to use from each bank, so different pipeline runs produce distinct
+    /// openers for the same topic.
     ///
     /// # Arguments
     ///
     /// * `mode`       - Classified reasoning mode.
     /// * `topic`      - Core topic phrase (already cleaned / stripped).
     /// * `raw_prompt` - Original user prompt text; used to detect evaluative
-    ///   sub-intent (`"inconveniences"`, `"limitations"`, etc.)
+    ///   sub-intent (`\"inconveniences\"`, `\"limitations\"`, etc.)
     ///   that may have been stripped from `topic` by `extract_topic`.
     /// * `answer`     - Raw answer text (secondary evaluative signal).
+    /// * `seed`       - Deterministic selection seed (pipeline run seed).
     ///
     /// # Examples
     ///
@@ -143,39 +177,47 @@ impl ResponseFramer {
     /// use lmm::cognition::response_framer::ResponseFramer;
     /// use lmm::cognition::thought::classifier::ReasoningMode;
     ///
-    /// let phrase = ResponseFramer::opening_phrase(ReasoningMode::Definitional, "borrow checker", "", "");
-    /// // assert!(phrase.contains("borrow checker"));
+    /// let phrase = ResponseFramer::opening_phrase(ReasoningMode::Definitional, "borrow checker", "", "", 0);
+    /// assert!(!phrase.is_empty());
     /// ```
     pub fn opening_phrase(
         mode: ReasoningMode,
         topic: &str,
         raw_prompt: &str,
         answer: &str,
+        seed: u64,
     ) -> String {
         let topic = clean_topic_for_mode(topic.trim(), mode);
         let topic_cap = capitalize_first(&topic);
         let answer_lower = answer.to_ascii_lowercase();
         let prompt_lower = raw_prompt.to_ascii_lowercase();
+        let mixer = PhrasesMixer::global();
         match mode {
             ReasoningMode::FactualLookup | ReasoningMode::Exploratory => String::new(),
-            ReasoningMode::Causal => build_causal_opener(&topic, answer),
+            ReasoningMode::Causal => build_causal_opener(&topic, answer, seed),
             ReasoningMode::Analogical => {
                 let entities = extract_comparison_entities(&topic);
                 if let Some((a, b)) = entities {
+                    let comp = mixer.comparative(seed);
                     format!(
-                        "Comparing {} and {}: the key differences are as follows.",
+                        "{} {} and {}: {}",
+                        comp,
                         capitalize_first(&a),
-                        capitalize_first(&b)
+                        capitalize_first(&b),
+                        FRAMER_ANALOGICAL_KEY_DIFFERENCES,
                     )
                 } else {
-                    format!("Comparing {}:", topic_cap)
+                    format!(
+                        "{} {}:{}",
+                        FRAMER_ANALOGICAL_COMPARING_SUFFIX, topic_cap, ""
+                    )
                 }
             }
             ReasoningMode::Definitional => {
-                format!("By definition, {} refers to", topic_cap)
+                format!("{} {} refers to", FRAMER_DEFINITIONAL_PREFIX, topic_cap)
             }
             ReasoningMode::Procedural => {
-                format!("Here is how to {}:", topic)
+                format!("{} {}:", FRAMER_PROCEDURAL_PREFIX, topic)
             }
             ReasoningMode::Evaluative => {
                 let prompt_wants_cons = prompt_lower.contains("disadvantage")
@@ -203,30 +245,98 @@ impl ResponseFramer {
                 let wants_pros = prompt_wants_pros || answer_wants_pros;
                 let wants_cons = prompt_wants_cons || answer_wants_cons;
                 if prompt_wants_cons && !prompt_wants_pros {
-                    if prompt_lower.contains("inconvenience") {
-                        format!("The inconveniences of {} are as follows.", topic_cap)
+                    let label = if prompt_lower.contains("inconvenience") {
+                        FRAMER_EVALUATIVE_INCONVENIENCES
                     } else if prompt_lower.contains("limitation") {
-                        format!("The limitations of {} are as follows.", topic_cap)
+                        FRAMER_EVALUATIVE_LIMITATIONS
                     } else if prompt_lower.contains("disadvantage") {
-                        format!("The disadvantages of {} are as follows.", topic_cap)
+                        FRAMER_EVALUATIVE_DISADVANTAGES
                     } else if prompt_lower.contains("drawback") {
-                        format!("The drawbacks of {} are as follows.", topic_cap)
+                        FRAMER_EVALUATIVE_DRAWBACKS
                     } else if prompt_lower.contains("weakness") {
-                        format!("The weaknesses of {} are as follows.", topic_cap)
+                        FRAMER_EVALUATIVE_WEAKNESSES
                     } else {
-                        format!("The disadvantages of {} are as follows.", topic_cap)
-                    }
+                        FRAMER_EVALUATIVE_DISADVANTAGES
+                    };
+                    build_evaluative_opener(label, &topic_cap, seed, mixer)
                 } else if wants_pros && wants_cons {
-                    format!("The pros and cons of {} are as follows.", topic_cap)
+                    build_evaluative_opener(FRAMER_EVALUATIVE_PROS_CONS, &topic_cap, seed, mixer)
                 } else if wants_cons {
-                    format!("The disadvantages of {} are as follows.", topic_cap)
+                    build_evaluative_opener(
+                        FRAMER_EVALUATIVE_DISADVANTAGES,
+                        &topic_cap,
+                        seed,
+                        mixer,
+                    )
                 } else {
-                    format!("The advantages of {} are as follows.", topic_cap)
+                    build_evaluative_opener(FRAMER_EVALUATIVE_ADVANTAGES, &topic_cap, seed, mixer)
                 }
             }
             ReasoningMode::TaskExecution => {
-                format!("Here is the solution for {}:\n\n", topic)
+                format!("{} {}:\n\n", FRAMER_TASK_EXECUTION_PREFIX, topic)
             }
+        }
+    }
+}
+
+/// Builds a varied evaluative opener using [`PhrasesMixer`] phrase banks.
+///
+/// The opener pattern rotates between five colon-terminated templates keyed
+/// by `seed % 5` so that the generated sentence is grammatically complete
+/// and flows naturally into the answer content that follows.
+///
+/// All templates end with `:` to introduce the answer as an enumeration or
+/// explanation, eliminating the dangling noun-phrase issue.
+///
+/// # Time Complexity
+///
+/// O(1)
+fn build_evaluative_opener(
+    label: &str,
+    topic_cap: &str,
+    seed: u64,
+    mixer: &'static PhrasesMixer,
+) -> String {
+    match seed % 5 {
+        0 => {
+            let hedge = mixer.hedge(seed);
+            let hedge_trimmed = hedge.trim_end().trim_end_matches(',').trim_end();
+            format!(
+                "{}, the key {} of {} {}",
+                hedge_trimmed, label, topic_cap, FRAMER_EVAL_SUFFIX_AS_FOLLOWS,
+            )
+        }
+        1 => {
+            let opener = mixer.opener(seed);
+            let opener_trimmed = opener.trim_end().trim_end_matches(',').trim_end();
+            format!(
+                "{} {} {} {}:",
+                opener_trimmed, topic_cap, FRAMER_EVAL_SUFFIX_NOTABLE, label,
+            )
+        }
+        2 => {
+            let marker = mixer.marker(seed + 2);
+            let marker_trimmed = marker.trim_end().trim_end_matches(',').trim_end();
+            format!(
+                "{} the following {} of {} {}",
+                marker_trimmed, label, topic_cap, FRAMER_EVAL_SUFFIX_STAND_OUT,
+            )
+        }
+        3 => {
+            let marker = mixer.marker(seed);
+            let marker_trimmed = marker.trim_end().trim_end_matches(',').trim_end();
+            format!(
+                "{} the {} of {} {}",
+                marker_trimmed, label, topic_cap, FRAMER_EVAL_SUFFIX_EXAMINATION,
+            )
+        }
+        _ => {
+            let transition = mixer.transition(seed);
+            let transition_trimmed = transition.trim_end().trim_end_matches(',').trim_end();
+            format!(
+                "{} a close examination of {} {} {}:",
+                transition_trimmed, topic_cap, FRAMER_EVAL_SUFFIX_REVEALS, label,
+            )
         }
     }
 }
@@ -234,14 +344,14 @@ impl ResponseFramer {
 /// Strips mode-specific keyword prefixes from a topic string so the opening
 /// phrase does not double-repeat them.
 ///
-/// For example, when the prompt is `"what are the advantages of rust?"`,
-/// `extract_topic` returns `"advantages of rust"`.  For `Evaluative` mode the
-/// framer would then produce `"The advantages of advantages of rust"`.  This
-/// function strips `"advantages of "` / `"benefits of "` etc. so the result
-/// is just `"rust"`.
+/// For example, when the prompt is `\"what are the advantages of rust?\"`,
+/// `extract_topic` returns `\"advantages of rust\"`.  For `Evaluative` mode the
+/// framer would then produce `\"The advantages of advantages of rust\"`.  This
+/// function strips `\"advantages of \"` / `\"benefits of \"` etc. so the result
+/// is just `\"rust\"`.
 ///
-/// Similarly `"why does rust not have a garbage collector"` has its causal
-/// prefix stripped down to `"rust"` already by `trim_predicate`, but the full
+/// Similarly `\"why does rust not have a garbage collector\"` has its causal
+/// prefix stripped down to `\"rust\"` already by `trim_predicate`, but the full
 /// question context is passed separately via `answer` so the framing stays
 /// informative.
 ///
@@ -351,21 +461,24 @@ fn clean_topic_for_mode(topic: &str, mode: ReasoningMode) -> String {
 
 /// Builds the most grammatically natural causal opening for `topic`.
 ///
-/// When `topic` is a short noun (like `"rust"`), returns
-/// `"The reason rust is"`.  When `topic` is a richer predicate clause
-/// (like `"Rust does not have a garbage collector"`), the opener becomes
-/// `"Rust does not have a garbage collector because"` which flows naturally
+/// When `topic` is a short noun (like `\"rust\"`), returns
+/// `\"The reason rust is\"`.  When `topic` is a richer predicate clause
+/// (like `\"Rust does not have a garbage collector\"`), the opener becomes
+/// `\"Rust does not have a garbage collector because\"` which flows naturally
 /// into the answer.
 ///
 /// When the answer text does not contain causal explanation words (memory,
 /// ownership, design, etc.) the opener falls back to
-/// `"Here is what is known about X:"` to avoid producing a dangling "because"
+/// `\"Here is what is known about X:\"` to avoid producing a dangling \"because\"
 /// clause that is not completed by the content.
+///
+/// The `seed` parameter rotates between opener variants so each run uses a
+/// different academic phrasing drawn from [`PhrasesMixer`].
 ///
 /// # Time Complexity
 ///
 /// O(|s| + |answer|)
-fn build_causal_opener(topic: &str, answer: &str) -> String {
+fn build_causal_opener(topic: &str, answer: &str, seed: u64) -> String {
     let answer_lower = answer.to_ascii_lowercase();
     static CAUSAL_CONTENT_SIGNALS: &[&str] = &[
         " because ",
@@ -404,9 +517,16 @@ fn build_causal_opener(topic: &str, answer: &str) -> String {
     if words.len() <= 2 {
         let cap = capitalize_first(topic);
         if has_causal_content {
-            return format!("The reason {} is that", cap);
+            let variant = seed % 2;
+            if variant == 0 {
+                return format!("{} {} is that", FRAMER_CAUSAL_SHORT_PREFIX, cap);
+            } else {
+                let mixer = PhrasesMixer::global();
+                let causal = mixer.causal(seed);
+                return format!("{} {}", causal, cap.to_ascii_lowercase());
+            }
         } else {
-            return format!("Here is what is known about {}:", cap);
+            return format!("{} {}:", FRAMER_CAUSAL_WHAT_KNOWN_PREFIX, cap);
         }
     }
     let lower_words: Vec<String> = words.iter().map(|w| w.to_ascii_lowercase()).collect();
@@ -419,16 +539,30 @@ fn build_causal_opener(topic: &str, answer: &str) -> String {
         .any(|w| PREDICATE_MARKERS.contains(&w.as_str()));
     if has_predicate {
         if has_causal_content {
-            format!("{} because", capitalize_first(topic))
+            format!(
+                "{} {}",
+                capitalize_first(topic),
+                FRAMER_CAUSAL_BECAUSE_SUFFIX
+            )
         } else {
-            format!("Here is what is known about {}:", capitalize_first(topic))
+            format!(
+                "{} {}:",
+                FRAMER_CAUSAL_WHAT_KNOWN_PREFIX,
+                capitalize_first(topic)
+            )
         }
+    } else if has_causal_content {
+        format!(
+            "{} {} is that",
+            FRAMER_CAUSAL_SHORT_PREFIX,
+            capitalize_first(topic)
+        )
     } else {
-        if has_causal_content {
-            format!("The reason {} is that", capitalize_first(topic))
-        } else {
-            format!("Here is what is known about {}:", capitalize_first(topic))
-        }
+        format!(
+            "{} {}:",
+            FRAMER_CAUSAL_WHAT_KNOWN_PREFIX,
+            capitalize_first(topic)
+        )
     }
 }
 
@@ -448,7 +582,7 @@ fn capitalize_first(s: &str) -> String {
     }
 }
 
-/// Attempts to split a comparison topic like "rust vs python" or "rust and python"
+/// Attempts to split a comparison topic like \"rust vs python\" or \"rust and python\"
 /// into two entity strings.
 ///
 /// Returns `None` when no splitting pattern is found.

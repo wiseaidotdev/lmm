@@ -202,3 +202,188 @@ pub const PUNCTUATION_EXCLAMATION: char = '!';
 
 pub const MIN_WORDS_FOR_TRIM_PREDICATE: usize = 3;
 pub const MIN_WORDS_FOR_SENTENCE: usize = 8;
+
+/// Form words that follow a creative verb and name the output artifact.
+///
+/// These are stripped from a prompt like `"write a poem about life"` so only
+/// the domain subject (`"life"`) remains as the research topic.
+pub const CREATIVE_FORM_WORDS: &[&str] = &[
+    "a poem about ",
+    "an poem about ",
+    "a poem on ",
+    "a poem for ",
+    "a poem of ",
+    "a verse about ",
+    "a verse on ",
+    "a sonnet about ",
+    "a sonnet on ",
+    "a haiku about ",
+    "a haiku on ",
+    "a song about ",
+    "a song on ",
+    "a story about ",
+    "a story on ",
+    "a narrative about ",
+    "a narrative on ",
+    "a tale about ",
+    "an essay about ",
+    "an essay on ",
+    "a report about ",
+    "a report on ",
+    "an article about ",
+    "an article on ",
+    "a simple python program ",
+    "a python program ",
+    "a python script ",
+    "a rust program ",
+    "a rust function ",
+    "a javascript function ",
+    "a typescript function ",
+    "a go program ",
+    "a java program ",
+    "a function ",
+    "a script ",
+    "a program ",
+    "a function that ",
+    "a function to ",
+    "a program that ",
+    "a program to ",
+    "a script that ",
+    "a script to ",
+];
+
+/// Connectors that link the form word to the domain subject in a creative prompt.
+///
+/// After stripping the verb and form word, these connectors are stripped from
+/// the leftover so only the core subject remains.
+pub const CREATIVE_SUBJECT_CONNECTORS: &[&str] = &[
+    "computing ",
+    "that computes ",
+    "to compute ",
+    "for computing ",
+    "calculating ",
+    "that calculates ",
+    "to calculate ",
+    "implementing ",
+    "that implements ",
+    "to implement ",
+    "about ",
+    "on ",
+    "for ",
+    "of ",
+];
+
+/// Programming language names stripped from the front of a raw subject phrase.
+///
+/// When a prompt says `"write a simple python hello world program"`, the
+/// subject extractor may leave `"python hello world program"` after removing
+/// the form word.  Stripping the language name yields `"hello world program"`.
+pub const SUBJECT_LANGUAGE_PREFIXES: &[&str] = &[
+    "python ",
+    "rust ",
+    "javascript ",
+    "typescript ",
+    "java ",
+    "kotlin ",
+    "go ",
+    "golang ",
+    "c++ ",
+    "cpp ",
+    "c# ",
+    "csharp ",
+    "ruby ",
+    "php ",
+    "swift ",
+    "scala ",
+    "haskell ",
+    "elixir ",
+    "erlang ",
+    "clojure ",
+    "lua ",
+    "perl ",
+    "bash ",
+    "shell ",
+    "julia ",
+    "dart ",
+    "zig ",
+];
+
+/// Generic adjective modifiers stripped from the front of a raw subject phrase.
+///
+/// For example `"simple hello world program"` → `"hello world program"`.
+pub const SUBJECT_MODIFIER_PREFIXES: &[&str] = &[
+    "simple ",
+    "basic ",
+    "easy ",
+    "small ",
+    "quick ",
+    "minimal ",
+    "tiny ",
+    "straightforward ",
+    "beginner ",
+    "introductory ",
+    "classic ",
+];
+
+/// Generic output-type suffixes stripped from the end of a raw subject phrase.
+///
+/// For example `"hello world program"` → `"hello world"`.
+pub const SUBJECT_FORM_SUFFIXES: &[&str] = &[
+    " program",
+    " script",
+    " function",
+    " code",
+    " app",
+    " application",
+    " module",
+    " class",
+    " snippet",
+    " example",
+    " implementation",
+    " algorithm",
+];
+
+/// Leading article prefix "an ".
+pub const ARTICLE_PREFIX_AN: &str = "an ";
+
+/// Leading article prefix "a ".
+pub const ARTICLE_PREFIX_A: &str = "a ";
+
+/// Leading article prefix "the ".
+pub const ARTICLE_PREFIX_THE: &str = "the ";
+
+/// Minimum word count before significant noun trimming applies.
+pub const SIGNIFICANT_NOUN_MIN_WORDS: usize = 3;
+
+/// Minimum character length of the first word for significant noun trimming.
+pub const SIGNIFICANT_NOUN_FIRST_WORD_MIN_LEN: usize = 2;
+
+/// Default word count taken when no stop word is found in noun trimming.
+pub const SIGNIFICANT_NOUN_FALLBACK_TAKE: usize = 2;
+
+/// Stop words used to delimit significant noun concepts.
+pub const SIGNIFICANT_NOUN_STOP_WORDS: &[&str] = &[
+    "of",
+    "for",
+    "in",
+    "on",
+    "to",
+    "from",
+    "by",
+    "with",
+    "and",
+    "or",
+    "algorithm",
+    "example",
+    "function",
+    "program",
+    "method",
+    "implementation",
+];
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, distributed
+// except according to those terms.

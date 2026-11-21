@@ -28,3 +28,9 @@ pub const RK45_EXPONENT: f64 = 0.2;
 pub const RK45_STEP_SHRINK: f64 = 0.1;
 pub const RK45_STEP_GROW: f64 = 5.0;
 pub const RK45_DOUBLE: f64 = 2.0;
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

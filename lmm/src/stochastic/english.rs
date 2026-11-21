@@ -25130,3 +25130,9 @@ pub(super) static CURATED_SYNONYMS: Map<&'static str, &'static [&'static str]> =
     "zoology" => &["aerobiology", "agrobiology", "anatomy", "astrobiology", "bacteriology", "biochemics", "biochemistry", "biochemy", "bioecology", "biology", "biometrics", "biometry", "bionics", "bionomics", "biophysics", "botany"],
     "zoom" => &["acrobatics", "aerobatics", "ascend", "aspire", "banking", "barrel", "boom", "breeze", "brush", "chandelle", "climb", "clip", "crabbing", "dive", "diving", "fishtailing"],
 };
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

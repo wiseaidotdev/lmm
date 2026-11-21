@@ -31,7 +31,7 @@ pub fn handle_physics(model: String, steps: usize, step_size: f64, verbose: bool
                 display::divider("Final xyz");
                 info!("  {:?}", final_data);
             } else {
-                println!("{:?}", final_data);
+                info!("{:?}", final_data);
             }
         }
         "pendulum" => {
@@ -43,7 +43,7 @@ pub fn handle_physics(model: String, steps: usize, step_size: f64, verbose: bool
                 display::divider("Final [θ, ω]");
                 info!("  {:?}", final_data);
             } else {
-                println!("{:?}", final_data);
+                info!("{:?}", final_data);
             }
         }
         "sir" => {
@@ -55,7 +55,7 @@ pub fn handle_physics(model: String, steps: usize, step_size: f64, verbose: bool
                 display::divider("Final [S, I, R]");
                 info!("  {:?}", final_data);
             } else {
-                println!("{:?}", final_data);
+                info!("{:?}", final_data);
             }
         }
         _ => {
@@ -70,7 +70,7 @@ pub fn handle_physics(model: String, steps: usize, step_size: f64, verbose: bool
                 display::divider("Final Energy");
                 info!("  {:.6}", energy);
             } else {
-                println!("{:?}\n{:.6}", s.data, energy);
+                info!("{:?}\n{:.6}", s.data, energy);
             }
         }
     }

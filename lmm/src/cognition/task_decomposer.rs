@@ -29,9 +29,12 @@
 
 use crate::cognition::thought::classifier::ReasoningMode;
 use crate::constants::task_decomposer::{
+    CREATIVE_ESSAY_KEYWORDS, CREATIVE_POEM_KEYWORDS, CREATIVE_STORY_KEYWORDS,
     TASK_ACQUIRE_SKILL_LABEL, TASK_CREATIVE_PREFIXES, TASK_CREATIVE_VERBS, TASK_FALLBACK_LANGUAGE,
-    TASK_FMT_ADVANTAGES, TASK_FMT_BENEFITS, TASK_FMT_HOW_TO, TASK_IN_LANG_PATTERNS, TASK_LANGUAGES,
-    TASK_LOW_REWARD_THRESHOLD, TASK_SKILL_REWARD_BOOST, TASK_STRIP_PREFIXES, TASK_VS_SPLITTERS,
+    TASK_FMT_ADVANTAGES, TASK_FMT_BENEFITS, TASK_FMT_DEFINITION, TASK_FMT_HOW_TO, TASK_FMT_WHAT_IS,
+    TASK_FORM_STRIP_SUFFIXES, TASK_IN_LANG_PATTERNS, TASK_LANGUAGE_STRIP_PREFIXES, TASK_LANGUAGES,
+    TASK_LOW_REWARD_THRESHOLD, TASK_MEDIUM_REWARD_THRESHOLD, TASK_MODIFIER_STRIP_PREFIXES,
+    TASK_SKILL_REWARD_BOOST, TASK_STRIP_PREFIXES, TASK_VS_SPLITTERS,
 };
 
 /// The kind of work a [`SubTask`] represents.
@@ -92,6 +95,27 @@ pub struct SubTask {
     pub query: String,
     /// Lower values are higher priority (0 = highest).
     pub priority: u8,
+}
+
+/// Describes the kind of creative output a task-execution prompt requests.
+///
+/// Used by [`TaskDecomposer::detect_creative_kind`] to route creative prompts
+/// to the appropriate responder in the assembly stage.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CreativeOutputKind {
+    /// Source code in the given programming language.
+    Code {
+        /// Canonical language name (e.g. `"python"`, `"rust"`).
+        language: String,
+    },
+    /// A poem, verse, haiku, or similar poetic form.
+    Poem,
+    /// A story, narrative, or short fiction.
+    Story,
+    /// An essay, article, or analytical write-up.
+    Essay,
+    /// A generic creative/prose response.
+    Generic,
 }
 
 /// Stateless decomposer that maps a prompt and mode into a list of [`SubTask`]s.
@@ -272,11 +296,13 @@ impl TaskDecomposer {
     }
 
     /// Decomposes `prompt` intelligently, prepending an [`TaskKind::AcquireSkill`]
-    /// task when `last_reward` is below the low-reward threshold.
+    /// task when `last_reward` is below the low-reward threshold, and injecting
+    /// definitional refinement queries when it falls in the medium range.
     ///
     /// This is the preferred entry point for the TRAM pipeline because it adapts
     /// to the RL reward signal: when the agent has low confidence in its knowledge
-    /// of the topic, it schedules a knowledge-acquisition pass before answering.
+    /// of the topic, it schedules a knowledge-acquisition pass before answering;
+    /// when confidence is moderate it supplements with contextual definition queries.
     ///
     /// # Arguments
     ///
@@ -285,7 +311,8 @@ impl TaskDecomposer {
     /// * `max`         - Maximum number of sub-tasks to return.
     /// * `last_reward` - Most-recent episode reward from the learning engine
     ///   (range 0.0-1.0).  Values below
-    ///   [`TASK_LOW_REWARD_THRESHOLD`] trigger skill acquisition.
+    ///   [`TASK_LOW_REWARD_THRESHOLD`] trigger skill acquisition; values between
+    ///   that and [`TASK_MEDIUM_REWARD_THRESHOLD`] add definitional refinement.
     ///
     /// # Examples
     ///
@@ -314,7 +341,12 @@ impl TaskDecomposer {
         let mut base = Self::decompose(prompt, mode, max.saturating_sub(1));
 
         if last_reward < TASK_LOW_REWARD_THRESHOLD {
-            let topic = extract_simple_topic(prompt);
+            let topic = if matches!(mode, ReasoningMode::TaskExecution) {
+                let raw = extract_simple_topic(prompt);
+                strip_code_subject_noise(&raw)
+            } else {
+                extract_simple_topic(prompt)
+            };
             let acquire = SubTask {
                 kind: TaskKind::AcquireSkill {
                     topic: topic.clone(),
@@ -334,6 +366,29 @@ impl TaskDecomposer {
                 t.priority = t.priority.saturating_add(1);
             }
             base.insert(0, acquire);
+        }
+
+        if (TASK_LOW_REWARD_THRESHOLD..TASK_MEDIUM_REWARD_THRESHOLD).contains(&last_reward) {
+            let topic = if matches!(mode, ReasoningMode::TaskExecution) {
+                let raw = extract_simple_topic(prompt);
+                strip_code_subject_noise(&raw)
+            } else {
+                extract_simple_topic(prompt)
+            };
+            let refinement_queries = vec![
+                format!("{} {}", TASK_FMT_WHAT_IS, topic),
+                format!("{} {}", topic, TASK_FMT_DEFINITION),
+                format!("{} examples", topic),
+            ];
+            for q in refinement_queries {
+                if base.len() < max {
+                    base.push(SubTask {
+                        kind: TaskKind::WebSearch(q.clone()),
+                        query: q,
+                        priority: 2,
+                    });
+                }
+            }
         }
 
         base.truncate(max);
@@ -387,6 +442,91 @@ impl TaskDecomposer {
         }
         None
     }
+
+    /// Detects the kind of creative output a task-execution prompt is requesting.
+    ///
+    /// Checks in order: programming language keywords → [`CreativeOutputKind::Code`];
+    /// poem keywords → [`CreativeOutputKind::Poem`];
+    /// story keywords → [`CreativeOutputKind::Story`];
+    /// essay keywords → [`CreativeOutputKind::Essay`];
+    /// otherwise → [`CreativeOutputKind::Generic`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::cognition::task_decomposer::{CreativeOutputKind, TaskDecomposer};
+    ///
+    /// assert!(matches!(
+    ///     TaskDecomposer::detect_creative_kind("write a python factorial program"),
+    ///     CreativeOutputKind::Code { .. }
+    /// ));
+    /// assert_eq!(
+    ///     TaskDecomposer::detect_creative_kind("write a poem about life"),
+    ///     CreativeOutputKind::Poem
+    /// );
+    /// ```
+    pub fn detect_creative_kind(prompt: &str) -> CreativeOutputKind {
+        let lower = prompt.to_ascii_lowercase();
+        if CREATIVE_POEM_KEYWORDS.iter().any(|&kw| lower.contains(kw)) {
+            return CreativeOutputKind::Poem;
+        }
+        if CREATIVE_STORY_KEYWORDS.iter().any(|&kw| lower.contains(kw)) {
+            return CreativeOutputKind::Story;
+        }
+        if CREATIVE_ESSAY_KEYWORDS.iter().any(|&kw| lower.contains(kw)) {
+            return CreativeOutputKind::Essay;
+        }
+        if Self::is_creative_task(prompt)
+            && let Some(lang) = Self::extract_code_language(prompt)
+        {
+            return CreativeOutputKind::Code { language: lang };
+        }
+        CreativeOutputKind::Generic
+    }
+}
+
+/// Strips language, modifier, and form-noun noise from a code task subject phrase.
+///
+/// Uses [`TASK_LANGUAGE_STRIP_PREFIXES`], [`TASK_MODIFIER_STRIP_PREFIXES`], and
+/// [`TASK_FORM_STRIP_SUFFIXES`] from the constants crate to avoid a circular
+/// dependency with `tram::query::extract_creative_subject`.
+///
+/// # Examples
+///
+/// * `"simple python hello world program"` → `"hello world"`
+/// * `"python factorial function"` → `"factorial"`
+/// * `"derivative of a number"` → `"derivative of a number"` (unchanged)
+///
+/// # Time Complexity
+///
+/// O(|s| × (|prefixes| + |suffixes|))
+fn strip_code_subject_noise(s: &str) -> String {
+    let mut result = s.to_string();
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for &prefix in TASK_LANGUAGE_STRIP_PREFIXES {
+            if result.starts_with(prefix) {
+                result = result[prefix.len()..].to_string();
+                changed = true;
+                break;
+            }
+        }
+        for &prefix in TASK_MODIFIER_STRIP_PREFIXES {
+            if result.starts_with(prefix) {
+                result = result[prefix.len()..].to_string();
+                changed = true;
+                break;
+            }
+        }
+    }
+    for &suffix in TASK_FORM_STRIP_SUFFIXES {
+        if result.ends_with(suffix) {
+            result = result[..result.len() - suffix.len()].to_string();
+            break;
+        }
+    }
+    result.trim().to_string()
 }
 
 /// Extracts a simple topic noun phrase from a prompt by stripping leading verbs/question words.

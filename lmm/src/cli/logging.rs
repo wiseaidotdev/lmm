@@ -51,12 +51,8 @@ where
 ///
 /// O(1)
 #[cfg(feature = "cli")]
-pub fn setup_logging(verbose: bool) -> Result<()> {
-    let console_level = if verbose {
-        filter::LevelFilter::INFO
-    } else {
-        filter::LevelFilter::WARN
-    };
+pub fn setup_logging(_verbose: bool) -> Result<()> {
+    let console_level = filter::LevelFilter::INFO;
     let file_appender = rolling::daily("logs", "lmm_log");
 
     let console_layer = ts_fmt::Layer::new()

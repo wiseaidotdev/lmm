@@ -11,12 +11,17 @@
 //! knowledge base queries from user prompts.
 
 use crate::constants::generation_filter::DEFAULT_EMPTY_WORD;
+use crate::constants::task_decomposer::TASK_CREATIVE_VERBS;
 use crate::constants::tram_query::{
-    ABBREVIATIONS, AND_CONNECTOR, ARTICLE_A, ARTICLE_AN, ARTICLE_THE, CONNECTOR_PREFIXES,
+    ABBREVIATIONS, AND_CONNECTOR, ARTICLE_A, ARTICLE_AN, ARTICLE_PREFIX_A, ARTICLE_PREFIX_AN,
+    ARTICLE_THE, CONNECTOR_PREFIXES, CREATIVE_FORM_WORDS, CREATIVE_SUBJECT_CONNECTORS,
     ENTITY_INDEX_WHY_PATTERN, FILLER_PREFIXES, MIN_WORDS_FOR_SENTENCE,
     MIN_WORDS_FOR_TRIM_PREDICATE, MIN_WORDS_FOR_WHY_PATTERN, MODE_KEYWORD_PREFIXES,
     PREDICATE_WORDS, PUNCTUATION_EXCLAMATION, PUNCTUATION_PERIOD, PUNCTUATION_QUESTION,
-    TRAILING_VERBS, VS_CONNECTOR, WHY_ARE_PREFIX, WHY_IS_PREFIX,
+    SIGNIFICANT_NOUN_FALLBACK_TAKE, SIGNIFICANT_NOUN_FIRST_WORD_MIN_LEN,
+    SIGNIFICANT_NOUN_MIN_WORDS, SIGNIFICANT_NOUN_STOP_WORDS, SUBJECT_FORM_SUFFIXES,
+    SUBJECT_LANGUAGE_PREFIXES, SUBJECT_MODIFIER_PREFIXES, TRAILING_VERBS, VS_CONNECTOR,
+    WHY_ARE_PREFIX, WHY_IS_PREFIX,
 };
 
 /// Extracts a clean topic keyword phrase from a natural-language prompt by
@@ -252,3 +257,156 @@ pub fn strip_discourse_connector(sentence: String) -> String {
     }
     sentence
 }
+
+/// Extracts the domain subject from a creative prompt by stripping both the
+/// creative verb and the form-word (poem, program, story, ...) so that only the
+/// research topic remains.
+///
+/// # Examples
+///
+/// * `"write a poem about life"` → `"life"`
+/// * `"write a simple python program computing factorial of a number"` → `"factorial"`
+/// * `"generate a fibonacci function in rust"` → `"fibonacci"`
+///
+/// When the prompt does not look like a creative task the function falls back
+/// to `extract_topic`.
+///
+/// # Time Complexity
+///
+/// O(|prompt|)
+pub fn extract_creative_subject(prompt: &str) -> String {
+    let lower = prompt.to_ascii_lowercase();
+    let trimmed = lower
+        .trim()
+        .trim_end_matches(PUNCTUATION_QUESTION)
+        .trim_end_matches(PUNCTUATION_PERIOD)
+        .trim_end_matches(PUNCTUATION_EXCLAMATION)
+        .trim();
+
+    let after_verb: &str = TASK_CREATIVE_VERBS
+        .iter()
+        .find(|&&v| trimmed.starts_with(v))
+        .map(|&v| &trimmed[v.len()..])
+        .unwrap_or(trimmed);
+
+    let after_article = after_verb
+        .trim_start_matches(ARTICLE_PREFIX_AN)
+        .trim_start_matches(ARTICLE_PREFIX_A);
+
+    let after_form: &str = CREATIVE_FORM_WORDS
+        .iter()
+        .find(|&&fw| {
+            let fw_no_article = fw
+                .trim_start_matches(ARTICLE_PREFIX_AN)
+                .trim_start_matches(ARTICLE_PREFIX_A);
+            after_article.starts_with(fw_no_article)
+        })
+        .map(|&fw| {
+            let fw_no_article = fw
+                .trim_start_matches(ARTICLE_PREFIX_AN)
+                .trim_start_matches(ARTICLE_PREFIX_A);
+            &after_article[fw_no_article.len()..]
+        })
+        .unwrap_or(after_article);
+
+    let after_connector: &str = CREATIVE_SUBJECT_CONNECTORS
+        .iter()
+        .find(|&&con| after_form.starts_with(con))
+        .map(|&con| &after_form[con.len()..])
+        .unwrap_or(after_form);
+
+    let subject_raw = after_connector
+        .trim()
+        .trim_end_matches(PUNCTUATION_QUESTION)
+        .trim_end_matches(PUNCTUATION_PERIOD)
+        .trim_end_matches(PUNCTUATION_EXCLAMATION)
+        .trim();
+
+    let cleaned = strip_subject_noise(subject_raw);
+    let subject = trim_to_first_significant_noun(&cleaned);
+
+    if subject.is_empty() || subject == trimmed {
+        extract_topic(prompt)
+    } else {
+        subject
+    }
+}
+
+/// Strips language-name prefixes, generic adjective modifiers, and form-noun
+/// suffixes from a raw subject phrase, leaving the core domain concept.
+///
+/// Examples:
+/// - `"simple python hello world program"` → `"hello world"`
+/// - `"derivative of a number"` → `"derivative of a number"` (unchanged)
+/// - `"python factorial function"` → `"factorial"`
+///
+/// Stripping is applied in order: language prefix → modifier prefixes
+/// (iteratively) → form-noun suffix.
+///
+/// # Time Complexity
+///
+/// O(|s| × (|prefixes| + |suffixes|))
+fn strip_subject_noise(s: &str) -> String {
+    let mut result = s.to_string();
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for &prefix in SUBJECT_LANGUAGE_PREFIXES {
+            if result.starts_with(prefix) {
+                result = result[prefix.len()..].to_string();
+                changed = true;
+                break;
+            }
+        }
+        for &prefix in SUBJECT_MODIFIER_PREFIXES {
+            if result.starts_with(prefix) {
+                result = result[prefix.len()..].to_string();
+                changed = true;
+                break;
+            }
+        }
+    }
+    for &suffix in SUBJECT_FORM_SUFFIXES {
+        if result.ends_with(suffix) {
+            result = result[..result.len() - suffix.len()].to_string();
+            break;
+        }
+    }
+    result.trim().to_string()
+}
+
+/// Trims a subject phrase down to its first significant noun word(s).
+///
+/// For example `"factorial of a number"` → `"factorial"`;
+/// `"life"` → `"life"` (unchanged).
+///
+/// Only applies when the phrase has 3 or more words and the first word is
+/// more than 2 characters long, to avoid over-stripping short subjects.
+///
+/// # Time Complexity
+///
+/// O(|s|)
+fn trim_to_first_significant_noun(s: &str) -> String {
+    let words: Vec<&str> = s.split_whitespace().collect();
+    if words.len() < SIGNIFICANT_NOUN_MIN_WORDS {
+        return s.to_string();
+    }
+    let first = words[0];
+    if first.len() <= SIGNIFICANT_NOUN_FIRST_WORD_MIN_LEN {
+        return s.to_string();
+    }
+    let cut = words
+        .iter()
+        .skip(1)
+        .position(|w| SIGNIFICANT_NOUN_STOP_WORDS.contains(&w.to_ascii_lowercase().as_str()))
+        .map(|i| i + 1)
+        .unwrap_or(words.len().min(SIGNIFICANT_NOUN_FALLBACK_TAKE));
+    words[..cut].join(" ")
+}
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

@@ -105,6 +105,62 @@ fn global_singleton_is_stable() {
     );
 }
 
+#[test]
+fn new_causal_accessor_returns_non_empty() {
+    let m = PhrasesMixer::global();
+    for seed in [0u64, 1, 7, 42] {
+        assert!(
+            !m.causal(seed).is_empty(),
+            "causal({seed}) must not be empty"
+        );
+    }
+}
+
+#[test]
+fn new_concession_accessor_returns_non_empty() {
+    let m = PhrasesMixer::global();
+    for seed in [0u64, 1, 7, 42] {
+        assert!(
+            !m.concession(seed).is_empty(),
+            "concession({seed}) must not be empty"
+        );
+    }
+}
+
+#[test]
+fn new_exemplification_accessor_returns_non_empty() {
+    let m = PhrasesMixer::global();
+    for seed in [0u64, 1, 7, 42] {
+        assert!(
+            !m.exemplification(seed).is_empty(),
+            "exemplification({seed}) must not be empty"
+        );
+    }
+}
+
+#[test]
+fn new_comparative_accessor_returns_non_empty() {
+    let m = PhrasesMixer::global();
+    for seed in [0u64, 1, 7, 42] {
+        assert!(
+            !m.comparative(seed).is_empty(),
+            "comparative({seed}) must not be empty"
+        );
+    }
+}
+
+#[test]
+fn new_accessors_vary_with_seed() {
+    let m = PhrasesMixer::global();
+    let causals: Vec<&str> = (0u64..10).map(|s| m.causal(s)).collect();
+    let unique: std::collections::HashSet<&&str> = causals.iter().collect();
+    assert!(unique.len() > 1, "causal() should vary across seeds");
+
+    let comparatives: Vec<&str> = (0u64..10).map(|s| m.comparative(s)).collect();
+    let unique2: std::collections::HashSet<&&str> = comparatives.iter().collect();
+    assert!(unique2.len() > 1, "comparative() should vary across seeds");
+}
+
 // Copyright 2026 Mahmoud Harmouch.
 //
 // Licensed under the MIT license

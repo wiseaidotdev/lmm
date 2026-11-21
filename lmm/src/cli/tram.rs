@@ -10,12 +10,19 @@
 //! CLI-specific adapters for TRAM functionality. This module re-exports
 //! core TRAM functions and adds CLI-specific display and logging wrappers.
 
+pub mod framing;
+pub mod kb_query;
+pub mod paragraph;
 pub mod pipeline;
+pub mod quality;
 pub mod query;
 pub mod response;
+pub mod symbolic;
 
 pub use pipeline::{prefetch_web, prefetch_web_for_query, run_tram_pipeline};
-pub use query::{extract_topic, split_sentences_with_punct, strip_discourse_connector};
+pub use query::{
+    extract_creative_subject, extract_topic, split_sentences_with_punct, strip_discourse_connector,
+};
 pub use response::{
     assemble_paragraphs_for, derive_framing_topic, restructure_analogical_response,
 };

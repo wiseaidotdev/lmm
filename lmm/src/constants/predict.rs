@@ -23,3 +23,9 @@ pub const SYMBOLIC_REGRESSION_POPULATION_DEFAULT: usize = 60;
 pub const SYMBOLIC_REGRESSION_POPULATION_RHYTHM: usize = 40;
 pub const SYMBOLIC_REGRESSION_DEPTH_LIMIT: usize = 3;
 pub const MIN_TOKENS_FOR_PREDICTION: usize = 2;
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

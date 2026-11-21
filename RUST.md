@@ -13,13 +13,13 @@ lmm = "0.4.3"
 
 ### Cargo Features
 
-| Feature       | Description                                          |
-| ------------- | ---------------------------------------------------- |
-| `rust-binary` | Enables the standalone `lmm` terminal CLI executable |
-| `cli`         | Core CLI scaffolding (subset of `rust-binary`)       |
-| `net`         | Internet-aware `ask` command via DuckDuckGo Lite     |
-| `python`      | Python extension module (pyo3 / maturin)             |
-| `node`        | Node.js native add-on (napi-derive)                  |
+| Feature       | Description                                                                      |
+| ------------- | -------------------------------------------------------------------------------- |
+| `rust-binary` | Enables the standalone `lmm` terminal CLI executable                             |
+| `cli`         | Core CLI scaffolding (subset of `rust-binary`)                                   |
+| `net`         | Unified networking, DuckDuckGo + Wikipedia on native and WASM via `#[cfg]` gates |
+| `python`      | Python extension module (pyo3 / maturin)                                         |
+| `node`        | Node.js native add-on (napi-derive)                                              |
 
 Enable all features for a fully featured local build:
 

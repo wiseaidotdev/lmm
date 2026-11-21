@@ -20,7 +20,7 @@ pub fn handle_discover(iterations: usize, verbose: bool) -> LmmResult<()> {
         display::divider("Discovered Equation");
         tracing::info!("  f(x) = {}", expr);
     } else {
-        println!("{}", expr);
+        tracing::info!("{}", expr);
     }
     Ok(())
 }

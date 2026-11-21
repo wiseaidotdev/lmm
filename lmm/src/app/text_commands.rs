@@ -23,33 +23,46 @@ use {
     tracing::{error, info},
 };
 
-/// Handles the `predict` subcommand, symbolic text continuation.
-///
-/// # Arguments
-///
-/// * `input`          - File path to load as seed corpus.
-/// * `text`           - Fallback inline seed text.
-/// * `window`         - N-gram window width.
-/// * `predict_length` - Number of words to predict.
-/// * `iterations`     - GP iterations.
-/// * `depth`          - Recursion depth.
-/// * `dictionary`     - Optional path to a word lexicon.
-/// * `stochastic`     - Whether to apply synonym substitution.
-/// * `probability`    - Substitution probability (used when `stochastic` is `true`).
-/// * `verbose`        - Verbose output flag.
+/// Configuration for the `predict` command.
 #[cfg(feature = "cli")]
-pub fn handle_predict(
-    input: String,
-    text: String,
-    window: usize,
-    predict_length: usize,
-    iterations: usize,
-    depth: usize,
-    dictionary: Option<String>,
-    stochastic: bool,
-    probability: f64,
-    verbose: bool,
-) -> anyhow::Result<()> {
+pub struct PredictConfig {
+    /// File path to load as seed corpus.
+    pub input: String,
+    /// Fallback inline seed text.
+    pub text: String,
+    /// N-gram window width.
+    pub window: usize,
+    /// Number of words to predict.
+    pub predict_length: usize,
+    /// GP iterations.
+    pub iterations: usize,
+    /// Recursion depth.
+    pub depth: usize,
+    /// Optional path to a word lexicon.
+    pub dictionary: Option<String>,
+    /// Whether to apply synonym substitution.
+    pub stochastic: bool,
+    /// Substitution probability (used when `stochastic` is `true`).
+    pub probability: f64,
+    /// Verbose output flag.
+    pub verbose: bool,
+}
+
+/// Handles the `predict` subcommand, symbolic text continuation.
+#[cfg(feature = "cli")]
+pub fn handle_predict(cfg: PredictConfig) -> anyhow::Result<()> {
+    let PredictConfig {
+        input,
+        text,
+        window,
+        predict_length,
+        iterations,
+        depth,
+        dictionary,
+        stochastic,
+        probability,
+        verbose,
+    } = cfg;
     banner("Predict · Symbolic Continuation", "🔮");
     let source = load_source(&input, text)?;
     let lexicon = match dictionary {
@@ -71,34 +84,45 @@ pub fn handle_predict(
         divider("Continuation");
         info!("  {}{}", source, cont);
     } else {
-        println!("{}{}", source, cont);
+        info!("{}{}", source, cont);
     }
     Ok(())
 }
 
-/// Handles the `summarize` subcommand, extractive key-sentence summarisation.
-///
-/// # Arguments
-///
-/// * `input`      - File path to load as source corpus.
-/// * `text`       - Fallback inline corpus text.
-/// * `sentences`  - Number of sentences to extract.
-/// * `iterations` - GP iterations.
-/// * `depth`      - Recursion depth.
-/// * `stochastic` - Whether to apply synonym substitution.
-/// * `probability`- Substitution probability.
-/// * `verbose`    - Verbose output flag.
+/// Configuration for the `summarize` command.
 #[cfg(feature = "cli")]
-pub fn handle_summarize(
-    input: String,
-    text: String,
-    sentences: usize,
-    iterations: usize,
-    depth: usize,
-    stochastic: bool,
-    probability: f64,
-    verbose: bool,
-) -> anyhow::Result<()> {
+pub struct SummarizeConfig {
+    /// File path to load as source corpus.
+    pub input: String,
+    /// Fallback inline corpus text.
+    pub text: String,
+    /// Number of sentences to extract.
+    pub sentences: usize,
+    /// GP iterations.
+    pub iterations: usize,
+    /// Recursion depth.
+    pub depth: usize,
+    /// Whether to apply synonym substitution.
+    pub stochastic: bool,
+    /// Substitution probability.
+    pub probability: f64,
+    /// Verbose output flag.
+    pub verbose: bool,
+}
+
+/// Handles the `summarize` subcommand, extractive key-sentence summarisation.
+#[cfg(feature = "cli")]
+pub fn handle_summarize(cfg: SummarizeConfig) -> anyhow::Result<()> {
+    let SummarizeConfig {
+        input,
+        text,
+        sentences,
+        iterations,
+        depth,
+        stochastic,
+        probability,
+        verbose,
+    } = cfg;
     banner("Summarize · Key Sentence Extraction", "✂️");
     let source = load_source(&input, text)?;
     info!("  📝 Input : {} chars", source.len());
@@ -117,7 +141,7 @@ pub fn handle_summarize(
                 if verbose {
                     info!("  {}. {}", i + 1, enhanced);
                 } else {
-                    println!("{}", enhanced);
+                    info!("{}", enhanced);
                 }
             }
         }
@@ -160,7 +184,7 @@ pub fn handle_sentence(
                 divider("Generated Sentence");
                 info!("  {}", enhanced);
             } else {
-                println!("{}", enhanced);
+                info!("{}", enhanced);
             }
         }
         Err(e) => {
@@ -170,29 +194,40 @@ pub fn handle_sentence(
     Ok(())
 }
 
-/// Handles the `paragraph` subcommand, multi-sentence symbolic paragraph generation.
-///
-/// # Arguments
-///
-/// * `input`      - File path to load as seed.
-/// * `text`       - Fallback inline seed text.
-/// * `sentences`  - Number of sentences in the paragraph.
-/// * `iterations` - GP iterations.
-/// * `depth`      - Recursion depth.
-/// * `stochastic` - Whether to apply synonym substitution.
-/// * `probability`- Substitution probability.
-/// * `verbose`    - Verbose output flag.
+/// Configuration for the `paragraph` command.
 #[cfg(feature = "cli")]
-pub fn handle_paragraph(
-    input: String,
-    text: String,
-    sentences: usize,
-    iterations: usize,
-    depth: usize,
-    stochastic: bool,
-    probability: f64,
-    verbose: bool,
-) -> anyhow::Result<()> {
+pub struct ParagraphConfig {
+    /// File path to load as seed.
+    pub input: String,
+    /// Fallback inline seed text.
+    pub text: String,
+    /// Number of sentences in the paragraph.
+    pub sentences: usize,
+    /// GP iterations.
+    pub iterations: usize,
+    /// Recursion depth.
+    pub depth: usize,
+    /// Whether to apply synonym substitution.
+    pub stochastic: bool,
+    /// Substitution probability.
+    pub probability: f64,
+    /// Verbose output flag.
+    pub verbose: bool,
+}
+
+/// Handles the `paragraph` subcommand, multi-sentence symbolic paragraph generation.
+#[cfg(feature = "cli")]
+pub fn handle_paragraph(cfg: ParagraphConfig) -> anyhow::Result<()> {
+    let ParagraphConfig {
+        input,
+        text,
+        sentences,
+        iterations,
+        depth,
+        stochastic,
+        probability,
+        verbose,
+    } = cfg;
     banner("Paragraph · Generate a Paragraph", "📄");
     let source = load_source(&input, text)?;
     info!("  🌱 Seed      : {:?}", source);
@@ -206,7 +241,7 @@ pub fn handle_paragraph(
                 info!("");
                 info!("  {}", enhanced);
             } else {
-                println!("{}", enhanced);
+                info!("{}", enhanced);
             }
         }
         Err(e) => {
@@ -216,31 +251,43 @@ pub fn handle_paragraph(
     Ok(())
 }
 
-/// Handles the `essay` subcommand, multi-paragraph symbolic essay generation.
-///
-/// # Arguments
-///
-/// * `input`      - File path to load as topic seed.
-/// * `text`       - Fallback inline topic text.
-/// * `paragraphs` - Number of paragraphs to generate.
-/// * `sentences`  - Number of sentences per paragraph.
-/// * `iterations` - GP iterations.
-/// * `depth`      - Recursion depth.
-/// * `stochastic` - Whether to apply synonym substitution.
-/// * `probability`- Substitution probability.
-/// * `verbose`    - Verbose output flag.
+/// Configuration for the `essay` command.
 #[cfg(feature = "cli")]
-pub fn handle_essay(
-    input: String,
-    text: String,
-    paragraphs: usize,
-    sentences: usize,
-    iterations: usize,
-    depth: usize,
-    stochastic: bool,
-    probability: f64,
-    verbose: bool,
-) -> anyhow::Result<()> {
+pub struct EssayConfig {
+    /// File path to load as topic seed.
+    pub input: String,
+    /// Fallback inline topic text.
+    pub text: String,
+    /// Number of paragraphs to generate.
+    pub paragraphs: usize,
+    /// Number of sentences per paragraph.
+    pub sentences: usize,
+    /// GP iterations.
+    pub iterations: usize,
+    /// Recursion depth.
+    pub depth: usize,
+    /// Whether to apply synonym substitution.
+    pub stochastic: bool,
+    /// Substitution probability (used when `stochastic` is `true`).
+    pub probability: f64,
+    /// Verbose output flag.
+    pub verbose: bool,
+}
+
+/// Handles the `essay` subcommand, multi-paragraph symbolic essay generation.
+#[cfg(feature = "cli")]
+pub fn handle_essay(cfg: EssayConfig) -> anyhow::Result<()> {
+    let EssayConfig {
+        input,
+        text,
+        paragraphs,
+        sentences,
+        iterations,
+        depth,
+        stochastic,
+        probability,
+        verbose,
+    } = cfg;
     banner("Essay · Generate a Full Essay", "📖");
     let source = load_source(&input, text)?;
     info!("  🌱 Topic      : {:?}", source);
@@ -258,7 +305,7 @@ pub fn handle_essay(
                 info!("  📖  {}", essay.title);
                 info!("  ══════════════════════════════════════");
             } else {
-                println!("{}\n", essay.title);
+                info!("{}\n", essay.title);
             }
             let count = essay.paragraphs.len();
             for (i, para) in essay.paragraphs.iter().enumerate() {
@@ -276,7 +323,7 @@ pub fn handle_essay(
                     info!("  {}", enhanced);
                     info!("");
                 } else {
-                    println!("{}\n", enhanced);
+                    info!("{}\n", enhanced);
                 }
             }
         }
@@ -293,4 +340,3 @@ pub fn handle_essay(
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
-

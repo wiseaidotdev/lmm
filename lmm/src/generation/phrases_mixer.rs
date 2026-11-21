@@ -22,7 +22,8 @@
 //!   academic opener are left untouched.
 
 use crate::constants::phrases::{
-    ACADEMIC_HEDGES, ACADEMIC_OPENERS, CONCLUSION_STARTERS, DISCOURSE_MARKERS, TRANSITION_PHRASES,
+    ACADEMIC_HEDGES, ACADEMIC_OPENERS, CAUSAL_CONNECTORS, COMPARATIVE_PHRASES, CONCESSION_PHRASES,
+    CONCLUSION_STARTERS, DISCOURSE_MARKERS, EXEMPLIFICATION_PHRASES, TRANSITION_PHRASES,
 };
 use std::sync::OnceLock;
 
@@ -45,6 +46,10 @@ pub struct PhrasesMixer {
     transitions: &'static [&'static str],
     conclusions: &'static [&'static str],
     hedges: &'static [&'static str],
+    causals: &'static [&'static str],
+    concessions: &'static [&'static str],
+    exemplifications: &'static [&'static str],
+    comparatives: &'static [&'static str],
 }
 
 static GLOBAL: OnceLock<PhrasesMixer> = OnceLock::new();
@@ -66,6 +71,10 @@ impl PhrasesMixer {
             transitions: TRANSITION_PHRASES,
             conclusions: CONCLUSION_STARTERS,
             hedges: ACADEMIC_HEDGES,
+            causals: CAUSAL_CONNECTORS,
+            concessions: CONCESSION_PHRASES,
+            exemplifications: EXEMPLIFICATION_PHRASES,
+            comparatives: COMPARATIVE_PHRASES,
         })
     }
 
@@ -137,6 +146,70 @@ impl PhrasesMixer {
     /// ```
     pub fn hedge(&self, seed: u64) -> &'static str {
         self.hedges[seed as usize % self.hedges.len()]
+    }
+
+    /// Returns a causal-connector phrase selected deterministically from `seed`.
+    ///
+    /// Suitable for introducing cause-and-effect explanations in mid-paragraph.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::generation::phrases_mixer::PhrasesMixer;
+    ///
+    /// let phrase = PhrasesMixer::global().causal(0);
+    /// assert!(!phrase.is_empty());
+    /// ```
+    pub fn causal(&self, seed: u64) -> &'static str {
+        self.causals[seed as usize % self.causals.len()]
+    }
+
+    /// Returns a concession phrase selected deterministically from `seed`.
+    ///
+    /// Suitable for acknowledging an opposing view before the main argument.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::generation::phrases_mixer::PhrasesMixer;
+    ///
+    /// let phrase = PhrasesMixer::global().concession(3);
+    /// assert!(!phrase.is_empty());
+    /// ```
+    pub fn concession(&self, seed: u64) -> &'static str {
+        self.concessions[seed as usize % self.concessions.len()]
+    }
+
+    /// Returns an exemplification phrase selected deterministically from `seed`.
+    ///
+    /// Suitable for introducing supporting evidence or concrete examples.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::generation::phrases_mixer::PhrasesMixer;
+    ///
+    /// let phrase = PhrasesMixer::global().exemplification(7);
+    /// assert!(!phrase.is_empty());
+    /// ```
+    pub fn exemplification(&self, seed: u64) -> &'static str {
+        self.exemplifications[seed as usize % self.exemplifications.len()]
+    }
+
+    /// Returns a comparative phrase selected deterministically from `seed`.
+    ///
+    /// Suitable for analogical reasoning responses that contrast two entities.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::generation::phrases_mixer::PhrasesMixer;
+    ///
+    /// let phrase = PhrasesMixer::global().comparative(2);
+    /// assert!(!phrase.is_empty());
+    /// ```
+    pub fn comparative(&self, seed: u64) -> &'static str {
+        self.comparatives[seed as usize % self.comparatives.len()]
     }
 
     /// Enriches a paragraph by inserting a discourse marker before its second

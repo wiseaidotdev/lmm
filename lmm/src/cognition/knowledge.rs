@@ -41,10 +41,15 @@
 //! assert!(answer.is_some());
 //! ```
 
-use crate::constants::knowledge::{DEFAULT_EMPTY_EXTENSION, DEFAULT_FILE_LABEL};
+use crate::constants::knowledge::{
+    CODE_BLOCK_SOURCE_LABEL, DEFAULT_EMPTY_EXTENSION, DEFAULT_FILE_LABEL,
+    MIN_PARAGRAPH_CHUNK_WORDS, MIN_SENTENCE_CHUNK_WORDS, PARAGRAPH_SEPARATOR,
+};
 use crate::generation::filter::SentenceFilter;
 use crate::text::TextSummarizer;
 use anyhow::{Result, anyhow};
+#[cfg(feature = "knowledge")]
+use lopdf::Document;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -238,7 +243,7 @@ impl KnowledgeIndex {
         let sentences = split_sentences(text);
         let start = self.chunks.len();
         for sentence in sentences {
-            if sentence.split_whitespace().count() < 4 {
+            if sentence.split_whitespace().count() < MIN_SENTENCE_CHUNK_WORDS {
                 continue;
             }
             if !SentenceFilter::is_acceptable(&sentence) {
@@ -261,11 +266,11 @@ impl KnowledgeIndex {
     /// This method preserves paragraph boundaries for better context in deep-scraped content.
     /// Each paragraph is filtered for quality before being indexed. Returns the number of chunks created.
     pub fn ingest_paragraphs(&mut self, source: &str, text: &str) -> usize {
-        let paragraphs: Vec<&str> = text.split("\n\n").collect();
+        let paragraphs: Vec<&str> = text.split(PARAGRAPH_SEPARATOR).collect();
         let start = self.chunks.len();
         for paragraph in paragraphs {
             let paragraph = paragraph.trim();
-            if paragraph.split_whitespace().count() < 8 {
+            if paragraph.split_whitespace().count() < MIN_PARAGRAPH_CHUNK_WORDS {
                 continue;
             }
             if !SentenceFilter::is_acceptable(paragraph) {
@@ -282,6 +287,62 @@ impl KnowledgeIndex {
         let added = self.chunks.len() - start;
         self.rebuild_doc_freq();
         added
+    }
+
+    /// Ingests a verbatim code block, bypassing the minimum-word-count filter.
+    ///
+    /// Unlike [`ingest_text`], this method accepts short snippets (e.g. a single
+    /// `print("Hello, World!")` line) that would otherwise be dropped.  Every block
+    /// is stored under [`CODE_BLOCK_SOURCE_LABEL`] so that [`query_code_blocks`] can
+    /// retrieve them without relying on IDF ranking.
+    ///
+    /// # Time Complexity
+    ///
+    /// O(|text|)
+    pub fn ingest_code_block(&mut self, text: &str) {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        let chunk = DocumentChunk::new(CODE_BLOCK_SOURCE_LABEL, trimmed);
+        let idx = self.chunks.len();
+        for token in &chunk.tokens {
+            self.term_index.entry(token.clone()).or_default().push(idx);
+        }
+        self.chunks.push(chunk);
+        self.rebuild_doc_freq();
+    }
+
+    /// Returns all code-block chunks stored via [`ingest_code_block`].
+    ///
+    /// Unlike [`query`], this method does **not** apply IDF ranking, every chunk
+    /// under [`CODE_BLOCK_SOURCE_LABEL`] is returned unconditionally so that
+    /// [`CodeResponder`] can scan them all for language-specific patterns.
+    ///
+    /// # Time Complexity
+    ///
+    /// O(|chunks|)
+    pub fn query_code_blocks(&self) -> Vec<&DocumentChunk> {
+        self.chunks
+            .iter()
+            .filter(|c| c.source == CODE_BLOCK_SOURCE_LABEL)
+            .collect()
+    }
+
+    /// Returns the text of every chunk added after index `start`.
+    ///
+    /// Used by the corpus cache to snapshot the chunks that were ingested during a
+    /// deep-scrape pass, so they can be persisted to disk and restored on the next run.
+    ///
+    /// # Time Complexity
+    ///
+    /// O(|chunks| - start)
+    pub fn all_chunk_texts_since(&self, start: usize) -> Vec<String> {
+        self.chunks
+            .iter()
+            .skip(start)
+            .map(|c| c.text.clone())
+            .collect()
     }
 
     /// Returns the `top_k` most relevant [`DocumentChunk`]s for `question`.
@@ -431,9 +492,6 @@ impl DocumentParser for PdfParser {
     }
 
     fn parse_bytes(&self, bytes: &[u8]) -> Result<String> {
-        #[cfg(feature = "knowledge")]
-        use lopdf::Document;
-
         let doc =
             Document::load_from(Cursor::new(bytes)).map_err(|e| anyhow!("lopdf error: {e}"))?;
         let mut out = String::new();
@@ -636,3 +694,10 @@ fn strip_html(html: &str) -> String {
     }
     out
 }
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

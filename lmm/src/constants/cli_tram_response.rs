@@ -8,6 +8,11 @@
 //! # CLI TRAM Response Constants
 
 pub const MIN_QUALITY_WORD_COUNT: usize = 5;
+
+/// Minimum character length to accept a sparse KB answer as the response body
+/// instead of falling back to a symbolic "no information found" message.
+/// Answers shorter than this are still discarded.
+pub const MIN_SPARSE_BODY_CHARS: usize = 20;
 pub const MIN_SENTENCE_WORD_COUNT: usize = 2;
 pub const MIN_AVG_WORDS_PER_SENTENCE: usize = 2;
 pub const MIN_VERB_COUNT: usize = 1;
@@ -187,6 +192,25 @@ pub const PREDICATE_STARTERS: &[&str] = &[
     "allows", "prevent", "prevents", "require", "requires", "cause", "causes", "use", "uses",
     "need", "needs",
 ];
+
+/// Placeholder token replaced with the topic string in symbolic response templates.
+pub const SYMBOLIC_TOPIC_PLACEHOLDER: &str = "{topic}";
+
+/// Symbolic response template for prompts where no information was found.
+///
+/// Contains one `{topic}` placeholder replaced at runtime.
+pub const SYMBOLIC_NO_INFO_TEMPLATE: &str = "No detailed information was found for \"{topic}\". \
+     This may be because the topic is very specific, the web query returned no results, \
+     or the knowledge base does not yet contain content on this subject. \
+     Try rephrasing your query or adding more context.";
+
+/// Symbolic response template for causal prompts where no explanation was found.
+///
+/// Contains one `{topic}` placeholder replaced at runtime.
+pub const SYMBOLIC_NO_EXPLANATION_TEMPLATE: &str = "No detailed explanation was found for \"{topic}\". \
+     This may be because the topic is very specific, the web query returned no results, \
+     or the knowledge base does not yet contain content on this subject. \
+     Try rephrasing your query or adding more context.";
 
 // Copyright 2026 Mahmoud Harmouch.
 //

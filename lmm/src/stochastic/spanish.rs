@@ -55,3 +55,9 @@ pub(super) static SPANISH_SYNONYMS: Map<&'static str, &'static [&'static str]> =
     "aunque"      => &["si bien", "a pesar de", "aun cuando", "pese a"],
     "además"      => &["asimismo", "igualmente", "también", "por otra parte"],
 };
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

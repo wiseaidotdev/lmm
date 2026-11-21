@@ -45,7 +45,7 @@ pub fn handle_causal(intervene_node: String, intervene_value: f64, verbose: bool
             graph.get_value("z")
         );
     } else {
-        println!(
+        info!(
             "x={:?} y={:?} z={:?}",
             graph.get_value("x"),
             graph.get_value("y"),

@@ -7,6 +7,8 @@
 
 //! # Application Helper Utilities
 
+#[cfg(any(feature = "cli", feature = "net"))]
+use crate::tram::extract_topic;
 #[cfg(feature = "cli")]
 use crate::{cli::util, error::Result as LmmResult, stochastic::StochasticEnhancer};
 
@@ -58,7 +60,6 @@ pub fn maybe_enhance(text: &str, stochastic: bool, probability: f64) -> String {
 ///
 /// A capitalised topic string.
 #[cfg(feature = "net")]
-#[allow(unused)]
 pub fn extract_topic_name(prompt: &str) -> String {
     let prompt_lower = prompt.to_ascii_lowercase();
 
@@ -78,7 +79,7 @@ pub fn extract_topic_name(prompt: &str) -> String {
         return capitalize_first_letter(topic);
     }
 
-    let topic = crate::tram::query::extract_topic(prompt);
+    let topic = extract_topic(prompt);
     capitalize_first_letter(&topic)
 }
 
@@ -107,4 +108,3 @@ pub fn capitalize_first_letter(s: &str) -> String {
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
-

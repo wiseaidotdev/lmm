@@ -51,9 +51,13 @@ use crate::cognition::learning::q_table::{ActionKey, QTable};
 use crate::cognition::memory::ColdStore;
 use crate::cognition::signal::CognitionSignal;
 use crate::cognition::types::{AgentSnapshot, ExperienceRecord, LearningMode};
+use crate::constants::learning::LEARNING_ENGINE_STATE_FILE;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fs::{read_to_string, write};
+use std::io::{Error, Result as IoResult};
+use std::path::Path;
 
 /// The HELM orchestration hub that bundles all six learning sub-modules.
 ///
@@ -360,6 +364,59 @@ impl LearningEngine {
     /// Returns a reference to the knowledge distiller.
     pub fn distiller(&self) -> &KnowledgeDistiller {
         &self.distiller
+    }
+
+    /// Loads a persisted engine state from `state_dir/LEARNING_ENGINE_STATE_FILE`,
+    /// or creates a fresh default when the file is missing or malformed.
+    ///
+    /// # Arguments
+    ///
+    /// * `config`    - Configuration to use when constructing a fresh engine.
+    /// * `state_dir` - Directory in which the state file is stored.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
+    ///
+    /// let engine = LearningEngine::load_or_new(LearningConfig::default(), std::path::Path::new("/tmp"));
+    /// assert_eq!(engine.episode_count(), 0);
+    /// ```
+    pub fn load_or_new(config: LearningConfig, state_dir: &Path) -> Self {
+        let path = state_dir.join(LEARNING_ENGINE_STATE_FILE);
+        if path.exists()
+            && let Ok(data) = read_to_string(&path)
+            && let Ok(engine) = serde_json::from_str::<Self>(&data)
+        {
+            return engine;
+        }
+        Self::new(config)
+    }
+
+    /// Persists the engine state to `state_dir/LEARNING_ENGINE_STATE_FILE` as JSON.
+    ///
+    /// # Arguments
+    ///
+    /// * `state_dir` - Directory in which the state file will be written.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err` when the directory is not writable or serialization fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lmm::cognition::learning::engine::LearningEngine;
+    /// use lmm::cognition::learning::config::LearningConfig;
+    ///
+    /// let engine = LearningEngine::new(LearningConfig::default());
+    /// let _ = engine.save(std::path::Path::new("/tmp"));
+    /// ```
+    pub fn save(&self, state_dir: &Path) -> IoResult<()> {
+        let path = state_dir.join(LEARNING_ENGINE_STATE_FILE);
+        let json = serde_json::to_string(self).map_err(Error::other)?;
+        write(path, json)
     }
 
     fn compute_episode_offsets(&self) -> HashMap<ActionKey, f64> {

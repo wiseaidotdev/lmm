@@ -16,3 +16,9 @@ pub const RESIDUAL_SEPARATOR: char = ',';
 pub const DEFAULT_RESIDUAL: i64 = 0;
 pub const UNICODE_CODE_POINT_MIN: i64 = 0;
 pub const UNICODE_CODE_POINT_MAX: i64 = 0x10FFFF;
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

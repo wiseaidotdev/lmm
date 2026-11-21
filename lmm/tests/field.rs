@@ -24,13 +24,20 @@ fn test_gradient_linear_is_constant() {
 fn test_gradient_quadratic_is_linear() {
     let f = quadratic_field(10);
     let g = f.compute_gradient().unwrap();
-    for i in 1..g.values.data.len() - 1 {
+    for (i, item) in g
+        .values
+        .data
+        .iter()
+        .enumerate()
+        .take(g.values.data.len() - 1)
+        .skip(1)
+    {
         let expected = 2.0 * i as f64;
         assert!(
-            (g.values.data[i] - expected).abs() < 1e-10,
+            (item - expected).abs() < 1e-10,
             "Expected {}, got {}",
             expected,
-            g.values.data[i]
+            item
         );
     }
 }

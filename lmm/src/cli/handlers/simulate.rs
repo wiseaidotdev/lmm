@@ -27,7 +27,7 @@ pub fn handle_simulate(step: f64, steps: usize, verbose: bool) -> LmmResult<()> 
         display::divider("Final State");
         tracing::info!("  {:?}", final_data);
     } else {
-        println!("{:?}", final_data);
+        tracing::info!("{:?}", final_data);
     }
     Ok(())
 }

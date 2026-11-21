@@ -52,11 +52,7 @@ pub fn is_quality_answer(answer: &str) -> bool {
 
     let unique_words: HashSet<&str> = words.iter().cloned().collect();
     let repetition_ratio = 1.0 - (unique_words.len() as f64 / words.len() as f64);
-    if repetition_ratio > MAX_REPETITION_THRESHOLD {
-        return false;
-    }
-
-    true
+    repetition_ratio <= MAX_REPETITION_THRESHOLD
 }
 
 /// Calculates a relevance score for a response against a query.
@@ -396,3 +392,9 @@ fn to_title_case(s: &str) -> String {
         Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
     }
 }
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

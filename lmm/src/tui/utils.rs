@@ -5,8 +5,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use unicode_width::UnicodeWidthStr;
+
 pub fn display_width(s: &str) -> usize {
-    use unicode_width::UnicodeWidthStr;
     UnicodeWidthStr::width(s)
 }
 

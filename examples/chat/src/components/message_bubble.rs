@@ -1,10 +1,65 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, distributed
+// except according to those terms.
+
 use crate::components::mode_badge::ModeBadge;
-use crate::types::{ChatMessage, MessageRole};
+use crate::types::{ChatMessage, CodeBlock, MessageRole};
+use coders::Language;
+use coders::yew::{Block, Content, CopyTrigger, Header, Title};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct MessageBubbleProps {
     pub message: ChatMessage,
+}
+
+fn language_from_str(lang: &str) -> Language {
+    match lang.to_ascii_lowercase().as_str() {
+        "rust" | "rs" => Language::Rust,
+        "python" | "py" => Language::Python,
+        "javascript" | "js" => Language::JavaScript,
+        "typescript" | "ts" => Language::TypeScript,
+        "html" => Language::Html,
+        "css" => Language::Css,
+        "json" => Language::Json,
+        "bash" | "sh" | "shell" => Language::Bash,
+        "toml" => Language::Toml,
+        "sql" => Language::Sql,
+        "go" | "golang" => Language::Go,
+        "java" => Language::Java,
+        "cpp" | "c++" => Language::Cpp,
+        "c" => Language::C,
+        "kotlin" | "kt" => Language::Kotlin,
+        "swift" => Language::Swift,
+        "ruby" | "rb" => Language::Ruby,
+        "php" => Language::Php,
+        "yaml" | "yml" => Language::Yaml,
+        _ => Language::Plain,
+    }
+}
+
+fn render_code_block(block: &CodeBlock) -> Html {
+    let language = language_from_str(&block.language);
+    let lang_label = if block.language.is_empty() {
+        "code".to_string()
+    } else {
+        block.language.clone()
+    };
+    let static_code: &'static str = Box::leak(block.code.clone().into_boxed_str());
+    let title_node = html! { { lang_label.clone() } };
+
+    html! {
+        <Block code={static_code} language={language} class="my-3">
+            <Header>
+                <Title>{ title_node }</Title>
+                <CopyTrigger />
+            </Header>
+            <Content />
+        </Block>
+    }
 }
 
 #[function_component(MessageBubble)]
@@ -47,9 +102,12 @@ pub fn message_bubble(props: &MessageBubbleProps) -> Html {
                         html! {}
                     } }
                     <div class="message-ai">
-                        <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                            { &props.message.content }
-                        </p>
+                        if !props.message.content.trim().is_empty() {
+                            <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                                { &props.message.content }
+                            </p>
+                        }
+                        { for props.message.code_blocks.iter().map(render_code_block) }
                         if !props.message.links.is_empty() {
                             <div
                                 class="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-vect-border/40"
@@ -81,3 +139,10 @@ pub fn message_bubble(props: &MessageBubbleProps) -> Html {
         }
     }
 }
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, distributed
+// except according to those terms.

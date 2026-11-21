@@ -310,10 +310,10 @@ impl FourierOperator {
         let mut real = vec![0.0f64; n_modes];
         let mut imag = vec![0.0f64; n_modes];
         for k in 0..n_modes {
-            for j in 0..n {
+            for (j, item) in input.values.data.iter().enumerate().take(n) {
                 let angle = pi2 * k as f64 * j as f64 / n as f64;
-                real[k] += input.values.data[j] * angle.cos();
-                imag[k] -= input.values.data[j] * angle.sin();
+                real[k] += item * angle.cos();
+                imag[k] -= item * angle.sin();
             }
             real[k] = real[k] * self.spectral_weights[k] / n as f64;
             imag[k] = imag[k] * self.spectral_weights[k] / n as f64;

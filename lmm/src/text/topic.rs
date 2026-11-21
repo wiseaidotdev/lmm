@@ -238,3 +238,9 @@ pub fn summarize_to_topic(text: &str, domain: &str, current_topic: &str, turn: u
 
     aspect_topic(domain, turn + 1)
 }
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
