@@ -9,6 +9,12 @@
 
 /// Verbs at the beginning of a prompt that signal a creative/generative task.
 pub static TASK_CREATIVE_VERBS: &[&str] = &[
+    "show me an ",
+    "show me a ",
+    "show me ",
+    "give me an ",
+    "give me a ",
+    "give me ",
     "write ",
     "generate ",
     "create ",
@@ -84,6 +90,32 @@ pub static TASK_STRIP_PREFIXES: &[&str] = &[
 /// Separators used to split a comparison prompt into two entity names.
 pub static TASK_VS_SPLITTERS: &[&str] = &[" vs ", " versus ", " compared to "];
 
+/// Keywords inside a prompt that identify the output as a poem or verse.
+pub const CREATIVE_POEM_KEYWORDS: &[&str] = &[
+    "poem", "verse", "sonnet", "haiku", "stanza", "rhyme", "lyric", "poetry", "ode", "ballad",
+];
+
+/// Keywords inside a prompt that identify the output as a story or narrative.
+pub const CREATIVE_STORY_KEYWORDS: &[&str] = &[
+    "story",
+    "narrative",
+    "tale",
+    "fiction",
+    "short story",
+    "novella",
+];
+
+/// Keywords inside a prompt that identify the output as an essay or article.
+pub const CREATIVE_ESSAY_KEYWORDS: &[&str] = &[
+    "essay",
+    "article",
+    "report",
+    "writeup",
+    "write-up",
+    "analysis",
+    "blog post",
+];
+
 /// Verb prefixes that introduce the task body in a creative prompt.
 pub static TASK_CREATIVE_PREFIXES: &[&str] = &[
     "write ",
@@ -157,6 +189,99 @@ pub const TASK_FALLBACK_LANGUAGE: &str = "unknown";
 
 /// Reward threshold below which an `AcquireSkill` sub-task is prepended.
 pub const TASK_LOW_REWARD_THRESHOLD: f64 = 0.3;
+
+/// Reward threshold below which additional refinement queries are added.
+///
+/// When the last episode reward falls between [`TASK_LOW_REWARD_THRESHOLD`] and
+/// this value the decomposer supplements the query list with definitional and
+/// contextual sub-tasks to broaden KB coverage before the main response is built.
+pub const TASK_MEDIUM_REWARD_THRESHOLD: f64 = 0.6;
+
+/// Query format string for the \"what is X\" definitional refinement sub-task.
+pub const TASK_FMT_WHAT_IS: &str = "what is";
+
+/// Query format string for the \"X definition\" definitional refinement sub-task.
+pub const TASK_FMT_DEFINITION: &str = "definition";
+
+/// Programming language name prefixes for stripping noise from code task subjects.
+///
+/// Intentionally mirrors
+/// [`SUBJECT_LANGUAGE_PREFIXES`][crate::constants::tram_query::SUBJECT_LANGUAGE_PREFIXES]
+/// to avoid a circular dependency between `cognition/task_decomposer` and `tram/query`.
+pub const TASK_LANGUAGE_STRIP_PREFIXES: &[&str] = &[
+    "python ",
+    "rust ",
+    "javascript ",
+    "typescript ",
+    "java ",
+    "kotlin ",
+    "go ",
+    "golang ",
+    "c++ ",
+    "cpp ",
+    "c# ",
+    "csharp ",
+    "ruby ",
+    "php ",
+    "swift ",
+    "scala ",
+    "haskell ",
+    "elixir ",
+    "erlang ",
+    "clojure ",
+    "lua ",
+    "perl ",
+    "bash ",
+    "shell ",
+    "julia ",
+    "dart ",
+    "zig ",
+];
+
+/// Generic adjective modifier prefixes for stripping noise from code task subjects.
+///
+/// Intentionally mirrors
+/// [`SUBJECT_MODIFIER_PREFIXES`][crate::constants::tram_query::SUBJECT_MODIFIER_PREFIXES]
+/// to avoid a circular dependency between `cognition/task_decomposer` and `tram/query`.
+/// Articles (`"a "`, `"an "`, `"the "`) are included here so that raw topic strings
+/// produced by `extract_simple_topic` (e.g. `"a simple python hello world program"`) are
+/// fully cleaned before the subject is used for Wikipedia lookups or KB retrieval.
+pub const TASK_MODIFIER_STRIP_PREFIXES: &[&str] = &[
+    "a ",
+    "an ",
+    "the ",
+    "simple ",
+    "basic ",
+    "easy ",
+    "small ",
+    "quick ",
+    "minimal ",
+    "tiny ",
+    "straightforward ",
+    "beginner ",
+    "introductory ",
+    "classic ",
+];
+
+/// Output-type suffixes for stripping noise from code task subjects.
+///
+/// Intentionally mirrors
+/// [`SUBJECT_FORM_SUFFIXES`][crate::constants::tram_query::SUBJECT_FORM_SUFFIXES]
+/// to avoid a circular dependency between `cognition/task_decomposer` and `tram/query`.
+pub const TASK_FORM_STRIP_SUFFIXES: &[&str] = &[
+    " program",
+    " script",
+    " function",
+    " code",
+    " app",
+    " application",
+    " module",
+    " class",
+    " snippet",
+    " example",
+    " implementation",
+    " algorithm",
+];
 
 // Copyright 2026 Mahmoud Harmouch.
 //

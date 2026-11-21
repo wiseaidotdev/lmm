@@ -21,23 +21,50 @@
 //! for contextual queries like "advantages of rust". Tier 1 is now the
 //! primary source, resolving the 0-URL issue.
 
+#[cfg(any(
+    all(feature = "net", not(target_arch = "wasm32")),
+    not(feature = "net")
+))]
 use crate::cognition::knowledge::KnowledgeIndex;
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+use crate::cognition::task_decomposer::{CreativeOutputKind, TaskDecomposer};
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+use crate::cognition::thought::classifier::{InputClassifier, ReasoningMode};
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 use crate::constants::tram_web_fetch::{
-    DEEP_SCRAPE_BACK_OFF_BASE_MS, DEEP_SCRAPE_DDG_REDIRECT_PARAM, DEEP_SCRAPE_DOMAIN_FILTER,
-    DEEP_SCRAPE_HTTP_PREFIX, DEEP_SCRAPE_IA_PARAM_WEB, DEEP_SCRAPE_KB_QUERY_LIMIT,
-    DEEP_SCRAPE_KEYWORD_MIN_LENGTH, DEEP_SCRAPE_LITE_QUERY_REGION, DEEP_SCRAPE_MAX_RELATED_TOPICS,
-    DEEP_SCRAPE_MAX_URLS_PER_ITERATION, DEEP_SCRAPE_RELEVANCE_KEYWORD_MIN_LENGTH,
-    DEEP_SCRAPE_SOURCE_LABEL, MAX_DEEP_SCRAPE_ITERATIONS, MAX_DEEP_SCRAPE_LITE_RESULTS,
-    MAX_LINKED_URLS_TO_FOLLOW, MIN_DEEP_SCRAPE_CONTENT_LENGTH, MIN_DEEP_SCRAPE_RELEVANCE_SCORE,
+    DEEP_QUERY_ADVANTAGES, DEEP_QUERY_BENEFITS, DEEP_QUERY_CAUSE, DEEP_QUERY_CODE_IMPL,
+    DEEP_QUERY_CODE_SNIPPET, DEEP_QUERY_COMPARE, DEEP_QUERY_COMPUTE_IN, DEEP_QUERY_DEFINITION,
+    DEEP_QUERY_DIFFERENCES, DEEP_QUERY_EXAMPLE, DEEP_QUERY_EXPERIENCE, DEEP_QUERY_EXPLAINED,
+    DEEP_QUERY_FEATURES, DEEP_QUERY_FUNCTION, DEEP_QUERY_GUIDE, DEEP_QUERY_HOW_TO,
+    DEEP_QUERY_HOW_TO_IMPLEMENT, DEEP_QUERY_MEANING, DEEP_QUERY_METAPHORS, DEEP_QUERY_OVERVIEW,
+    DEEP_QUERY_PHILOSOPHY, DEEP_QUERY_PROGRAM, DEEP_QUERY_PROS_CONS, DEEP_QUERY_REASON,
+    DEEP_QUERY_RECURSIVE, DEEP_QUERY_THEMES, DEEP_QUERY_TUTORIAL, DEEP_QUERY_VS,
+    DEEP_QUERY_WHAT_IS, DEEP_QUERY_WHY, DEEP_QUERY_WHY_USE, DEEP_SCRAPE_ABS_REDIRECT_PREFIX,
+    DEEP_SCRAPE_BACK_OFF_BASE_MS, DEEP_SCRAPE_DDG_BASE, DEEP_SCRAPE_DDG_ENTITY_PREFIX,
+    DEEP_SCRAPE_DDG_REDIRECT_PARAM, DEEP_SCRAPE_DOMAIN_FILTER, DEEP_SCRAPE_HTTP_PREFIX,
+    DEEP_SCRAPE_IA_PARAM_WEB, DEEP_SCRAPE_KB_QUERY_LIMIT, DEEP_SCRAPE_KEYWORD_MIN_LENGTH,
+    DEEP_SCRAPE_LITE_QUERY_REGION, DEEP_SCRAPE_MAX_RELATED_TOPICS, DEEP_SCRAPE_MAX_RETRIES,
+    DEEP_SCRAPE_MAX_URLS_PER_ITERATION, DEEP_SCRAPE_NO_RESULTS_MSG, DEEP_SCRAPE_PROTOCOL_HTTPS,
+    DEEP_SCRAPE_PROTOCOL_RELATIVE_PREFIX, DEEP_SCRAPE_RELEVANCE_KEYWORD_MIN_LENGTH,
+    DEEP_SCRAPE_RETRY_BASE_MS, DEEP_SCRAPE_SOURCE_LABEL, DEEP_SCRAPE_WIKIPEDIA_PREFIX,
+    MAX_DEEP_SCRAPE_ITERATIONS, MAX_DEEP_SCRAPE_LITE_RESULTS, MAX_LINKED_URLS_TO_FOLLOW,
+    MIN_DEEP_SCRAPE_CONTENT_LENGTH, MIN_DEEP_SCRAPE_RELEVANCE_SCORE,
+    OPENSEARCH_QUERY_ALGORITHM_LANG_TEMPLATE, OPENSEARCH_QUERY_IMPLEMENTATION_TEMPLATE,
+    OPENSEARCH_QUERY_PROGRAM_LANG_TEMPLATE, OPENSEARCH_QUERY_PROGRAM_TEMPLATE,
+    WIKIPEDIA_FALLBACK_ALGORITHM_SUFFIX, WIKIPEDIA_FALLBACK_COMPUTATION_SUFFIX,
+    WIKIPEDIA_FALLBACK_EXAMPLE_SUFFIX, WIKIPEDIA_FALLBACK_FUNCTION_SUFFIX,
+    WIKIPEDIA_FALLBACK_METHOD_SUFFIX, WIKIPEDIA_FALLBACK_NUMERICAL_PREFIX,
+    WIKIPEDIA_FALLBACK_PROGRAM_SUFFIX, WIKIPEDIA_OPENSEARCH_API,
 };
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 use crate::net::{Browser, user_agent_by_seed};
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+use crate::tram::query::extract_creative_subject;
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 use crate::tram::scraper::scrape_and_ingest_with_redirect;
-#[cfg(feature = "net")]
-use tokio::time::{Duration, sleep};
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+use tokio::time::{Duration, sleep, timeout};
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 use tracing::info;
 
 /// Result of a deep scraping operation.
@@ -68,7 +95,7 @@ pub struct DeepScrapeResult {
 ///
 /// * `content` - The scraped content to evaluate.
 /// * `topic`   - Space-separated topic keywords to match against.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 fn calculate_topic_relevance(content: &str, topic: &str) -> f64 {
     let content_lower = content.to_ascii_lowercase();
     let topic_lower = topic.to_ascii_lowercase();
@@ -109,36 +136,60 @@ fn calculate_topic_relevance(content: &str, topic: &str) -> f64 {
     (keyword_density / 10.0).min(1.0) * 0.4 + coverage * 0.4 + length_factor * 0.2
 }
 
-/// Decodes a DuckDuckGo Lite redirect URL into the actual target URL.
+/// Resolves a raw DDG Lite href into an absolute HTTP(S) URL.
 ///
-/// DDG Lite returns hrefs in the form `/l/?uddg=https%3A%2F%2Fexample.com%2F&rut=...`.
-/// This function extracts and percent-decodes the `uddg` parameter value.
-/// If the input is already a plain URL (starts with `http`), it is returned as-is.
+/// Handles four href formats returned by DDG Lite:
 ///
-/// # Arguments
+/// | Format                     | Example                                        | Resolution                     |
+/// |----------------------------|-------------------------------------------------|-------------------------------|
+/// | Protocol-relative redirect | `//duckduckgo.com/l/?uddg=https%3A...`             | Prepend `https:`, decode `uddg` |
+/// | Absolute redirect path     | `/l/?uddg=https%3A...`                            | Prepend DDG base, decode `uddg` |
+/// | Direct HTTP URL            | `https://example.com/article`                   | Pass through                   |
+/// | DDG entity page            | `https://duckduckgo.com/Rust_(programming_language)` | Map to Wikipedia URL     |
 ///
-/// * `href` - The raw href string from a DDG Lite search result anchor tag.
-///
-/// # Returns
-///
-/// The resolved absolute URL string, or the original `href` unchanged when no
-/// redirect encoding is detected.
-#[cfg(feature = "net")]
-fn decode_ddg_redirect(href: &str) -> String {
-    if let Some(pos) = href.find(DEEP_SCRAPE_DDG_REDIRECT_PARAM) {
-        let encoded_url = &href[pos + DEEP_SCRAPE_DDG_REDIRECT_PARAM.len()..];
-        let end = encoded_url.find('&').unwrap_or(encoded_url.len());
-        let encoded_url = &encoded_url[..end];
-        percent_decode(encoded_url)
+/// Returns an empty string when no usable URL can be extracted.
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+pub fn resolve_ddg_url(href: &str) -> String {
+    let normalised = if href.starts_with(DEEP_SCRAPE_PROTOCOL_RELATIVE_PREFIX) {
+        format!("{}{}", DEEP_SCRAPE_PROTOCOL_HTTPS, href)
+    } else if href.starts_with(DEEP_SCRAPE_ABS_REDIRECT_PREFIX) {
+        format!("{}{}", DEEP_SCRAPE_DDG_BASE, href)
     } else {
         href.to_string()
+    };
+
+    if let Some(pos) = normalised.find(DEEP_SCRAPE_DDG_REDIRECT_PARAM) {
+        let encoded_url = &normalised[pos + DEEP_SCRAPE_DDG_REDIRECT_PARAM.len()..];
+        let end = encoded_url.find('&').unwrap_or(encoded_url.len());
+        let decoded = percent_decode(&encoded_url[..end]);
+        if decoded.starts_with(DEEP_SCRAPE_HTTP_PREFIX) {
+            return decoded;
+        }
     }
+
+    if let Some(path) = normalised.strip_prefix(DEEP_SCRAPE_DDG_ENTITY_PREFIX)
+        && !path.is_empty()
+        && !path.starts_with("l/")
+        && !path.starts_with("?")
+        && !path.starts_with("lite")
+        && !path.contains("duckduckgo")
+    {
+        return format!("{}{}", DEEP_SCRAPE_WIKIPEDIA_PREFIX, path);
+    }
+
+    if normalised.starts_with(DEEP_SCRAPE_HTTP_PREFIX)
+        && !normalised.contains(DEEP_SCRAPE_DOMAIN_FILTER)
+    {
+        return normalised;
+    }
+
+    String::new()
 }
 
 /// Percent-decodes a URL-encoded string (e.g. `%2F` → `/`, `%3A` → `:`).
 ///
 /// Only handles the subset needed for DDG redirect URL decoding.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 fn percent_decode(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let bytes = s.as_bytes();
@@ -159,7 +210,7 @@ fn percent_decode(s: &str) -> String {
 }
 
 /// Returns the nibble value of an ASCII hex digit, or `None` if not a hex digit.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 fn hex_val(b: u8) -> Option<u8> {
     match b {
         b'0'..=b'9' => Some(b - b'0'),
@@ -171,44 +222,69 @@ fn hex_val(b: u8) -> Option<u8> {
 
 /// Collects candidate URLs for a single iteration using the multi-tier strategy.
 ///
-/// Tier 1 (DDG Lite) is always attempted first; Tiers 2 and 3 (DDG Instant
-/// Answer API) are appended as supplements.
+/// Tier 1 (DDG Lite) is always attempted first with exponential back-off
+/// retries on failure; Tiers 2 and 3 (DDG Instant Answer API) are appended
+/// as supplements.
 ///
 /// # Arguments
 ///
 /// * `browser`       - Configured HTTP client.
 /// * `query`         - The search query for this iteration.
 /// * `encoded`       - URL-encoded form of `query` (spaces → `+`).
-/// * `ua`            - User-agent string to use for this iteration.
+/// * `ua_seed`       - Seed for generating user-agent strings (incremented on retry).
 /// * `scraped_urls`  - Set of URLs already visited; candidates in this set are skipped.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 async fn collect_urls_for_iteration(
     browser: &Browser,
     query: &str,
     encoded: &str,
-    ua: &str,
+    ua_seed: u64,
     scraped_urls: &std::collections::HashSet<String>,
 ) -> Vec<String> {
     let mut urls: Vec<String> = Vec::new();
 
-    if let Ok(lite_results) = browser
-        .lite_search(
-            query,
-            DEEP_SCRAPE_LITE_QUERY_REGION,
-            Some(MAX_DEEP_SCRAPE_LITE_RESULTS),
-            ua,
-        )
-        .await
-    {
-        for r in &lite_results {
-            let resolved = decode_ddg_redirect(&r.url);
-            if resolved.starts_with(DEEP_SCRAPE_HTTP_PREFIX)
-                && !resolved.contains(DEEP_SCRAPE_DOMAIN_FILTER)
-                && !scraped_urls.contains(&resolved)
-                && !urls.contains(&resolved)
-            {
-                urls.push(resolved);
+    let mut attempt: u32 = 0;
+    loop {
+        let ua = user_agent_by_seed(ua_seed + attempt as u64);
+        match browser
+            .lite_search(
+                query,
+                DEEP_SCRAPE_LITE_QUERY_REGION,
+                Some(MAX_DEEP_SCRAPE_LITE_RESULTS),
+                ua,
+            )
+            .await
+        {
+            Ok(lite_results) => {
+                info!(
+                    "  🔍 Deep Search: lite_search returned {} href(s) for '{}'",
+                    lite_results.len(),
+                    query
+                );
+                if lite_results.is_empty() {
+                    info!("  🔍 Deep Search: {}", DEEP_SCRAPE_NO_RESULTS_MSG);
+                }
+                for r in &lite_results {
+                    info!("  🔍 Deep Search raw href: {:?}", r.url);
+                    let resolved = resolve_ddg_url(&r.url);
+                    if !resolved.is_empty()
+                        && !resolved.contains(DEEP_SCRAPE_DOMAIN_FILTER)
+                        && !scraped_urls.contains(&resolved)
+                        && !urls.contains(&resolved)
+                    {
+                        urls.push(resolved);
+                    }
+                }
+                break;
             }
+            Err(_) if attempt < DEEP_SCRAPE_MAX_RETRIES => {
+                attempt += 1;
+                sleep(Duration::from_millis(
+                    DEEP_SCRAPE_RETRY_BASE_MS * 2u64.pow(attempt),
+                ))
+                .await;
+            }
+            Err(_) => break,
         }
     }
 
@@ -253,22 +329,287 @@ async fn collect_urls_for_iteration(
 
 /// Builds the ordered list of search query strings for a topic.
 ///
-/// Returns more varied queries than the previous implementation to increase
-/// the chance of finding topic-relevant pages via DDG Lite.
+/// Returns mode-aware queries adapted to the prompt's reasoning mode,
+/// increasing the chance of finding relevant pages via DDG Lite.
 ///
 /// # Arguments
 ///
-/// * `topic` - The topic keyword string.
-#[cfg(feature = "net")]
-fn build_query_prefixes(topic: &str) -> Vec<String> {
-    vec![
-        format!("advantages of {}", topic),
-        format!("benefits of {}", topic),
-        format!("pros and cons of {}", topic),
-        format!("{} tutorial", topic),
-        format!("{} guide", topic),
-        format!("{} overview", topic),
-    ]
+/// * `topic`  - The topic keyword string.
+/// * `prompt` - The original user prompt, used for mode classification.
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+fn build_query_prefixes(topic: &str, prompt: &str) -> Vec<String> {
+    let mode = InputClassifier::classify(prompt);
+    match mode {
+        ReasoningMode::Evaluative => vec![
+            format!("{}{}", DEEP_QUERY_ADVANTAGES, topic),
+            format!("{}{}", DEEP_QUERY_BENEFITS, topic),
+            format!("{}{}", topic, DEEP_QUERY_FEATURES),
+            format!("{}{}", DEEP_QUERY_WHY_USE, topic),
+            format!("{}{}", topic, DEEP_QUERY_PROS_CONS),
+            format!("{}{}", topic, DEEP_QUERY_OVERVIEW),
+        ],
+        ReasoningMode::Causal => vec![
+            format!("{}{}", DEEP_QUERY_WHY, topic),
+            format!("{}{}", topic, DEEP_QUERY_CAUSE),
+            format!("{}{}", topic, DEEP_QUERY_REASON),
+            format!("{}{}", DEEP_QUERY_WHAT_IS, topic),
+            format!("{}{}", topic, DEEP_QUERY_EXPLAINED),
+            format!("{}{}", topic, DEEP_QUERY_OVERVIEW),
+        ],
+        ReasoningMode::Procedural => vec![
+            format!("{}{}", DEEP_QUERY_HOW_TO, topic),
+            format!("{}{}", topic, DEEP_QUERY_TUTORIAL),
+            format!("{}{}", topic, DEEP_QUERY_GUIDE),
+            format!("{}{}", DEEP_QUERY_WHAT_IS, topic),
+            format!("{}{}", topic, DEEP_QUERY_OVERVIEW),
+            topic.to_string(),
+        ],
+        ReasoningMode::Analogical => vec![
+            format!("{}{}", DEEP_QUERY_COMPARE, topic),
+            format!("{}{}", DEEP_QUERY_DIFFERENCES, topic),
+            format!("{}{}{}", topic, DEEP_QUERY_VS, "alternatives"),
+            format!("{}{}", topic, DEEP_QUERY_FEATURES),
+            format!("{}{}", topic, DEEP_QUERY_OVERVIEW),
+            topic.to_string(),
+        ],
+        ReasoningMode::Definitional | ReasoningMode::FactualLookup => vec![
+            format!("{}{}", DEEP_QUERY_WHAT_IS, topic),
+            format!("{}{}", topic, DEEP_QUERY_DEFINITION),
+            format!("{}{}", topic, DEEP_QUERY_EXPLAINED),
+            format!("{}{}", topic, DEEP_QUERY_OVERVIEW),
+            format!("{}{}", topic, DEEP_QUERY_GUIDE),
+            topic.to_string(),
+        ],
+        ReasoningMode::TaskExecution => {
+            let subject = extract_creative_subject(prompt);
+            let kind = TaskDecomposer::detect_creative_kind(prompt);
+            match kind {
+                CreativeOutputKind::Code { ref language } => vec![
+                    format!("{} {}{}", language, subject, DEEP_QUERY_PROGRAM),
+                    format!("{} {}{}", language, subject, DEEP_QUERY_FUNCTION),
+                    format!("{}{} in {}", DEEP_QUERY_HOW_TO_IMPLEMENT, subject, language),
+                    format!("{} {} {}", DEEP_QUERY_COMPUTE_IN, subject, language),
+                    format!("{} {}{}", language, subject, DEEP_QUERY_CODE_IMPL),
+                    format!("{} {}{}", language, subject, DEEP_QUERY_RECURSIVE),
+                    format!("{} {}{}", language, subject, DEEP_QUERY_EXAMPLE),
+                    format!("{} {}{}", language, subject, DEEP_QUERY_CODE_SNIPPET),
+                    format!("{} {}{}", language, subject, DEEP_QUERY_TUTORIAL),
+                    format!("{} {}", subject, language),
+                ],
+                CreativeOutputKind::Poem => vec![
+                    format!("{}{}", subject, DEEP_QUERY_THEMES),
+                    format!("{}{}", subject, DEEP_QUERY_MEANING),
+                    format!("{}{}", subject, DEEP_QUERY_PHILOSOPHY),
+                    format!("{}{}", subject, DEEP_QUERY_METAPHORS),
+                    format!("{}{}", subject, DEEP_QUERY_EXPERIENCE),
+                    subject.to_string(),
+                ],
+                _ => vec![
+                    format!("{}{}", subject, DEEP_QUERY_OVERVIEW),
+                    format!("{}{}", subject, DEEP_QUERY_EXPLAINED),
+                    format!("{}{}", subject, DEEP_QUERY_MEANING),
+                    subject.to_string(),
+                ],
+            }
+        }
+        _ => vec![
+            format!("{}{}", DEEP_QUERY_WHAT_IS, topic),
+            format!("{}{}", topic, DEEP_QUERY_OVERVIEW),
+            format!("{}{}", topic, DEEP_QUERY_EXPLAINED),
+            format!("{}{}", topic, DEEP_QUERY_GUIDE),
+            format!("{}{}", topic, DEEP_QUERY_TUTORIAL),
+            topic.to_string(),
+        ],
+    }
+}
+
+/// Queries the Wikipedia OpenSearch API and returns article URLs for a given query.
+///
+/// Uses Wikipedia's free `opensearch` API endpoint which returns structured JSON
+/// containing matched article titles and their canonical URLs.  This avoids the
+/// need to guess URL patterns (e.g., `Numerical_differentiation` for `derivative`).
+///
+/// Returns up to 5 article URLs sorted by search relevance, or an empty vector
+/// when the request fails or returns no results.
+///
+/// # Arguments
+///
+/// * `query` - The search query (e.g., `"numerical derivative algorithm"`).
+///
+/// # Time Complexity
+///
+/// O(1) locally; network-bound.
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+async fn fetch_wikipedia_opensearch_urls(query: &str) -> Vec<String> {
+    let seed: u64 = query
+        .bytes()
+        .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
+    let client = match reqwest::Client::builder()
+        .user_agent(user_agent_by_seed(seed))
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    let encoded: String = query
+        .chars()
+        .flat_map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                vec![c]
+            } else if c == ' ' {
+                vec!['+']
+            } else {
+                format!("%{:02X}", c as u32).chars().collect::<Vec<char>>()
+            }
+        })
+        .collect();
+
+    let url = format!("{}{}", WIKIPEDIA_OPENSEARCH_API, encoded);
+
+    let body = match timeout(Duration::from_secs(5), client.get(&url).send()).await {
+        Ok(Ok(r)) => match r.text().await {
+            Ok(t) => t,
+            Err(_) => return vec![],
+        },
+        _ => return vec![],
+    };
+
+    extract_wikipedia_urls_from_opensearch(&body)
+}
+
+/// Parses a Wikipedia OpenSearch JSON response and extracts article URLs.
+///
+/// The OpenSearch format is `["query", ["title1",...], ["desc1",...], ["url1",...]]`.
+/// Only URLs pointing to `en.wikipedia.org/wiki/` are returned.
+///
+/// # Time Complexity
+///
+/// O(|body|)
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+fn extract_wikipedia_urls_from_opensearch(body: &str) -> Vec<String> {
+    let trimmed = body.trim();
+    let inner = match trimmed.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+        Some(s) => s,
+        None => return vec![],
+    };
+
+    let url_prefix = "\"https://en.wikipedia.org/wiki/";
+    let mut urls = Vec::new();
+    let mut pos = 0;
+    while let Some(start) = inner[pos..].find(url_prefix) {
+        let abs_start = pos + start + 1;
+        let after_quote = abs_start + "https://en.wikipedia.org/wiki/".len();
+        if let Some(end_rel) = inner[after_quote..].find('"') {
+            let url = &inner[abs_start..after_quote + end_rel];
+            urls.push(url.to_string());
+            pos = after_quote + end_rel + 1;
+        } else {
+            break;
+        }
+    }
+    urls
+}
+
+/// Builds a list of Wikipedia article URLs to scrape as a guaranteed fallback.
+///
+/// For task-execution (code-writing) prompts, constructs Wikipedia URLs from
+/// the subject extracted from the prompt.  The subject is title-cased to match
+/// Wikipedia's URL convention.  Multiple URL forms are generated to increase the
+/// chance of finding a matching article:
+/// - `{WIKIPEDIA_PREFIX}{Subject_Title_Case}` (e.g. `Factorial`)
+/// - `{WIKIPEDIA_PREFIX}{subject_lowercase}` (e.g. `factorial`)
+/// - `{WIKIPEDIA_PREFIX}Numerical_{Subject}` (e.g. `Numerical_Derivative`)
+/// - `{WIKIPEDIA_PREFIX}{Subject}_algorithm` etc.
+///
+/// Wikipedia is a reliable source that can be scraped without CAPTCHA and
+/// frequently contains `<pre>` pseudocode blocks, formula descriptions, and
+/// algorithmic prose that the code-block extractor can harvest.
+///
+/// # Time Complexity
+///
+/// O(|prompt|)
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+fn build_wikipedia_fallback_urls(prompt: &str, topic: &str) -> Vec<String> {
+    let kind = TaskDecomposer::detect_creative_kind(prompt);
+    let subject = match &kind {
+        CreativeOutputKind::Code { .. } => extract_creative_subject(prompt),
+        _ => topic.to_string(),
+    };
+
+    if subject.is_empty() {
+        return vec![];
+    }
+
+    let title_case: String = subject
+        .split(['_', ' '])
+        .filter(|w| !w.is_empty())
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().to_string() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("_");
+
+    let title_spaced: String = subject.replace('_', " ");
+    let title_spaced_cap: String = {
+        let mut chars = title_spaced.chars();
+        match chars.next() {
+            None => String::new(),
+            Some(first) => first.to_uppercase().to_string() + chars.as_str(),
+        }
+    };
+
+    let lc = subject.to_ascii_lowercase().replace(' ', "_");
+    let spaced = title_spaced_cap.replace(' ', "_");
+
+    let subject_is_single_word = !subject.contains(' ') && !subject.contains('_');
+
+    let mut urls = vec![
+        format!("{}{}", DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case.clone()),
+        format!("{}{}", DEEP_SCRAPE_WIKIPEDIA_PREFIX, spaced.clone()),
+        format!("{}{}", DEEP_SCRAPE_WIKIPEDIA_PREFIX, lc.clone()),
+    ];
+    urls.push(format!(
+        "{}{}{}",
+        DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_PROGRAM_SUFFIX
+    ));
+    urls.push(format!(
+        "{}{}{}",
+        DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_EXAMPLE_SUFFIX
+    ));
+    if subject_is_single_word {
+        urls.push(format!(
+            "{}{}{}",
+            DEEP_SCRAPE_WIKIPEDIA_PREFIX, WIKIPEDIA_FALLBACK_NUMERICAL_PREFIX, spaced
+        ));
+        urls.push(format!(
+            "{}{}{}",
+            DEEP_SCRAPE_WIKIPEDIA_PREFIX, WIKIPEDIA_FALLBACK_NUMERICAL_PREFIX, title_case
+        ));
+        urls.push(format!(
+            "{}{}{}",
+            DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_ALGORITHM_SUFFIX
+        ));
+        urls.push(format!(
+            "{}{}{}",
+            DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_FUNCTION_SUFFIX
+        ));
+        urls.push(format!(
+            "{}{}{}",
+            DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_METHOD_SUFFIX
+        ));
+        urls.push(format!(
+            "{}{}{}",
+            DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_COMPUTATION_SUFFIX
+        ));
+    }
+    urls.dedup();
+    urls
 }
 
 /// Performs deep scraping for topic-relevant content using a multi-tier URL strategy.
@@ -281,6 +622,7 @@ fn build_query_prefixes(topic: &str) -> Vec<String> {
 /// # Arguments
 ///
 /// * `topic`          - The topic to search for (e.g., `"rust programming language"`).
+/// * `prompt`         - The original user prompt, used for mode-aware query generation.
 /// * `index`          - The knowledge index to ingest content into.
 /// * `verbose`        - When `true`, emits detailed progress via `tracing::info`.
 /// * `max_iterations` - Maximum number of search-and-scrape cycles to run.
@@ -288,9 +630,10 @@ fn build_query_prefixes(topic: &str) -> Vec<String> {
 /// # Returns
 ///
 /// A [`DeepScrapeResult`] containing ingestion statistics and URL lists.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 pub async fn deep_scrape_for_topic(
     topic: &str,
+    prompt: &str,
     index: &mut KnowledgeIndex,
     verbose: bool,
     max_iterations: usize,
@@ -322,7 +665,7 @@ pub async fn deep_scrape_for_topic(
         return result;
     }
 
-    let query_prefixes = build_query_prefixes(topic);
+    let query_prefixes = build_query_prefixes(topic, prompt);
     let iterations = max_iterations.min(MAX_DEEP_SCRAPE_ITERATIONS);
     let mut all_scraped_urls: Vec<String> = Vec::new();
 
@@ -340,8 +683,6 @@ pub async fn deep_scrape_for_topic(
             .map(|c| if c == ' ' { '+' } else { c })
             .collect();
 
-        let ua = user_agent_by_seed(iteration as u64);
-
         if verbose {
             info!(
                 "  🔍 Deep Search iteration {}: query='{}'",
@@ -351,7 +692,8 @@ pub async fn deep_scrape_for_topic(
         }
 
         let urls_to_scrape =
-            collect_urls_for_iteration(&browser, &query, &encoded, ua, &scraped_urls).await;
+            collect_urls_for_iteration(&browser, &query, &encoded, iteration as u64, &scraped_urls)
+                .await;
 
         result.iterations_performed += 1;
 
@@ -430,6 +772,69 @@ pub async fn deep_scrape_for_topic(
         }
     }
 
+    let wikipedia_fallback_urls = build_wikipedia_fallback_urls(prompt, topic);
+
+    let opensearch_queries: Vec<String> = {
+        let kind = TaskDecomposer::detect_creative_kind(prompt);
+        match &kind {
+            CreativeOutputKind::Code { .. } => {
+                let subj = extract_creative_subject(prompt);
+                vec![
+                    OPENSEARCH_QUERY_PROGRAM_TEMPLATE.replace("{}", &subj),
+                    OPENSEARCH_QUERY_PROGRAM_LANG_TEMPLATE.replace("{}", &subj),
+                    OPENSEARCH_QUERY_ALGORITHM_LANG_TEMPLATE.replace("{}", &subj),
+                    OPENSEARCH_QUERY_IMPLEMENTATION_TEMPLATE.replace("{}", &subj),
+                ]
+            }
+            _ => vec![topic.to_string()],
+        }
+    };
+
+    let mut opensearch_urls: Vec<String> = Vec::new();
+    for q in &opensearch_queries {
+        if verbose {
+            info!("  🔍 Deep Search: Wikipedia OpenSearch query='{}'", q);
+        }
+        let found = fetch_wikipedia_opensearch_urls(q).await;
+        if verbose {
+            info!(
+                "  🔍 Deep Search: OpenSearch returned {} URL(s): {:?}",
+                found.len(),
+                found
+            );
+        }
+        for u in found {
+            if !opensearch_urls.contains(&u) {
+                opensearch_urls.push(u);
+            }
+        }
+    }
+
+    let all_wiki_urls: Vec<String> = {
+        let mut combined = wikipedia_fallback_urls;
+        for u in opensearch_urls {
+            if !combined.contains(&u) {
+                combined.push(u);
+            }
+        }
+        combined
+    };
+
+    for wiki_url in &all_wiki_urls {
+        if scraped_urls.contains(wiki_url) {
+            continue;
+        }
+        scraped_urls.insert(wiki_url.clone());
+        all_scraped_urls.push(wiki_url.clone());
+        let (scraped, _) =
+            scrape_and_ingest_with_redirect(wiki_url, index, DEEP_SCRAPE_SOURCE_LABEL, topic).await;
+        if scraped > 0 {
+            result.total_chunks_ingested += scraped;
+            result.successful_urls.push(wiki_url.clone());
+            result.urls_attempted += 1;
+        }
+    }
+
     if verbose {
         info!(
             "  🔍 Deep Search: completed iterations={}, urls_attempted={}, relevant_found={}",
@@ -450,6 +855,7 @@ pub async fn deep_scrape_for_topic(
 #[cfg(not(feature = "net"))]
 pub async fn deep_scrape_for_topic(
     _topic: &str,
+    _prompt: &str,
     _index: &mut KnowledgeIndex,
     _verbose: bool,
     _max_iterations: usize,

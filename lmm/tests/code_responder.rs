@@ -9,7 +9,7 @@ use lmm::cognition::code_responder::CodeResponder;
 
 #[test]
 fn generate_python_hello_world_contains_print() {
-    let code = CodeResponder::generate("python", "hello world", "");
+    let code = CodeResponder::generate("python", "hello world", "").unwrap();
     assert!(
         code.contains("print"),
         "Python hello world should use print(), got: {code}"
@@ -19,7 +19,7 @@ fn generate_python_hello_world_contains_print() {
 
 #[test]
 fn generate_rust_hello_world_contains_println() {
-    let code = CodeResponder::generate("rust", "hello world", "");
+    let code = CodeResponder::generate("rust", "hello world", "").unwrap();
     assert!(
         code.contains("println!"),
         "Rust hello world should use println!, got: {code}"
@@ -29,7 +29,7 @@ fn generate_rust_hello_world_contains_println() {
 
 #[test]
 fn generate_javascript_hello_world_contains_console_log() {
-    let code = CodeResponder::generate("javascript", "hello world", "");
+    let code = CodeResponder::generate("javascript", "hello world", "").unwrap();
     assert!(
         code.contains("console.log"),
         "JS hello world should use console.log, got: {code}"
@@ -38,7 +38,7 @@ fn generate_javascript_hello_world_contains_console_log() {
 
 #[test]
 fn generate_go_hello_world_contains_fmt_println() {
-    let code = CodeResponder::generate("go", "hello world", "");
+    let code = CodeResponder::generate("go", "hello world", "").unwrap();
     assert!(
         code.contains("fmt.Println"),
         "Go hello world should use fmt.Println, got: {code}"
@@ -48,7 +48,7 @@ fn generate_go_hello_world_contains_fmt_println() {
 
 #[test]
 fn generate_java_hello_world_contains_system_out() {
-    let code = CodeResponder::generate("java", "hello world", "");
+    let code = CodeResponder::generate("java", "hello world", "").unwrap();
     assert!(
         code.contains("System.out.println"),
         "Java should use System.out.println, got: {code}"
@@ -57,7 +57,7 @@ fn generate_java_hello_world_contains_system_out() {
 
 #[test]
 fn generate_cpp_hello_world_contains_cout() {
-    let code = CodeResponder::generate("cpp", "hello world", "");
+    let code = CodeResponder::generate("cpp", "hello world", "").unwrap();
     assert!(
         code.contains("cout") || code.contains("std::cout"),
         "C++ should use cout, got: {code}"
@@ -66,7 +66,7 @@ fn generate_cpp_hello_world_contains_cout() {
 
 #[test]
 fn generate_ruby_hello_world_contains_puts() {
-    let code = CodeResponder::generate("ruby", "hello world", "");
+    let code = CodeResponder::generate("ruby", "hello world", "").unwrap();
     assert!(
         code.contains("puts"),
         "Ruby hello world should use puts, got: {code}"
@@ -75,7 +75,7 @@ fn generate_ruby_hello_world_contains_puts() {
 
 #[test]
 fn generate_python_fibonacci_contains_def_fibonacci() {
-    let code = CodeResponder::generate("python", "fibonacci sequence", "");
+    let code = CodeResponder::generate("python", "fibonacci sequence", "").unwrap();
     assert!(
         code.contains("fibonacci"),
         "Should define fibonacci function, got: {code}"
@@ -84,7 +84,7 @@ fn generate_python_fibonacci_contains_def_fibonacci() {
 
 #[test]
 fn generate_rust_fibonacci_contains_fn_fibonacci() {
-    let code = CodeResponder::generate("rust", "fibonacci numbers", "");
+    let code = CodeResponder::generate("rust", "fibonacci numbers", "").unwrap();
     assert!(
         code.contains("fn fibonacci"),
         "Should define fn fibonacci, got: {code}"
@@ -93,7 +93,7 @@ fn generate_rust_fibonacci_contains_fn_fibonacci() {
 
 #[test]
 fn generate_python_factorial_contains_factorial() {
-    let code = CodeResponder::generate("python", "factorial", "");
+    let code = CodeResponder::generate("python", "factorial", "").unwrap();
     assert!(
         code.contains("factorial"),
         "Should define factorial, got: {code}"
@@ -202,13 +202,13 @@ fn detect_task_type_generic_fallback() {
 
 #[test]
 fn generate_with_empty_corpus_falls_back_to_template() {
-    let code = CodeResponder::generate("python", "hello world", "");
+    let code = CodeResponder::generate("python", "hello world", "").unwrap();
     assert!(!code.is_empty(), "Should return template for empty corpus");
 }
 
 #[test]
 fn generate_unknown_language_hello_world_fallback() {
-    let code = CodeResponder::generate("brainfuck", "hello world", "");
+    let code = CodeResponder::generate("brainfuck", "hello world", "").unwrap();
     assert!(
         !code.is_empty(),
         "Should return something even for unknown language"
@@ -217,7 +217,7 @@ fn generate_unknown_language_hello_world_fallback() {
 
 #[test]
 fn generate_known_language_generic_task_returns_non_empty() {
-    let code = CodeResponder::generate("rust", "binary search", "");
+    let code = CodeResponder::generate("rust", "binary search", "").unwrap();
     assert!(
         !code.is_empty(),
         "Generic task should return non-empty code"

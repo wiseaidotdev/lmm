@@ -48,3 +48,9 @@ pub(super) static FRENCH_SYNONYMS: Map<&'static str, &'static [&'static str]> = 
     "jamais"      => &["en aucun cas", "nullement"],
     "également"   => &["aussi", "pareillement", "autant"],
 };
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

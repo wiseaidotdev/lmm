@@ -22,6 +22,12 @@ pub const ENTROPY_INJECTION_RATE: f64 = 0.35;
 /// single sentence during stochastic enhancement.
 pub const PHRASE_SUBSTITUTION_DEPTH: usize = 3;
 
+/// When `false`, the system word-list fallback (which picks a same-length
+/// word from `/usr/share/dict/words`) is disabled.  Only curated thesaurus
+/// synonyms are used, preventing nonsense substitutions such as
+/// `"programming"` → `"algonquian"`.
+pub const ENABLE_WORDLIST_FALLBACK: bool = false;
+
 #[cfg(not(target_arch = "wasm32"))]
 pub const WORDLIST_MIN_WORD_LEN: usize = 5;
 
@@ -35,3 +41,10 @@ pub static SYSTEM_DICT_PATHS: &[&str] = &[
     "/usr/share/dict/words",
     "/usr/dict/words",
 ];
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, distributed
+// except according to those terms.

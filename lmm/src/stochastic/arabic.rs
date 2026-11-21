@@ -47,3 +47,9 @@ pub(super) static ARABIC_SYNONYMS: Map<&'static str, &'static [&'static str]> = 
     "رغم"       => &["على الرغم من", "بالرغم من", "في حين أن"],
     "علاوة"     => &["فضلا", "إضافة", "كذلك", "إلى ذلك"],
 };
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

@@ -57,7 +57,7 @@ pub fn handle_encode(
                 .join(",")
         );
     } else {
-        println!(
+        info!(
             "{} {} {}",
             encoded.equation,
             encoded.length,
@@ -86,7 +86,7 @@ pub fn handle_decode(
         display::divider("Decoded Text");
         info!("  {}", decoded);
     } else {
-        println!("{}", decoded);
+        info!("{}", decoded);
     }
     Ok(())
 }

@@ -188,3 +188,9 @@ pub fn cf_from_idf(idf: f64, max_idf: f64) -> CertaintyFactor {
 }
 
 // Copyright 2026 Mahmoud Harmouch, licensed under MIT.
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

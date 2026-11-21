@@ -294,3 +294,9 @@ pub const MIN_TOPIC_WORD_LENGTH: usize = 4;
 pub const MIN_CORE_WORD_LENGTH: usize = 5;
 pub const FIRST_SENTENCES_LIMIT: usize = 3;
 pub const TOPIC_CANDIDATE_LIMIT: usize = 2;
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

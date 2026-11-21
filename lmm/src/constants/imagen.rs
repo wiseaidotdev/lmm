@@ -22,3 +22,9 @@ pub const FRACTAL_ESCAPE_RADIUS_SQ: f64 = 4.0;
 pub const STYLE_SIGMA_SEED_OFFSET: u64 = 99;
 pub const FRACTAL_C_REAL_SEED_OFFSET: u64 = 77;
 pub const FRACTAL_C_IMAG_SEED_OFFSET: u64 = 78;
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

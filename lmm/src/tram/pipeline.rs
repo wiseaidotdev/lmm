@@ -17,23 +17,23 @@ use crate::cognition::{
     r#loop::ThinkLoop,
     response_framer::ResponseFramer,
     search::SearchOracle,
-    task_decomposer::TaskDecomposer,
+    task_decomposer::{CreativeOutputKind, TaskDecomposer},
     thought::{
         AdaptiveThoughtEngine,
         classifier::{InputClassifier, ReasoningMode},
     },
 };
+use crate::constants::code_responder::CODE_IMPROVEMENT_HINT;
 use crate::constants::generation_filter::DEFAULT_EMPTY_WORD;
 use crate::constants::tram_pipeline::{
-    KB_QUERY_TOP_K, MIN_COLD_CORPUS_WORDS, MIN_SENTENCE_WORDS_FOR_PIPELINE, MIN_TOPIC_WORD_LENGTH,
-    ORACLE_CACHE_SIZE,
+    CREATIVE_HINT_ESSAY, CREATIVE_HINT_POEM, CREATIVE_HINT_STORY, DISCOURSE_CONNECTORS,
+    FALLBACK_PHRASES, KB_QUERY_TOP_K, LCG_ADDEND, LCG_MULTIPLIER, LCG_SHIFT, MIN_COLD_CORPUS_WORDS,
+    MIN_CREATIVE_CONTENT_WORDS, MIN_SENTENCE_WORDS_FOR_PIPELINE, MIN_TOPIC_WORD_LENGTH,
+    ORACLE_CACHE_SIZE, SHAPER_MAX_PARAGRAPHS, SHAPER_MAX_SENTENCE_WORDS, SHAPER_MIN_PARAGRAPHS,
+    SHAPER_MIN_SENTENCE_WORDS, SHAPER_MIN_SENTENCES, TOPIC_SKIP_WORDS,
 };
 #[cfg(feature = "net")]
 use crate::constants::tram_web_fetch::DEEP_SCRAPE_TOP_K_MULTIPLIER;
-#[cfg(feature = "net")]
-use crate::constants::tram_web_fetch::{
-    DEEP_SEARCH_URL_FOOTER_BULLET, DEEP_SEARCH_URL_FOOTER_HEADER,
-};
 use crate::error::Result as LmmResult;
 use crate::expert::{inference::InferenceEngine, rule::RuleBase};
 use crate::generation::{
@@ -42,7 +42,6 @@ use crate::generation::{
 };
 use crate::stochastic::StochasticEnhancer;
 use crate::text::TextSummarizer;
-#[cfg(feature = "net")]
 #[cfg(feature = "net")]
 use crate::tram::web_fetch::prefetch_web;
 #[cfg(feature = "net")]
@@ -158,7 +157,6 @@ impl TramPipeline {
             &thinkloop_result.cold_corpus,
             run_seed,
         );
-
         let corpus_for_fallback = thinkloop_result.cold_corpus.clone();
 
         let expert_result = self.run_expert_inference(
@@ -211,7 +209,10 @@ impl TramPipeline {
             answer_text
         };
 
-        let enriched_text = if !processed_text.is_empty() && !self.config.no_frame {
+        let enriched_text = if !processed_text.is_empty()
+            && !self.config.no_frame
+            && !TaskDecomposer::is_creative_task(prompt)
+        {
             PhrasesMixer::global().apply_opener_if_needed(&processed_text, run_seed)
         } else {
             processed_text
@@ -228,25 +229,44 @@ impl TramPipeline {
             self.apply_stochastic_enhancement(&enriched_text)
         };
 
-        let final_text = if self.config.deep || self.config.no_frame {
-            let mut text = stochastic_result.text.clone();
-            #[cfg(feature = "net")]
+        #[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+        let url_footer: String =
             if self.config.deep && !web_fetch_result.all_scraped_urls.is_empty() {
-                text.push_str(DEEP_SEARCH_URL_FOOTER_HEADER);
+                use crate::constants::tram_web_fetch::{
+                    DEEP_SEARCH_URL_FOOTER_BULLET, DEEP_SEARCH_URL_FOOTER_HEADER,
+                };
+                let mut f = DEEP_SEARCH_URL_FOOTER_HEADER.to_string();
                 for url in &web_fetch_result.all_scraped_urls {
-                    text.push_str(DEEP_SEARCH_URL_FOOTER_BULLET);
-                    text.push_str(url);
-                    text.push('\n');
+                    f.push_str(DEEP_SEARCH_URL_FOOTER_BULLET);
+                    f.push_str(url);
+                    f.push('\n');
                 }
-            }
-            text
-        } else if TaskDecomposer::is_creative_task(prompt) {
-            self.build_creative_response(
+                f
+            } else {
+                String::new()
+            };
+        #[cfg(any(not(feature = "net"), target_arch = "wasm32"))]
+        let url_footer = String::new();
+
+        let final_text = if TaskDecomposer::is_creative_task(prompt) {
+            let mut creative = self.build_creative_response(
                 prompt,
                 &topic,
                 &kb_retrieval_result.kb_chunks,
                 &stochastic_result.text,
-            )
+                run_seed,
+            );
+            if !url_footer.is_empty() {
+                creative.push_str(&url_footer);
+            }
+            creative
+        } else if self.config.deep || self.config.no_frame {
+            let deduplicator = GlobalDeduplicator::new(self.config.dedup_threshold);
+            let mut deduped = deduplicator.deduplicate_text(&stochastic_result.text);
+            if !url_footer.is_empty() {
+                deduped.push_str(&url_footer);
+            }
+            deduped
         } else {
             self.build_framed_response(
                 prompt,
@@ -364,7 +384,7 @@ impl TramPipeline {
 
     fn retrieve_knowledge(
         &self,
-        _prompt: &str,
+        prompt: &str,
         topic: &str,
         prompt_mode: ReasoningMode,
         index: &KnowledgeIndex,
@@ -388,6 +408,16 @@ impl TramPipeline {
             .map(|c| c.text.clone())
             .collect();
 
+        let code_block_chunks: Vec<String> = if TaskDecomposer::is_creative_task(prompt) {
+            index
+                .query_code_blocks()
+                .into_iter()
+                .map(|c| c.text.clone())
+                .collect()
+        } else {
+            Vec::new()
+        };
+
         #[cfg(feature = "net")]
         let deep_chunks: Vec<String> = if self.config.deep {
             index
@@ -401,12 +431,14 @@ impl TramPipeline {
         #[cfg(not(feature = "net"))]
         let deep_chunks: Vec<String> = Vec::new();
 
-        let all_chunks: Vec<String> = if !deep_chunks.is_empty() {
-            let mut combined = kb_chunks.clone();
-            combined.extend(deep_chunks);
-            combined
-        } else {
-            kb_chunks.clone()
+        let all_chunks: Vec<String> = {
+            let mut combined = code_block_chunks;
+            combined.extend(kb_chunks.clone());
+            if !deep_chunks.is_empty() {
+                combined.extend(deep_chunks);
+            }
+            let deduplicator = GlobalDeduplicator::new(self.config.dedup_threshold);
+            deduplicator.deduplicate(combined)
         };
 
         #[cfg(feature = "net")]
@@ -425,11 +457,13 @@ impl TramPipeline {
             .unwrap_or_default();
 
         let answer_text = if self.config.deep && !all_chunks.is_empty() {
-            if !ia_answer.is_empty() {
+            let raw = if !ia_answer.is_empty() {
                 format!("{}\n\n{}", ia_answer, all_chunks.join(" "))
             } else {
                 all_chunks.join(" ")
-            }
+            };
+            let deduplicator = GlobalDeduplicator::new(self.config.dedup_threshold);
+            deduplicator.deduplicate_text(&raw)
         } else if !ia_answer.is_empty() {
             ia_answer.clone()
         } else if !filtered_chunks.is_empty() {
@@ -439,15 +473,8 @@ impl TramPipeline {
         } else if cold_corpus.split_whitespace().count() >= MIN_COLD_CORPUS_WORDS {
             cold_corpus.to_string()
         } else {
-            let fallback_phrases = [
-                "is a foundational topic with many interconnected aspects.",
-                "spans many dimensions of knowledge and ongoing research.",
-                "continues to be studied and discussed across disciplines.",
-                "has shaped thought and practice in significant ways.",
-                "is widely explored across academic and professional fields.",
-            ];
-            let fallback_idx = (run_seed as usize) % fallback_phrases.len();
-            format!("{} {}", topic, fallback_phrases[fallback_idx])
+            let fallback_idx = (run_seed as usize) % FALLBACK_PHRASES.len();
+            format!("{} {}", topic, FALLBACK_PHRASES[fallback_idx])
         };
 
         let answer_found = !ia_answer.is_empty() || !all_chunks.is_empty();
@@ -556,25 +583,7 @@ impl TramPipeline {
     fn assemble_text(&self, text: &str, topic: &str, seed: u64) -> String {
         let topic_word: String = topic
             .split_whitespace()
-            .find(|w| {
-                w.len() > 3
-                    && !matches!(
-                        *w,
-                        "what"
-                            | "does"
-                            | "how"
-                            | "the"
-                            | "and"
-                            | "for"
-                            | "with"
-                            | "about"
-                            | "that"
-                            | "this"
-                            | "from"
-                            | "into"
-                            | "over"
-                    )
-            })
+            .find(|w| w.len() > 3 && !TOPIC_SKIP_WORDS.contains(w))
             .unwrap_or(DEFAULT_EMPTY_WORD)
             .to_lowercase();
 
@@ -598,10 +607,8 @@ impl TramPipeline {
         let n = shuffled.len();
         let mut rng = seed;
         for i in (1..n).rev() {
-            rng = rng
-                .wrapping_mul(6_364_136_223_846_793_005)
-                .wrapping_add(1_442_695_040_888_963_407);
-            let j = (rng >> 33) as usize % (i + 1);
+            rng = rng.wrapping_mul(LCG_MULTIPLIER).wrapping_add(LCG_ADDEND);
+            let j = (rng >> LCG_SHIFT) as usize % (i + 1);
             shuffled.swap(i, j);
         }
 
@@ -622,32 +629,28 @@ impl TramPipeline {
         {
             let mut final_reordered = reordered;
             final_reordered.swap(0, pos);
-            ParagraphShaper::new(2, 2, 5, 40, 180).shape(&final_reordered, seed)
+            ParagraphShaper::new(
+                SHAPER_MIN_PARAGRAPHS,
+                SHAPER_MAX_PARAGRAPHS,
+                SHAPER_MIN_SENTENCES,
+                SHAPER_MIN_SENTENCE_WORDS,
+                SHAPER_MAX_SENTENCE_WORDS,
+            )
+            .shape(&final_reordered, seed)
         } else {
-            ParagraphShaper::new(2, 2, 5, 40, 180).shape(&reordered, seed)
+            ParagraphShaper::new(
+                SHAPER_MIN_PARAGRAPHS,
+                SHAPER_MAX_PARAGRAPHS,
+                SHAPER_MIN_SENTENCES,
+                SHAPER_MIN_SENTENCE_WORDS,
+                SHAPER_MAX_SENTENCE_WORDS,
+            )
+            .shape(&reordered, seed)
         }
     }
 
     fn strip_discourse_prefix(&self, s: &str) -> String {
-        const CONNECTORS: &[&str] = &[
-            "Furthermore, ",
-            "In addition, ",
-            "Notably, ",
-            "Moreover, ",
-            "As a result, ",
-            "In practice, ",
-            "Interestingly, ",
-            "Consequently, ",
-            "Building on this, ",
-            "In summary, ",
-            "To summarize, ",
-            "In conclusion, ",
-            "Broadly speaking, ",
-            "By design, ",
-            "In essence, ",
-            "In technical terms, ",
-        ];
-        for c in CONNECTORS {
+        for c in DISCOURSE_CONNECTORS {
             if let Some(rest) = s.strip_prefix(c) {
                 let trimmed = rest.trim_start();
                 if trimmed.is_empty() {
@@ -705,24 +708,58 @@ impl TramPipeline {
         topic: &str,
         kb_chunks: &[String],
         enhanced_text: &str,
+        run_seed: u64,
     ) -> String {
-        let lang =
-            TaskDecomposer::extract_code_language(prompt).unwrap_or_else(|| "text".to_string());
-        let kb_corpus: String = kb_chunks.join(" ");
-        let task_desc = topic.to_string();
-        let code = CodeResponder::generate(&lang, &task_desc, &kb_corpus);
-        let code_block = CodeResponder::format_code_block(&lang, &code);
-        let frame = ResponseFramer::opening_phrase(
-            InputClassifier::classify(prompt),
-            topic,
-            prompt,
-            enhanced_text,
-        );
+        let creative_kind = TaskDecomposer::detect_creative_kind(prompt);
+        let prompt_mode = InputClassifier::classify(prompt);
 
-        if frame.is_empty() {
-            format!("{}\n\n{}", enhanced_text.trim(), code_block)
-        } else {
-            format!("{}\n\n{}", frame.trim_end(), code_block)
+        match creative_kind {
+            CreativeOutputKind::Code { ref language } => {
+                let kb_corpus: String = kb_chunks.join("\n");
+                let task_desc = topic.to_string();
+                let code = CodeResponder::generate(language, &task_desc, &kb_corpus);
+                let code_block = match code {
+                    Some(ref c) => CodeResponder::format_code_block(language, c),
+                    None => CODE_IMPROVEMENT_HINT
+                        .replace("{subject}", &task_desc)
+                        .replace("{language}", language),
+                };
+                let frame = ResponseFramer::opening_phrase(
+                    prompt_mode,
+                    topic,
+                    prompt,
+                    enhanced_text,
+                    run_seed,
+                );
+                if frame.is_empty() {
+                    format!("{}\n\n{}", enhanced_text.trim(), code_block)
+                } else {
+                    format!("{}\n\n{}", frame.trim_end(), code_block)
+                }
+            }
+            CreativeOutputKind::Poem | CreativeOutputKind::Story | CreativeOutputKind::Essay => {
+                let is_thin = enhanced_text.split_whitespace().count() < MIN_CREATIVE_CONTENT_WORDS
+                    || FALLBACK_PHRASES
+                        .iter()
+                        .any(|&phrase| enhanced_text.contains(phrase));
+                if is_thin {
+                    let hint = match creative_kind {
+                        CreativeOutputKind::Poem => CREATIVE_HINT_POEM,
+                        CreativeOutputKind::Story => CREATIVE_HINT_STORY,
+                        _ => CREATIVE_HINT_ESSAY,
+                    };
+                    hint.replace("{topic}", topic)
+                } else {
+                    ResponseFramer::frame(
+                        ReasoningMode::Exploratory,
+                        topic,
+                        prompt,
+                        enhanced_text,
+                        run_seed,
+                    )
+                }
+            }
+            _ => self.build_framed_response(prompt, prompt_mode, topic, enhanced_text, run_seed),
         }
     }
 
@@ -732,10 +769,11 @@ impl TramPipeline {
         prompt_mode: ReasoningMode,
         topic: &str,
         enhanced_text: &str,
-        _run_seed: u64,
+        run_seed: u64,
     ) -> String {
         let framing_topic = topic.to_string();
-        let framed = ResponseFramer::frame(prompt_mode, &framing_topic, prompt, enhanced_text);
+        let framed =
+            ResponseFramer::frame(prompt_mode, &framing_topic, prompt, enhanced_text, run_seed);
 
         if matches!(prompt_mode, ReasoningMode::Analogical) {
             restructure_analogical_response(&framed)
@@ -744,3 +782,9 @@ impl TramPipeline {
         }
     }
 }
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

@@ -39,7 +39,21 @@ pub const ESSAY_LABEL_INTRODUCTION: &str = "Introduction";
 pub const ESSAY_LABEL_CONCLUSION: &str = "Conclusion";
 pub const ESSAY_LABEL_BODY_PREFIX: &str = "Body · §";
 
+/// Default substitution probability when no explicit `--prob` flag is set.
 pub const DEFAULT_STOCHASTIC_PROBABILITY: f64 = 0.08;
+
+/// Minimum probability floor applied when curated-only mode is active.
+///
+/// Because the curated synonym pool is smaller than the full Moby Thesaurus,
+/// the probability must be raised to compensate so that enough tokens are
+/// considered for substitution.
+pub const CURATED_ONLY_PROBABILITY: f64 = 0.20;
 pub const PROBABILITY_MIN: f64 = 0.0;
 pub const PROBABILITY_MAX: f64 = 1.0;
 pub const MIN_EXPERT_PROSE_WORDS: usize = 30;
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

@@ -1,11 +1,22 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+use crate::components::loading_indicator::LoadingIndicator;
 use crate::components::message_bubble::MessageBubble;
-use crate::types::{ChatMessage, GenerationMode};
+use crate::components::prompt_card::PromptCardItem;
+use crate::types::{ChatMessage, PipelineStage, PromptCard};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct ChatWindowProps {
     pub messages: Vec<ChatMessage>,
     pub is_loading: bool,
+    pub loading_stage: PipelineStage,
+    pub on_card_click: Callback<String>,
 }
 
 #[function_component(ChatWindow)]
@@ -46,24 +57,21 @@ pub fn chat_window(props: &ChatWindowProps) -> Html {
                             { "Welcome to LMM CI" }
                         </h2>
                         <p class="text-vect-muted text-sm leading-relaxed">
-                            { "Select a generation mode from the sidebar, then type any text below to begin." }
+                            { "Choose a prompt below to get started, or type your own." }
                         </p>
                     </div>
                     <div
-                        class="grid grid-cols-2 md:grid-cols-2 gap-3 w-full"
+                        class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full"
                         role="list"
-                        aria-label="Available modes"
+                        aria-label="Suggested prompts"
                     >
-                        { for GenerationMode::all().into_iter().map(|m| html! {
-                            <div
-                                key={m.label()}
-                                class="bg-vect-surface border border-vect-border rounded-xl p-3 text-left hover:border-vect-subtle transition-colors"
-                                role="listitem"
-                            >
-                                <i class={classes!(m.icon_class(), "text-lg", "text-vect-muted")} aria-hidden="true"></i>
-                                <p class="text-sm font-semibold text-vect-text mt-1.5">{m.label()}</p>
-                                <p class="text-xs text-vect-muted mt-0.5 leading-tight">{m.description()}</p>
-                            </div>
+                        { for PromptCard::templates().into_iter().map(|card| {
+                            let on_click = props.on_card_click.clone();
+                            html! {
+                                <div key={card.title} role="listitem">
+                                    <PromptCardItem card={card} on_click={on_click} />
+                                </div>
+                            }
                         }) }
                     </div>
                 </div>
@@ -73,36 +81,7 @@ pub fn chat_window(props: &ChatWindowProps) -> Html {
                         <MessageBubble key={msg.id} message={msg.clone()} />
                     }) }
                     if props.is_loading {
-                        <div
-                            class="flex items-start gap-3 mb-5 animate-fade-in"
-                            aria-label="Assistant is thinking"
-                            aria-live="polite"
-                        >
-                            <div
-                                class="w-8 h-8 rounded-full bg-vect-accent flex items-center justify-center shrink-0 mt-1"
-                            >
-                                <i class="fa-solid fa-bolt text-white text-xs" aria-hidden="true" />
-                            </div>
-                            <div class="message-ai flex items-center gap-2">
-                                <span class="text-vect-muted text-sm">
-                                    { "Searching & generating" }
-                                </span>
-                                <span class="flex gap-1" aria-hidden="true">
-                                    <span
-                                        class="w-1.5 h-1.5 bg-vect-muted rounded-full animate-bounce"
-                                        style="animation-delay: 0ms"
-                                    />
-                                    <span
-                                        class="w-1.5 h-1.5 bg-vect-muted rounded-full animate-bounce"
-                                        style="animation-delay: 150ms"
-                                    />
-                                    <span
-                                        class="w-1.5 h-1.5 bg-vect-muted rounded-full animate-bounce"
-                                        style="animation-delay: 300ms"
-                                    />
-                                </span>
-                            </div>
-                        </div>
+                        <LoadingIndicator stage={props.loading_stage.clone()} />
                     }
                     <div ref={bottom_ref} id="chat-bottom" aria-hidden="true" />
                 </div>
@@ -110,3 +89,10 @@ pub fn chat_window(props: &ChatWindowProps) -> Html {
         </section>
     }
 }
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

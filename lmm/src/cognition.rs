@@ -61,6 +61,7 @@ pub mod knowledge;
 pub mod learning;
 pub mod r#loop;
 pub mod memory;
+pub mod poem_responder;
 pub mod reflect;
 pub mod response_framer;
 pub mod search;
@@ -82,6 +83,7 @@ pub use learning::{
 };
 pub use r#loop::{ThinkLoop, ThinkLoopBuilder};
 pub use memory::{ColdStore, HotStore, MemoryEntry};
+pub use poem_responder::PoemResponder;
 pub use reflect::Reflector;
 pub use response_framer::ResponseFramer;
 pub use search::SearchOracle;
@@ -94,3 +96,9 @@ pub use thought::critic::{CritiqueResult, InternalCritic};
 pub use thought::decompose::GoalDecomposer;
 pub use thought::{AdaptiveThoughtEngine, StepMode, ThoughtChain, ThoughtChainResult, ThoughtStep};
 pub use types::ThinkResult;
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

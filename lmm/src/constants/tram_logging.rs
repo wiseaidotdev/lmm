@@ -18,3 +18,9 @@ pub const IA_FOUND_LOG_SUFFIX: &str = " chars)";
 pub const DEEP_SCRAPE_LOG_PREFIX: &str = "  🔍 Deep Search: found ";
 pub const DEEP_SCRAPE_LOG_MID: &str = " relevant URLs from ";
 pub const DEEP_SCRAPE_LOG_SUFFIX: &str = " iterations";
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

@@ -5,6 +5,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to these terms.
 
+use crate::cognition::knowledge::{KnowledgeIndex, KnowledgeSource, ingest as cognition_ingest};
 use crate::tui::{
     state::{AppTab, TuiEvent, TuiState},
     tabs::{
@@ -13,6 +14,7 @@ use crate::tui::{
         settings::render_settings_tab,
         theme::render_theme_tab,
     },
+    theme::{ALL_THEME_VARIANTS, ThemeVariant},
 };
 use anyhow::Result;
 use crossterm::{
@@ -28,6 +30,7 @@ use ratatui::{
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{io, path::Path, time::Duration};
+use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tui_input::backend::crossterm::EventHandler;
 
@@ -177,7 +180,7 @@ impl TuiApp {
                     tokio::spawn(async move {
                         let _ = tx.send(TuiEvent::Log("Running TRAM pipeline...".to_string()));
 
-                        let mut index = crate::cognition::knowledge::KnowledgeIndex::new();
+                        let mut index = KnowledgeIndex::new();
 
                         #[cfg(feature = "net")]
                         if let Some(kb_path) = settings.knowledge_base {
@@ -188,19 +191,14 @@ impl TuiApp {
                                     kb_path
                                 )));
                                 let source = if path.is_file() {
-                                    Some(crate::cognition::knowledge::KnowledgeSource::File(
-                                        path.to_path_buf(),
-                                    ))
+                                    Some(KnowledgeSource::File(path.to_path_buf()))
                                 } else if path.is_dir() {
-                                    Some(crate::cognition::knowledge::KnowledgeSource::Dir(
-                                        path.to_path_buf(),
-                                    ))
+                                    Some(KnowledgeSource::Dir(path.to_path_buf()))
                                 } else {
                                     None
                                 };
                                 if let Some(src) = source {
-                                    match crate::cognition::knowledge::ingest(&mut index, src).await
-                                    {
+                                    match cognition_ingest(&mut index, src).await {
                                         Ok(n) => {
                                             let _ = tx.send(TuiEvent::Log(format!(
                                                 "✓ KB ingested: {} chunks",
@@ -329,19 +327,15 @@ impl TuiApp {
             KeyCode::Up if self.state.selected_theme_idx > 0 => {
                 self.state.selected_theme_idx -= 1;
             }
-            KeyCode::Down
-                if self.state.selected_theme_idx + 1
-                    < crate::tui::theme::ALL_THEME_VARIANTS.len() =>
-            {
+            KeyCode::Down if self.state.selected_theme_idx + 1 < ALL_THEME_VARIANTS.len() => {
                 self.state.selected_theme_idx += 1;
             }
             KeyCode::Enter => {
-                let variant = crate::tui::theme::ALL_THEME_VARIANTS[self.state.selected_theme_idx];
+                let variant = ALL_THEME_VARIANTS[self.state.selected_theme_idx];
                 self.state.apply_theme_variant(variant);
             }
             KeyCode::Char('r') => {
-                self.state
-                    .apply_theme_variant(crate::tui::theme::ThemeVariant::Dark);
+                self.state.apply_theme_variant(ThemeVariant::Dark);
                 self.state.selected_theme_idx = 0;
             }
             _ => {}
@@ -665,8 +659,6 @@ impl TuiApp {
 }
 
 pub async fn run_tui() -> Result<()> {
-    use tokio::sync::mpsc::unbounded_channel;
-
     let (tx, rx) = unbounded_channel::<TuiEvent>();
     let abort_token = Arc::new(AtomicBool::new(false));
 

@@ -10,17 +10,24 @@
 //! Scrapes and extracts text content from websites redirected by DuckDuckGo !ducky queries.
 
 use crate::cognition::knowledge::KnowledgeIndex;
-use crate::constants::tram_scraper::{
-    MAX_PARAGRAPH_LENGTH, MIN_ENGLISH_RATIO, MIN_SENTENCE_LENGTH,
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+use crate::constants::code_responder::{
+    CODE_BLOCK_MARKER, MATH_UNICODE_CHARS, MAX_CODE_BLOCK_CHARS, MIN_CODE_BLOCK_CHARS,
 };
-#[cfg(feature = "net")]
+use crate::constants::tram_scraper::{
+    CODE_ELEMENT_SELECTOR, CODEMIRROR_CODE_SELECTOR, CODEMIRROR_LINE_SELECTOR,
+    FALLBACK_CODE_SELECTOR, FENCE_OPEN, HTML_BODY_SELECTOR, HTML_MATH_PROSE_MULTIPLIER,
+    HTML_PROSE_SELECTOR, MAX_FENCE_LINES, MAX_PARAGRAPH_LENGTH, MIN_ENGLISH_RATIO,
+    MIN_SENTENCE_LENGTH, YOUTUBE_FILTER_DOMAINS,
+};
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 use crate::constants::tram_web_fetch::{
     CITATION_ARTIFACT_REGEX, CITATION_BRACKET_REGEX, CITATION_REFERENCE_REGEX, HTML2TEXT_WIDTH,
     MALFORMED_CITATION_REGEX, MAX_LINKED_URLS_TO_FOLLOW, SCRAPER_FILTER_DOMAINS,
     STANDALONE_CITATION_REGEX, TEXT_FILTER_DOMAINS, TEXT_FILTER_PATTERNS, URL_FILTER_DOMAINS,
     URL_FILTER_KEYWORDS, URL_FILTER_PATHS, URL_FILTER_SCHEMES,
 };
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 use crate::net::user_agent_by_seed;
 use regex::Regex;
 use scraper::{Html, Selector};
@@ -36,11 +43,14 @@ use scraper::{Html, Selector};
 /// # Returns
 ///
 /// Number of chunks ingested.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 pub async fn scrape_and_ingest(url: &str, index: &mut KnowledgeIndex, source_label: &str) -> usize {
     let url_lower = url.to_ascii_lowercase();
 
-    if url_lower.contains("youtube.com") || url_lower.contains("youtu.be") {
+    if YOUTUBE_FILTER_DOMAINS
+        .iter()
+        .any(|&d| url_lower.contains(d))
+    {
         return 0;
     }
 
@@ -86,7 +96,7 @@ pub async fn scrape_and_ingest(url: &str, index: &mut KnowledgeIndex, source_lab
 /// # Returns
 ///
 /// Number of chunks ingested, plus any URLs found in the content for further scraping.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 pub async fn scrape_and_ingest_with_redirect(
     url: &str,
     index: &mut KnowledgeIndex,
@@ -128,10 +138,22 @@ pub async fn scrape_and_ingest_with_redirect(
 
     let text = html2text::from_read(html.as_bytes(), HTML2TEXT_WIDTH).unwrap_or_default();
 
+    let code_blocks = extract_code_blocks_from_html(&html);
+    for block in &code_blocks {
+        let marked = format!("{}{}", CODE_BLOCK_MARKER, block);
+        index.ingest_code_block(&marked);
+    }
+
+    let fence_blocks = extract_fenced_from_text(&text);
+    for block in &fence_blocks {
+        let marked = format!("{}{}", CODE_BLOCK_MARKER, block);
+        index.ingest_code_block(&marked);
+    }
+
     let relevant_text = extract_relevant_paragraphs(&text, topic);
 
     let cleaned = clean_text(&relevant_text);
-    if cleaned.split_whitespace().count() < crate::constants::tram_scraper::MIN_SENTENCE_LENGTH {
+    if cleaned.split_whitespace().count() < MIN_SENTENCE_LENGTH {
         return (0, Vec::new());
     }
 
@@ -163,14 +185,20 @@ pub async fn scrape_and_ingest_with_redirect(
 /// # Returns
 ///
 /// Number of chunks ingested.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 pub fn extract_and_ingest(html: &str, index: &mut KnowledgeIndex, source_label: &str) -> usize {
     let document = Html::parse_document(html);
 
     let mut total_ingested = 0;
 
-    let selector = Selector::parse("p, article, main, .content, .post-content, .entry-content")
-        .unwrap_or_else(|_| Selector::parse("p").unwrap());
+    let code_blocks = extract_code_blocks_from_html(html);
+    for block in &code_blocks {
+        let marked = format!("{}{}", CODE_BLOCK_MARKER, block);
+        index.ingest_code_block(&marked);
+    }
+
+    let selector = Selector::parse(HTML_PROSE_SELECTOR)
+        .unwrap_or_else(|_| Selector::parse(FALLBACK_CODE_SELECTOR).unwrap());
 
     for element in document.select(&selector) {
         let text = element.text().collect::<String>();
@@ -185,7 +213,7 @@ pub fn extract_and_ingest(html: &str, index: &mut KnowledgeIndex, source_label: 
     }
 
     if total_ingested == 0 {
-        let fallback_selector = Selector::parse("body").unwrap();
+        let fallback_selector = Selector::parse(HTML_BODY_SELECTOR).unwrap();
         for element in document.select(&fallback_selector) {
             let text = element.text().collect::<String>();
             let cleaned = clean_text(&text);
@@ -219,7 +247,7 @@ fn contains_json(text: &str) -> bool {
 }
 
 /// Extracts paragraphs relevant to the topic by keyword matching.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 fn extract_relevant_paragraphs(text: &str, topic: &str) -> String {
     let topic_keywords: Vec<String> = topic
         .split_whitespace()
@@ -245,7 +273,7 @@ fn extract_relevant_paragraphs(text: &str, topic: &str) -> String {
 }
 
 /// Extracts external URLs from HTML anchor tags.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 fn extract_urls_from_html(html: &str, base_url: &str) -> Vec<String> {
     let document = Html::parse_document(html);
     let selector = Selector::parse("a[href]").unwrap();
@@ -280,7 +308,7 @@ fn extract_urls_from_html(html: &str, base_url: &str) -> Vec<String> {
 }
 
 /// Cleans text by removing extra whitespace, script/style content, and Wikipedia artifacts.
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 fn clean_text(text: &str) -> String {
     let citation_regex = Regex::new(CITATION_REFERENCE_REGEX).unwrap();
     let text = citation_regex.replace_all(text, "");
@@ -305,9 +333,12 @@ fn clean_text(text: &str) -> String {
                 .map(|line| line.trim())
                 .filter(|line| {
                     let line_lower = line.to_ascii_lowercase();
-                    !line.is_empty()
-                        && !TEXT_FILTER_PATTERNS.iter().any(|&p| line.contains(p))
-                        && !TEXT_FILTER_DOMAINS.iter().any(|&d| line_lower.contains(d))
+                    let not_empty = !line.is_empty();
+                    let not_pattern = !TEXT_FILTER_PATTERNS.iter().any(|&p| line_lower.contains(p));
+                    let not_domain = !TEXT_FILTER_DOMAINS.iter().any(|&d| line_lower.contains(d));
+                    let not_ellipsis_stub = !((line.starts_with('…') || line.starts_with("..."))
+                        && line.split_whitespace().count() <= 3);
+                    not_empty && not_pattern && not_domain && not_ellipsis_stub
                 })
                 .collect::<Vec<_>>()
                 .join(" ")
@@ -361,6 +392,115 @@ fn split_into_chunks(text: &str, max_len: usize) -> Vec<String> {
     }
 
     chunks
+}
+
+/// Extracts verbatim text from `<pre>`, `<code>`, and highlight-class elements in raw HTML.
+///
+/// Each extracted block is returned as a single string ready to be prepended with
+/// [`CODE_BLOCK_MARKER`] and ingested into the knowledge index.  Blocks shorter than
+/// [`MIN_CODE_BLOCK_CHARS`] or longer than [`MAX_CODE_BLOCK_CHARS`] are dropped.
+///
+/// Also handles CodeMirror-rendered editors (class `CodeMirror-code`) by collecting
+/// every per-line `<pre class="CodeMirror-line">` child and joining them into a
+/// single multi-line block.  Sites such as pythontutorial.net, programiz.com, and
+/// tutorialspoint.com use this widget to render syntax-highlighted code.
+///
+/// # Time Complexity
+///
+/// O(|html|)
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+fn extract_code_blocks_from_html(html: &str) -> Vec<String> {
+    let document = Html::parse_document(html);
+    let selector = Selector::parse(CODE_ELEMENT_SELECTOR)
+        .unwrap_or_else(|_| Selector::parse(FALLBACK_CODE_SELECTOR).unwrap());
+
+    let mut blocks: Vec<String> = document
+        .select(&selector)
+        .filter_map(|el| {
+            let text = el.text().collect::<String>();
+            let trimmed = text.trim();
+            if trimmed.len() < MIN_CODE_BLOCK_CHARS {
+                return None;
+            }
+            let math_count = trimmed
+                .chars()
+                .filter(|c| MATH_UNICODE_CHARS.contains(c))
+                .count();
+            let ascii_code_count = trimmed
+                .chars()
+                .filter(|c| matches!(c, '(' | ')' | '{' | '}' | '[' | ']' | '=' | ';'))
+                .count();
+            if math_count > 0 && math_count > ascii_code_count * HTML_MATH_PROSE_MULTIPLIER {
+                return None;
+            }
+            Some(trimmed[..trimmed.len().min(MAX_CODE_BLOCK_CHARS)].to_string())
+        })
+        .collect();
+
+    if let Ok(cm_selector) = Selector::parse(CODEMIRROR_CODE_SELECTOR)
+        && let Ok(line_selector) = Selector::parse(CODEMIRROR_LINE_SELECTOR)
+    {
+        for cm_container in document.select(&cm_selector) {
+            let joined: String = cm_container
+                .select(&line_selector)
+                .map(|line_el| line_el.text().collect::<String>())
+                .collect::<Vec<String>>()
+                .join("\n");
+            let trimmed = joined.trim();
+            if trimmed.len() >= MIN_CODE_BLOCK_CHARS {
+                let block = trimmed[..trimmed.len().min(MAX_CODE_BLOCK_CHARS)].to_string();
+                if !blocks.contains(&block) {
+                    blocks.push(block);
+                }
+            }
+        }
+    }
+
+    blocks
+}
+
+/// Scans plain text produced by html2text for ` ``` ` fenced code blocks.
+///
+/// html2text sometimes preserves GFM fences when converting Markdown-heavy pages
+/// (GitHub, README files, documentation sites).  This pass recovers those blocks
+/// before the surrounding text is cleaned and chunked.
+///
+/// # Time Complexity
+///
+/// O(|text|)
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
+fn extract_fenced_from_text(text: &str) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let mut inside = false;
+    let mut current: Vec<&str> = Vec::new();
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !inside {
+            if trimmed.starts_with(FENCE_OPEN) {
+                inside = true;
+                current.clear();
+            }
+        } else if trimmed == FENCE_OPEN
+            || (trimmed.starts_with(FENCE_OPEN) && trimmed.len() == FENCE_OPEN.len())
+        {
+            let joined = current
+                .iter()
+                .take(MAX_FENCE_LINES)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n");
+            if joined.trim().len() >= MIN_CODE_BLOCK_CHARS {
+                blocks.push(joined);
+            }
+            inside = false;
+            current.clear();
+        } else {
+            current.push(line);
+        }
+    }
+
+    blocks
 }
 
 // Copyright 2026 Mahmoud Harmouch.

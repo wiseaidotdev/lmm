@@ -9,7 +9,9 @@
 //!
 //! CLI-specific query derivation functions, re-exporting from core TRAM module.
 
-pub use crate::tram::{extract_topic, split_sentences_with_punct, strip_discourse_connector};
+pub use crate::tram::{
+    extract_creative_subject, extract_topic, split_sentences_with_punct, strip_discourse_connector,
+};
 
 // Copyright 2026 Mahmoud Harmouch.
 //

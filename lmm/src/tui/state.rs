@@ -7,7 +7,7 @@
 
 use crate::tram::config::TramConfig;
 use crate::tram::pipeline::TramPipeline;
-use crate::tui::theme::{ThemePalette, ThemeVariant};
+use crate::tui::theme::{ALL_THEME_VARIANTS, ThemePalette, ThemeVariant};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -299,7 +299,7 @@ pub struct TuiState {
 impl TuiState {
     pub fn new(receiver: UnboundedReceiver<TuiEvent>) -> Self {
         let theme_config = ThemeConfig::load();
-        let selected_theme_idx = crate::tui::theme::ALL_THEME_VARIANTS
+        let selected_theme_idx = ALL_THEME_VARIANTS
             .iter()
             .position(|v| *v == theme_config.variant)
             .unwrap_or(0);
@@ -471,7 +471,7 @@ impl TuiState {
     pub fn apply_theme_variant(&mut self, variant: ThemeVariant) {
         self.theme_config.variant = variant;
         self.theme_config.save();
-        self.selected_theme_idx = crate::tui::theme::ALL_THEME_VARIANTS
+        self.selected_theme_idx = ALL_THEME_VARIANTS
             .iter()
             .position(|v| *v == variant)
             .unwrap_or(0);

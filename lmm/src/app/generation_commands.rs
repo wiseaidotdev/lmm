@@ -12,7 +12,9 @@ use {
     crate::{
         app::helpers::maybe_enhance,
         cli::display::{banner, divider},
-        net::{SearchAggregator, corpus_from_response, corpus_from_results, corpus_from_results_raw},
+        net::{
+            SearchAggregator, corpus_from_response, corpus_from_results, corpus_from_results_raw,
+        },
         text::TextSummarizer,
     },
     tracing::{error, info},
@@ -30,31 +32,43 @@ use {
 #[cfg(all(feature = "cli", feature = "net"))]
 use crate::imagen::{ImagenParams, StyleMode, render as imagen_render};
 
-/// Handles the `ask` subcommand, internet-aware knowledge synthesis via DuckDuckGo.
-///
-/// # Arguments
-///
-/// * `prompt`     - Natural-language question.
-/// * `limit`      - Maximum number of search results to fetch.
-/// * `sentences`  - Number of sentences to extract in the summary.
-/// * `region`     - DuckDuckGo region code (e.g. `"wt-wt"`).
-/// * `iterations` - Summariser GP iterations.
-/// * `depth`      - Summariser recursion depth.
-/// * `stochastic` - Whether to apply synonym substitution.
-/// * `probability`- Substitution probability.
-/// * `verbose`    - Verbose output flag.
+/// Configuration for the `ask` command.
 #[cfg(all(feature = "cli", feature = "net"))]
-pub async fn handle_ask(
-    prompt: String,
-    limit: usize,
-    sentences: usize,
-    region: String,
-    iterations: usize,
-    depth: usize,
-    stochastic: bool,
-    probability: f64,
-    verbose: bool,
-) -> anyhow::Result<()> {
+pub struct AskConfig {
+    /// Natural-language question.
+    pub prompt: String,
+    /// Maximum number of search results to fetch.
+    pub limit: usize,
+    /// Number of sentences to extract in the summary.
+    pub sentences: usize,
+    /// DuckDuckGo region code (e.g. `"wt-wt"`).
+    pub region: String,
+    /// Summariser GP iterations.
+    pub iterations: usize,
+    /// Summariser recursion depth.
+    pub depth: usize,
+    /// Whether to apply synonym substitution.
+    pub stochastic: bool,
+    /// Substitution probability.
+    pub probability: f64,
+    /// Verbose output flag.
+    pub verbose: bool,
+}
+
+/// Handles the `ask` subcommand, internet-aware knowledge synthesis via DuckDuckGo.
+#[cfg(all(feature = "cli", feature = "net"))]
+pub async fn handle_ask(cfg: AskConfig) -> anyhow::Result<()> {
+    let AskConfig {
+        prompt,
+        limit,
+        sentences,
+        region,
+        iterations,
+        depth,
+        stochastic,
+        probability,
+        verbose,
+    } = cfg;
     banner("Ask · Internet-Aware Knowledge Synthesis", "🌐");
     info!("  ❓ Prompt : {:?}", prompt);
     let aggregator = SearchAggregator::new().with_region(&region);
@@ -95,7 +109,7 @@ pub async fn handle_ask(
                     if verbose {
                         info!("  {}", enhanced);
                     } else {
-                        println!("{}", enhanced);
+                        info!("{}", enhanced);
                     }
                 }
             }
@@ -105,29 +119,40 @@ pub async fn handle_ask(
     Ok(())
 }
 
-/// Handles the `imagen` subcommand, spectral field image synthesis.
-///
-/// # Arguments
-///
-/// * `prompt`     - Textual description driving the spectral palette.
-/// * `width`      - Output image width in pixels.
-/// * `height`     - Output image height in pixels.
-/// * `components` - Number of Fourier components.
-/// * `style`      - Style mode string (e.g. `"plasma"`, `"crystal"`).
-/// * `palette`    - Named colour palette.
-/// * `output`     - Output file path.
-/// * `verbose`    - Verbose output flag.
+/// Configuration for the `imagen` command.
 #[cfg(feature = "cli")]
-pub fn handle_imagen(
-    prompt: String,
-    width: u32,
-    height: u32,
-    components: usize,
-    style: String,
-    palette: String,
-    output: String,
-    verbose: bool,
-) -> anyhow::Result<()> {
+pub struct ImagenConfig {
+    /// Textual description driving the spectral palette.
+    pub prompt: String,
+    /// Output image width in pixels.
+    pub width: u32,
+    /// Output image height in pixels.
+    pub height: u32,
+    /// Number of Fourier components.
+    pub components: usize,
+    /// Style mode string (e.g. `"plasma"`, `"crystal"`).
+    pub style: String,
+    /// Named colour palette.
+    pub palette: String,
+    /// Output file path.
+    pub output: String,
+    /// Verbose output flag.
+    pub verbose: bool,
+}
+
+/// Handles the `imagen` subcommand, spectral field image synthesis.
+#[cfg(feature = "cli")]
+pub fn handle_imagen(cfg: ImagenConfig) -> anyhow::Result<()> {
+    let ImagenConfig {
+        prompt,
+        width,
+        height,
+        components,
+        style,
+        palette,
+        output,
+        verbose,
+    } = cfg;
     banner("Imagen · Spectral Field Synthesis", "🎨");
     info!("  🖼  Prompt    : {:?}", prompt);
     info!("  📐 Dimensions : {}x{}", width, height);
@@ -151,7 +176,7 @@ pub fn handle_imagen(
             if verbose {
                 info!("  ✅ Saved to: {}", path);
             } else {
-                println!("{}", path);
+                info!("{}", path);
             }
         }
         Err(e) => error!("  ❌ Render failed: {}", e),

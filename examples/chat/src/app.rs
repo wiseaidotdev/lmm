@@ -1,9 +1,16 @@
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
 use crate::components::chat_window::ChatWindow;
 use crate::components::header::Header;
 use crate::components::input_bar::InputBar;
 use crate::components::sidebar::Sidebar;
 use crate::lmm_bridge;
-use crate::types::{ChatMessage, GenerationMode, MessageRole};
+use crate::types::{ChatMessage, GenerationMode, MessageRole, PipelineStage};
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
@@ -13,7 +20,7 @@ pub fn app() -> Html {
     let mode = use_state(|| GenerationMode::Tram);
     let stochastic = use_state(|| false);
     let probability = use_state(|| 30u32);
-    let think = use_state(|| false);
+    let think = use_state(|| true);
     let deep = use_state(|| false);
     let iterations_handle = use_state(|| "10".to_string());
     let iterations_valid = use_state(|| true);
@@ -24,6 +31,7 @@ pub fn app() -> Html {
     let is_loading = use_state(|| false);
     let next_id = use_state(|| 0usize);
     let sidebar_open = use_state(|| false);
+    let loading_stage = use_state(|| PipelineStage::Idle);
 
     let on_mode_change = {
         let mode = mode.clone();
@@ -58,8 +66,10 @@ pub fn app() -> Html {
         let cf_h = cf_threshold_handle.clone();
         let is_loading = is_loading.clone();
         let next_id = next_id.clone();
+        let loading_stage = loading_stage.clone();
 
         Callback::from(move |text: String| {
+            let loading_stage = loading_stage.clone();
             let id = *next_id;
             next_id.set(id + 2);
 
@@ -75,6 +85,7 @@ pub fn app() -> Html {
                 id,
                 role: MessageRole::User,
                 content: text.clone(),
+                code_blocks: vec![],
                 mode: None,
                 timestamp: String::new(),
                 links: vec![],
@@ -86,16 +97,35 @@ pub fn app() -> Html {
             msgs.push(user_msg);
             messages.set(msgs.clone());
             is_loading.set(true);
+            loading_stage.set(PipelineStage::SearchingWeb);
+
             let messages = messages.clone();
             let is_loading = is_loading.clone();
+            let stage_handle = loading_stage.clone();
+
+            let on_progress = Callback::from(move |stage: PipelineStage| {
+                stage_handle.set(stage);
+            });
+
             spawn_local(async move {
-                let (response, links) = match current_mode {
+                let (response, code_blocks, links) = match current_mode {
                     GenerationMode::Tram => {
-                        lmm_bridge::tram_query(&text, thnk, dp, iter, depth, cf, stoch, prob).await
+                        lmm_bridge::tram_query(
+                            &text,
+                            thnk,
+                            dp,
+                            iter,
+                            depth,
+                            cf,
+                            stoch,
+                            prob,
+                            on_progress,
+                        )
+                        .await
                     }
                     GenerationMode::Summarize => {
                         let resp = lmm_bridge::summarize(&text, 3, stoch, prob);
-                        (resp, vec![])
+                        (resp, vec![], vec![])
                     }
                 };
                 let mut m = msgs;
@@ -103,14 +133,21 @@ pub fn app() -> Html {
                     id: id + 1,
                     role: MessageRole::Assistant,
                     content: response,
+                    code_blocks,
                     mode: Some(current_mode),
                     timestamp: String::new(),
                     links,
                 });
                 messages.set(m);
                 is_loading.set(false);
+                loading_stage.set(PipelineStage::Idle);
             });
         })
+    };
+
+    let on_card_click = {
+        let on_submit = on_submit.clone();
+        Callback::from(move |description: String| on_submit.emit(description))
     };
 
     let sidebar_content = html! {
@@ -180,10 +217,22 @@ pub fn app() -> Html {
                             { "Configure" }
                         </button>
                     </div>
-                    <ChatWindow messages={(*messages).clone()} is_loading={*is_loading} />
+                    <ChatWindow
+                        messages={(*messages).clone()}
+                        is_loading={*is_loading}
+                        loading_stage={(*loading_stage).clone()}
+                        on_card_click={on_card_click}
+                    />
                     <InputBar on_submit={on_submit} is_loading={*is_loading} />
                 </main>
             </div>
         </div>
     }
 }
+
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.

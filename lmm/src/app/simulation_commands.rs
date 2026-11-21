@@ -53,7 +53,7 @@ pub fn handle_physics(
                 divider("Final xyz");
                 info!("  {:?}", final_data);
             } else {
-                println!("{:?}", final_data);
+                info!("{:?}", final_data);
             }
         }
         "pendulum" => {
@@ -65,7 +65,7 @@ pub fn handle_physics(
                 divider("Final [θ, ω]");
                 info!("  {:?}", final_data);
             } else {
-                println!("{:?}", final_data);
+                info!("{:?}", final_data);
             }
         }
         "sir" => {
@@ -77,7 +77,7 @@ pub fn handle_physics(
                 divider("Final [S, I, R]");
                 info!("  {:?}", final_data);
             } else {
-                println!("{:?}", final_data);
+                info!("{:?}", final_data);
             }
         }
         _ => {
@@ -92,7 +92,7 @@ pub fn handle_physics(
                 divider("Final Energy");
                 info!("  {:.6}", energy);
             } else {
-                println!("{:?}\n{:.6}", s.data, energy);
+                info!("{:?}\n{:.6}", s.data, energy);
             }
         }
     }
@@ -119,7 +119,7 @@ pub fn handle_field(size: usize, operation: String, verbose: bool) -> anyhow::Re
                 divider("∇² f(x)");
                 info!("  {:?}", lap.values.data);
             } else {
-                println!("{:?}", lap.values.data);
+                info!("{:?}", lap.values.data);
             }
         }
         _ => {
@@ -128,7 +128,7 @@ pub fn handle_field(size: usize, operation: String, verbose: bool) -> anyhow::Re
                 divider("∇ f(x)");
                 info!("  {:?}", grad.values.data);
             } else {
-                println!("{:?}", grad.values.data);
+                info!("{:?}", grad.values.data);
             }
         }
     }

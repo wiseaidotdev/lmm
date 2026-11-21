@@ -11,6 +11,10 @@
 //! reusable components for query derivation, response quality filtering,
 //! web knowledge retrieval, and the complete TRAM reasoning pipeline.
 //!
+//! The `net` feature enables all web functionality on both native and WASM
+//! targets. On `wasm32` the pipeline uses the Wikipedia REST API (via
+//! `gloo-net`) for deep corpus extraction instead of the native HTML scraper.
+//!
 //! ## Example
 //!
 //! ```rust,no_run
@@ -22,6 +26,8 @@
 //!     .iterations(10)
 //!     .inference_depth(5)
 //!     .think(true)
+//!     // .deep(true)
+//!     .deep(true)
 //!     .build();
 //!
 //! let mut index = KnowledgeIndex::new();
@@ -33,15 +39,15 @@
 //! # }
 //! ```
 
+pub mod cache;
 pub mod config;
 pub mod deep_scrape;
 pub mod intent_filter;
 pub mod pipeline;
 pub mod query;
 pub mod response;
-#[cfg(feature = "net")]
+#[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 pub mod scraper;
-#[cfg(feature = "net")]
 pub mod web_fetch;
 
 pub use config::WebFetchResult;
@@ -51,15 +57,16 @@ pub use config::{
 pub use intent_filter::IntentFilter;
 pub use pipeline::TramPipeline;
 pub use query::{
-    extract_topic, split_sentences_with_punct, strip_discourse_connector, strip_leading_articles,
-    strip_trailing_verb, trim_predicate,
+    extract_creative_subject, extract_topic, split_sentences_with_punct, strip_discourse_connector,
+    strip_leading_articles, strip_trailing_verb, trim_predicate,
 };
 pub use response::{
     assemble_paragraphs, calculate_relevance_score, deduplicate_sentences,
     enhance_with_prose_connectors, enhance_with_shaper_connectors, filter_sentences,
     frame_response, is_quality_answer, is_valid_summary, restructure_analogical_response,
 };
-// scrape_and_ingest_with_redirect has topic parameter, not re-exported for public API
+#[cfg(all(feature = "net", target_arch = "wasm32"))]
+pub use web_fetch::fetch_wikipedia_corpus;
 #[cfg(feature = "net")]
 pub use web_fetch::{prefetch_web, prefetch_web_for_query};
 

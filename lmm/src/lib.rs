@@ -33,7 +33,7 @@ pub mod generation;
 pub mod imagen;
 pub mod lexicon;
 pub mod models;
-#[cfg(any(feature = "net", feature = "wasm-net"))]
+#[cfg(feature = "net")]
 pub mod net;
 pub mod operator;
 pub mod perception;
@@ -99,8 +99,14 @@ pub fn run_cli(args: Vec<String>) {
         .expect("tokio runtime")
         .block_on(async move {
             if let Err(e) = run_cli_entry(args).await {
-                eprintln!("Error: {}", e);
+                tracing::error!("Error: {}", e);
                 process_exit(1);
             }
         });
 }
+// Copyright 2026 Mahmoud Harmouch.
+//
+// Licensed under the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
