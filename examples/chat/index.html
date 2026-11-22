@@ -1,31 +1,44 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="LMM CI: LMM chat interface." />
-    <meta name="theme-color" content="#212121" />
-    <meta property="og:title" content="LMM CI: LMM chat interfac" />
-    <meta
-      property="og:description"
-      content="Chat interface for the LMM Large Mathematical Model framework."
-    />
-    <link data-trunk rel="tailwind-css" href="src/tailwind.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <script
-      src="https://kit.fontawesome.com/62e08d355c.js"
-      crossorigin="anonymous"
-      defer
-    ></script>
-    <link data-trunk rel="rust" />
-    <title>LMM CI | LMM chat interface.</title>
-    <base data-trunk-public-url />
-  </head>
 
-  <body></body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="LMM CI: LMM chat interface." />
+  <meta name="theme-color" content="#212121" />
+  <meta property="og:title" content="LMM CI: LMM chat interfac" />
+  <meta property="og:description" content="Chat interface for the LMM Large Mathematical Model framework." />
+  <link data-trunk rel="tailwind-css" href="src/tailwind.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/62e08d355c.js" crossorigin="anonymous" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+  <script type="module">
+    import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs";
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+
+    window.extractPdfText = async function (arrayBuffer) {
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      const pageTexts = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageStr = content.items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ");
+        pageTexts.push(pageStr);
+      }
+      return pageTexts.join("\n\n");
+    };
+  </script>
+  <link data-trunk rel="rust" />
+  <title>LMM CI | LMM chat interface.</title>
+  <base data-trunk-public-url />
+</head>
+
+<body></body>
+
 </html>

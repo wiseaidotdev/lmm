@@ -6,6 +6,7 @@
 // except according to those terms.
 
 pub mod chat_window;
+pub mod file_upload_card;
 pub mod header;
 pub mod input_bar;
 pub mod loading_indicator;

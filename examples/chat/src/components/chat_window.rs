@@ -5,10 +5,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::components::file_upload_card::FileUploadCard;
 use crate::components::loading_indicator::LoadingIndicator;
 use crate::components::message_bubble::MessageBubble;
 use crate::components::prompt_card::PromptCardItem;
-use crate::types::{ChatMessage, PipelineStage, PromptCard};
+use crate::types::{ChatMessage, PipelineStage, PromptCard, UploadedFile};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -17,6 +18,9 @@ pub struct ChatWindowProps {
     pub is_loading: bool,
     pub loading_stage: PipelineStage,
     pub on_card_click: Callback<String>,
+    pub uploaded_files: Vec<UploadedFile>,
+    pub on_files: Callback<Vec<UploadedFile>>,
+    pub on_remove_file: Callback<usize>,
 }
 
 #[function_component(ChatWindow)]
@@ -57,13 +61,13 @@ pub fn chat_window(props: &ChatWindowProps) -> Html {
                             { "Welcome to LMM CI" }
                         </h2>
                         <p class="text-vect-muted text-sm leading-relaxed">
-                            { "Choose a prompt below to get started, or type your own." }
+                            { "Choose a prompt below, explore a document, or type your own." }
                         </p>
                     </div>
                     <div
                         class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full"
                         role="list"
-                        aria-label="Suggested prompts"
+                        aria-label="Suggested prompts and tools"
                     >
                         { for PromptCard::templates().into_iter().map(|card| {
                             let on_click = props.on_card_click.clone();
@@ -73,6 +77,13 @@ pub fn chat_window(props: &ChatWindowProps) -> Html {
                                 </div>
                             }
                         }) }
+                        <div role="listitem">
+                            <FileUploadCard
+                                uploaded_files={props.uploaded_files.clone()}
+                                on_files={props.on_files.clone()}
+                                on_remove={props.on_remove_file.clone()}
+                            />
+                        </div>
                     </div>
                 </div>
             } else {

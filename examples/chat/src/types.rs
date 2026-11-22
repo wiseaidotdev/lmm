@@ -75,6 +75,13 @@ pub struct ChatMessage {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct UploadedFile {
+    pub name: String,
+    pub text: String,
+    pub byte_size: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct PromptCard {
     pub title: &'static str,
     pub description: &'static str,
@@ -93,11 +100,6 @@ impl PromptCard {
                 title: "Code Generation",
                 description: "write a simple rust hello world program.",
                 icon: "fa-solid fa-code",
-            },
-            PromptCard {
-                title: "Poem Generation",
-                description: "Write a poem about the ocean.",
-                icon: "fa-solid fa-feather-pointed",
             },
         ]
     }

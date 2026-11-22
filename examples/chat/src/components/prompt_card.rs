@@ -31,7 +31,7 @@ pub fn prompt_card_item(props: &PromptCardProps) -> Html {
                    hover:border-vect-accent hover:bg-vect-elevated \
                    transition-all duration-150 cursor-pointer focus:outline-none \
                    focus:ring-2 focus:ring-vect-accent focus:ring-offset-2 \
-                   focus:ring-offset-vect-bg w-full"
+                   focus:ring-offset-vect-bg w-full h-full"
             onclick={onclick}
             aria-label={format!("Send prompt: {}", props.card.description)}
             type="button"

@@ -10,7 +10,7 @@ use crate::components::header::Header;
 use crate::components::input_bar::InputBar;
 use crate::components::sidebar::Sidebar;
 use crate::lmm_bridge;
-use crate::types::{ChatMessage, GenerationMode, MessageRole, PipelineStage};
+use crate::types::{ChatMessage, GenerationMode, MessageRole, PipelineStage, UploadedFile};
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
@@ -32,6 +32,7 @@ pub fn app() -> Html {
     let next_id = use_state(|| 0usize);
     let sidebar_open = use_state(|| false);
     let loading_stage = use_state(|| PipelineStage::Idle);
+    let uploaded_files = use_state(Vec::<UploadedFile>::new);
 
     let on_mode_change = {
         let mode = mode.clone();
@@ -54,6 +55,26 @@ pub fn app() -> Html {
         Callback::from(move |v: bool| d.set(v))
     };
 
+    let on_files = {
+        let uploaded_files = uploaded_files.clone();
+        Callback::from(move |new_files: Vec<UploadedFile>| {
+            let mut current = (*uploaded_files).clone();
+            current.extend(new_files);
+            uploaded_files.set(current);
+        })
+    };
+
+    let on_remove_file = {
+        let uploaded_files = uploaded_files.clone();
+        Callback::from(move |idx: usize| {
+            let mut current = (*uploaded_files).clone();
+            if idx < current.len() {
+                current.remove(idx);
+            }
+            uploaded_files.set(current);
+        })
+    };
+
     let on_submit = {
         let messages = messages.clone();
         let mode = mode.clone();
@@ -67,6 +88,7 @@ pub fn app() -> Html {
         let is_loading = is_loading.clone();
         let next_id = next_id.clone();
         let loading_stage = loading_stage.clone();
+        let uploaded_files = uploaded_files.clone();
 
         Callback::from(move |text: String| {
             let loading_stage = loading_stage.clone();
@@ -80,6 +102,7 @@ pub fn app() -> Html {
             let iter = (*iter_h).parse::<usize>().unwrap_or(10);
             let depth = (*depth_h).parse::<usize>().unwrap_or(3);
             let cf = (*cf_h).parse::<f64>().unwrap_or(0.25);
+            let files_snapshot = (*uploaded_files).clone();
 
             let user_msg = ChatMessage {
                 id,
@@ -110,18 +133,34 @@ pub fn app() -> Html {
             spawn_local(async move {
                 let (response, code_blocks, links) = match current_mode {
                     GenerationMode::Tram => {
-                        lmm_bridge::tram_query(
-                            &text,
-                            thnk,
-                            dp,
-                            iter,
-                            depth,
-                            cf,
-                            stoch,
-                            prob,
-                            on_progress,
-                        )
-                        .await
+                        if files_snapshot.is_empty() {
+                            lmm_bridge::tram_query(
+                                &text,
+                                thnk,
+                                dp,
+                                iter,
+                                depth,
+                                cf,
+                                stoch,
+                                prob,
+                                on_progress,
+                            )
+                            .await
+                        } else {
+                            lmm_bridge::tram_query_with_knowledge(
+                                &text,
+                                &files_snapshot,
+                                thnk,
+                                dp,
+                                iter,
+                                depth,
+                                cf,
+                                stoch,
+                                prob,
+                                on_progress,
+                            )
+                            .await
+                        }
                     }
                     GenerationMode::Summarize => {
                         let resp = lmm_bridge::summarize(&text, 3, stoch, prob);
@@ -222,6 +261,9 @@ pub fn app() -> Html {
                         is_loading={*is_loading}
                         loading_stage={(*loading_stage).clone()}
                         on_card_click={on_card_click}
+                        uploaded_files={(*uploaded_files).clone()}
+                        on_files={on_files}
+                        on_remove_file={on_remove_file}
                     />
                     <InputBar on_submit={on_submit} is_loading={*is_loading} />
                 </main>

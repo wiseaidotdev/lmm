@@ -11,16 +11,22 @@ path = "src/main.rs"
 anyhow = "1.0.104"
 coders = { version = "0.1.0", features = ["yew"] }
 input-rs = { version = "0.3.0", features = ["yew"] }
+js-sys = "0.3.107"
 lmm = { version = "0.5.0", features = ["net"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.104", default-features = false }
 uuid = { version = "1.29.2", features = ["v4", "js"] }
 wasm-bindgen = { version = "0.2.87", default-features = false }
 wasm-bindgen-futures = { version = "0.4.37", default-features = false }
-web-sys = { version = "0.3.64", default-features = false, features = [
+web-sys = { version = "0.3.107", default-features = false, features = [
+    "Blob",
+    "DataTransfer",
     "Document",
     "Element",
     "EventTarget",
+    "File",
+    "FileList",
+    "FileReader",
     "HtmlElement",
     "HtmlInputElement",
     "HtmlTextAreaElement",

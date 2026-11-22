@@ -5,7 +5,7 @@
 // option. This file may not be copied, modified, distributed
 // except according to those terms.
 
-use crate::types::{CodeBlock, PipelineStage, SearchLink};
+use crate::types::{CodeBlock, PipelineStage, SearchLink, UploadedFile};
 use lmm::cognition::knowledge::KnowledgeIndex;
 use lmm::stochastic::StochasticEnhancer;
 use lmm::text::TextSummarizer;
@@ -76,16 +76,16 @@ fn links_from_urls(urls: &[String]) -> Vec<SearchLink> {
 async fn run_pipeline_with_progress(
     prompt: &str,
     config: TramConfig,
+    index: &mut KnowledgeIndex,
     on_progress: &Callback<PipelineStage>,
 ) -> (String, Vec<CodeBlock>, Vec<SearchLink>) {
     on_progress.emit(PipelineStage::SearchingWeb);
 
-    let mut index = KnowledgeIndex::new();
     let pipeline = TramPipeline::new(config);
 
     on_progress.emit(PipelineStage::AdaptiveThoughtEngine);
 
-    let result = match pipeline.run(prompt, &mut index).await {
+    let result = match pipeline.run(prompt, index).await {
         Ok(r) => r,
         Err(_) => {
             return (
@@ -124,7 +124,40 @@ pub async fn tram_query(
         .probability(if stochastic { probability } else { 0.0 })
         .build();
 
-    run_pipeline_with_progress(prompt, config, &on_progress).await
+    let mut index = KnowledgeIndex::new();
+    run_pipeline_with_progress(prompt, config, &mut index, &on_progress).await
+}
+
+pub async fn tram_query_with_knowledge(
+    prompt: &str,
+    files: &[UploadedFile],
+    think: bool,
+    deep: bool,
+    iterations: usize,
+    inference_depth: usize,
+    cf_threshold: f64,
+    stochastic: bool,
+    probability: f64,
+    on_progress: Callback<PipelineStage>,
+) -> (String, Vec<CodeBlock>, Vec<SearchLink>) {
+    on_progress.emit(PipelineStage::KnowledgeRetrieval);
+
+    let mut index = KnowledgeIndex::new();
+    for file in files {
+        index.ingest_text(&file.name, &file.text);
+        index.ingest_paragraphs(&file.name, &file.text);
+    }
+
+    let config = TramConfig::builder()
+        .think(think)
+        .deep(deep)
+        .iterations(iterations)
+        .inference_depth(inference_depth)
+        .cf_threshold(cf_threshold)
+        .probability(if stochastic { probability } else { 0.0 })
+        .build();
+
+    run_pipeline_with_progress(prompt, config, &mut index, &on_progress).await
 }
 
 pub fn summarize(text: &str, count: usize, stochastic: bool, prob: f64) -> String {
