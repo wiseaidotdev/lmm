@@ -28,7 +28,7 @@ pub const MAX_PARAGRAPH_SENTENCES: usize = 2;
 pub const MIN_SENTENCE_LENGTH: usize = 5;
 pub const MAX_SENTENCE_LENGTH: usize = 40;
 pub const MAX_PARAGRAGH_LENGTH: usize = 180;
-pub const DEDUP_THRESHOLD: f64 = 0.65;
+pub const DEDUP_THRESHOLD: f64 = 0.50;
 
 pub const VERB_PATTERNS: [&str; 21] = [
     " is ",

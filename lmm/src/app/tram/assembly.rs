@@ -54,6 +54,8 @@ use {
 };
 
 #[cfg(all(feature = "cli", feature = "net"))]
+use crate::constants::tram_scraper::{URL_SYNTHETIC_NUMERICAL_PREFIX, URL_SYNTHETIC_WIKI_SUFFIXES};
+#[cfg(all(feature = "cli", feature = "net"))]
 use crate::constants::tram_web_fetch::{
     DEEP_SEARCH_URL_FOOTER_BULLET, DEEP_SEARCH_URL_FOOTER_HEADER, URL_REJECT_PATTERNS,
 };
@@ -75,6 +77,103 @@ fn split_opener(text: &str, terminator: &str) -> (String, String) {
     } else {
         (String::new(), text.to_string())
     }
+}
+
+/// Reorders paragraphs (separated by `\n\n`) so the first paragraph that begins
+/// with a proper-noun or non-continuation sentence leads the response.
+///
+/// A paragraph is considered a **good opener** when its first sentence does not
+/// start with a pronoun (`"It"`, `"They"`), a continuation adverb (`"Also"`,
+/// `"Additionally"`), or a discourse-connector phrase (`"As a result,"`,
+/// `"Therefore,"`).  If no better paragraph is found, the original order is
+/// preserved.
+///
+/// # Time Complexity
+///
+/// O(|text|)
+#[cfg(feature = "cli")]
+fn promote_good_opener_paragraph(text: &str) -> String {
+    static CONTINUATION_STARTERS: &[&str] = &[
+        "also ",
+        "additionally ",
+        "furthermore ",
+        "moreover ",
+        "therefore ",
+        "thus ",
+        "hence ",
+        "as a result",
+        "in addition",
+        "in this context",
+        "it ",
+        "they ",
+        "this ",
+        "these ",
+        "however ",
+        "but ",
+        "on the other hand",
+        "in contrast",
+    ];
+    let paragraphs: Vec<&str> = text.split("\n\n").collect();
+    if paragraphs.len() <= 1 {
+        return text.to_string();
+    }
+    let first_words: Vec<&str> = paragraphs[0].split_whitespace().take(5).collect();
+    let first_lower = first_words.join(" ").to_ascii_lowercase();
+    let second_word_lower = first_words
+        .get(1)
+        .map(|w| w.to_ascii_lowercase())
+        .unwrap_or_default();
+    let first_needs_swap = CONTINUATION_STARTERS
+        .iter()
+        .any(|&s| first_lower.starts_with(s))
+        || [
+            "also",
+            "additionally",
+            "furthermore",
+            "moreover",
+            "however",
+            "yet",
+            "still",
+            "too",
+        ]
+        .iter()
+        .any(|&w| second_word_lower.trim_matches(|c: char| !c.is_ascii_alphabetic()) == w);
+    if !first_needs_swap {
+        return text.to_string();
+    }
+    if let Some(good_idx) = paragraphs.iter().position(|p| {
+        let p_words: Vec<&str> = p.split_whitespace().take(5).collect();
+        let lead = p_words.join(" ").to_ascii_lowercase();
+        let p_second = p_words
+            .get(1)
+            .map(|w| {
+                w.trim_matches(|c: char| !c.is_ascii_alphabetic())
+                    .to_ascii_lowercase()
+            })
+            .unwrap_or_default();
+        !CONTINUATION_STARTERS.iter().any(|&s| lead.starts_with(s))
+            && ![
+                "also",
+                "additionally",
+                "furthermore",
+                "moreover",
+                "however",
+                "yet",
+                "still",
+                "too",
+            ]
+            .iter()
+            .any(|&w| p_second == w)
+    }) {
+        let mut reordered = vec![paragraphs[good_idx]];
+        for (i, p) in paragraphs.iter().enumerate() {
+            if i != good_idx {
+                reordered.push(p);
+            }
+        }
+        return reordered.join("\n\n");
+    }
+    text.to_string()
 }
 
 /// Runs the assembly stage.
@@ -206,7 +305,7 @@ pub fn run_assembly_stage(
 
                 (final_answer, false)
             } else {
-                (answer, false)
+                (assemble_paragraphs_for(&answer, run_seed, kb_query), false)
             }
         }
         Some(answer) if answer.len() >= MIN_SPARSE_BODY_CHARS => {
@@ -232,7 +331,7 @@ pub fn run_assembly_stage(
     let rule_base = RuleBase::from_chunks(&chunk_refs);
     let expert_result = if rule_base.rules.len() >= DEFAULT_MIN_RULE_COUNT {
         let engine = InferenceEngine::new(inference_depth, cf_threshold);
-        engine.reason(prompt, &rule_base)
+        engine.reason(topic, &rule_base)
     } else {
         None
     };
@@ -258,7 +357,8 @@ pub fn run_assembly_stage(
         if expert_prose.split_whitespace().count() >= MIN_EXPERT_PROSE_WORDS {
             let deduplicator = GlobalDeduplicator::new(0.65);
             let merged = format!("{}\n\n{}", answer_text, expert_prose);
-            (deduplicator.deduplicate_text(&merged), false)
+            let deduped = deduplicator.deduplicate_text(&merged);
+            (promote_good_opener_paragraph(&deduped), false)
         } else {
             (answer_text, false)
         }
@@ -371,31 +471,62 @@ pub fn run_assembly_stage(
         enhanced_full_text
     };
 
-    build_url_footer(final_text, deep, all_scraped_urls)
+    build_url_footer(final_text, deep, all_scraped_urls, topic)
+}
+
+/// Returns `true` when `url` is a synthetically-generated Wikipedia path that
+/// almost certainly does not exist as a real article.
+///
+/// Checks both the `URL_SYNTHETIC_WIKI_SUFFIXES` path-suffix list and the
+/// `URL_SYNTHETIC_NUMERICAL_PREFIX` prefix pattern.
+///
+/// # Arguments
+///
+/// * `url` - The candidate URL string.
+///
+/// # Time Complexity
+///
+/// O(|URL_SYNTHETIC_WIKI_SUFFIXES|)
+#[cfg(all(feature = "cli", feature = "net"))]
+fn is_synthetic_wiki_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    URL_SYNTHETIC_WIKI_SUFFIXES
+        .iter()
+        .any(|&suffix| lower.contains(suffix))
+        || lower.contains(URL_SYNTHETIC_NUMERICAL_PREFIX)
 }
 
 /// Appends a URL footer to `text` when deep-search is active and URLs are available.
 ///
 /// Each URL is tested against [`URL_REJECT_PATTERNS`]; only clean URLs are appended.
 /// Domain-root URLs (path depth zero or bare `/`) are also rejected to avoid
-/// navigation-page links from scraped HTML.
+/// navigation-page links from scraped HTML.  For Wikipedia URLs, only those whose
+/// article path segment starts with the topic word (case-insensitive) are kept,
+/// preventing unrelated disambiguation results (e.g. `Roger_Waters`, `Watership_Down`
+/// when the topic is `water`).
 ///
 /// # Arguments
 ///
 /// * `text`              - The assembled answer text.
 /// * `deep`              - Whether deep-search was active.
 /// * `all_scraped_urls`  - Candidate URLs from the web-fetch stage.
+/// * `topic`             - The extracted topic word used for Wikipedia relevance gating.
 ///
 /// # Returns
 ///
 /// `text` with an optional URL footer appended.
 #[cfg(all(feature = "cli", feature = "net"))]
-fn build_url_footer(text: String, deep: bool, all_scraped_urls: &[String]) -> String {
+fn build_url_footer(text: String, deep: bool, all_scraped_urls: &[String], topic: &str) -> String {
     if deep && !all_scraped_urls.is_empty() {
+        let topic_lc = topic.to_ascii_lowercase();
         let mut out = text;
         out.push_str(DEEP_SEARCH_URL_FOOTER_HEADER);
+        let mut seen_lower: std::collections::HashSet<String> = std::collections::HashSet::new();
         for url in all_scraped_urls {
             let lower = url.to_ascii_lowercase();
+            if !seen_lower.insert(lower.clone()) {
+                continue;
+            }
             let is_pattern_junk = URL_REJECT_PATTERNS.iter().any(|&pat| lower.contains(pat));
             let is_root_url = url
                 .split_once("://")
@@ -404,7 +535,21 @@ fn build_url_footer(text: String, deep: bool, all_scraped_urls: &[String]) -> St
                     path_start == "/" || path_start.is_empty()
                 })
                 .unwrap_or(false);
-            if !is_pattern_junk && !is_root_url {
+            let is_synthetic = is_synthetic_wiki_url(url);
+            let is_irrelevant_wiki = if lower.contains("en.wikipedia.org/wiki/") {
+                let slug = lower
+                    .split("/wiki/")
+                    .nth(1)
+                    .unwrap_or("")
+                    .split(['#', '?'])
+                    .next()
+                    .unwrap_or("");
+                let first_segment = slug.split('_').next().unwrap_or(slug);
+                first_segment != topic_lc.as_str()
+            } else {
+                false
+            };
+            if !is_pattern_junk && !is_root_url && !is_synthetic && !is_irrelevant_wiki {
                 out.push_str(DEEP_SEARCH_URL_FOOTER_BULLET);
                 out.push_str(url);
                 out.push('\n');
@@ -416,7 +561,12 @@ fn build_url_footer(text: String, deep: bool, all_scraped_urls: &[String]) -> St
 }
 
 #[cfg(all(feature = "cli", not(feature = "net")))]
-fn build_url_footer(text: String, _deep: bool, _all_scraped_urls: &[String]) -> String {
+fn build_url_footer(
+    text: String,
+    _deep: bool,
+    _all_scraped_urls: &[String],
+    _topic: &str,
+) -> String {
     text
 }
 

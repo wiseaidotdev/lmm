@@ -33,7 +33,7 @@
 
 ## 🎬 Demo
 
-The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics) pipeline generating coherent, non-repetitive English prose powered entirely by deterministic mathematics and transparent symbolic reasoning. The pipeline runs through six stages: web knowledge retrieval, **adaptive thought engine reasoning**, symbolic inference, global deduplication, structural shaping, and stochastic enhancement.
+The following demonstrates the full TRAM (Text Reasoning and Applied Mathematics) pipeline generating coherent, non-repetitive English prose powered entirely by deterministic mathematics and transparent symbolic reasoning. The pipeline runs through six stages: web knowledge retrieval, **adaptive thought engine reasoning**, symbolic inference, global deduplication, structural shaping, and stochastic enhancement. For higher-quality answers, enable the **Recursive Belief Propagation loop** (`--loop N`) to re-run the full pipeline up to N times with Bayesian belief updates between passes.
 
 <video src="https://github.com/user-attachments/assets/6bf9b86f-0dcf-44a6-9bae-ea6575cf6edc"></video>
 
@@ -59,6 +59,11 @@ lmm -p "why does Rust not have a garbage collector?" --think --verbose
 lmm -p "rust vs python" --think --think-steps 4 --think-threshold 0.7 --verbose
 lmm -p "machine learning" --think --think-steps 6 --think-patience 2 --verbose
 
+# Recursive belief-propagation loop (--loop N):
+lmm -p "what are the advantages of rust?" --think --loop 2 --verbose
+lmm -p "what are the advantages of water?" --think --deep --loop 3 --verbose
+lmm -p "what are the advantages of python?" --think --loop 5 --loop-threshold 0.3 --verbose
+
 # Control decomposition and framing:
 lmm -p "advantages of rust" --max-tasks 6 --verbose
 lmm -p "rust programming" --no-frame --verbose
@@ -74,7 +79,7 @@ lmm tram -p "write hello world in rust" --max-tasks 4 --verbose
 
 ## 🎛️ Modes of Operations
 
-LMM supports 4 modes of operations: ask (regular web search), think (think & ate engine), deep search. The following demostrates the output of two of these modes:
+LMM supports 5 modes of operations: ask (regular web search), think (ATE engine), deep search, think & deep search, and recursive belief-propagation loop (`--loop N`). The following demonstrates the output of two of these modes:
 
 |                                             Search                                              |                                            Think + Deep Search                                            |
 | :---------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: |
@@ -123,10 +128,51 @@ The `lmm-agent` crate extends LMM with a fully autonomous, equation-based agent 
 | **[lmm-agent README](lmm-agent/README.md)**   | Crate-level API reference, builder, and example              |
 | **[lmm-derive README](lmm-derive/README.md)** | Macro crate details and field rules                          |
 
+## ⚡ Performance
+
+TRAM is benchmarked end-to-end with [Criterion](https://github.com/bheisler/criterion.rs) (100 samples, release build, **no GPU**).  
+**→ See [BENCH.md](BENCH.md) for full per-stage tables, numbers, and methodology.**
+
+### TRAM vs. LLM at a Glance
+
+|                     | Training CO₂ | Inference latency\* | Parameters | RAM        |
+| ------------------- | ------------ | ------------------- | ---------- | ---------- |
+| **TRAM (cached)**   | **0 t**      | **0.015 ms**        | **0**      | **< 8 MB** |
+| **TRAM (live web)** | **0 t**      | ~554 ms             | **0**      | **< 8 MB** |
+| GPT-2 CPU           | 284 t        | ~2,500 ms           | 117 M      | ~500 MB    |
+| GPT-3 API           | 502 t        | 1,000-4,000 ms      | 175 B      | 350 GB     |
+| GPT-4 API           | 3,900+ t     | 2,000-8,000 ms      | ~1 T est.  | cloud      |
+
+\*Per ~100-word response. Full E2E offline pipeline: **101.8 ms** (1-pass), **314 ms** (3-pass loop).
+
+<div align="center">
+
+|            CO₂ Training Cost             |                Inference Latency                 |
+| :--------------------------------------: | :----------------------------------------------: |
+| ![CO₂](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/benchmarks/vs_llm_co2.png) | ![Latency](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/benchmarks/vs_llm_latency.png) |
+
+|                  Throughput (words/sec)                  |                 Memory Footprint                 |
+| :------------------------------------------------------: | :----------------------------------------------: |
+| ![Throughput](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/benchmarks/tram_e2e_throughput.png) | ![Memory](https://raw.githubusercontent.com/wiseaidotdev/lmm/refs/heads/main/assets/benchmarks/tram_e2e_memory.png) |
+
+</div>
+
+### Key Facts
+
+- **3.8 ns** per certainty-factor combination: pure ALU, zero allocation
+- **8.8 µs** top-k knowledge retrieval (k=1-10, 50-sentence corpus)
+- **Zero training cost**: no data, no GPUs, no CO₂ at training time
+- **< 8 MB RAM** vs. gigabytes for the smallest quantised open-source LLMs
+- **Runs on any CPU**: from embedded ARM to cloud servers, no drivers needed
+- **Fully auditable**: every inference step emits a human-readable proof trace
+
 ## 📰 Publications & Research
 
 The architecture, formal mathematics, and paradigm are fully documented in the official whitepaper:
 **[Read the Whitepaper (PDF)](papers/lmm.pdf)**.
+
+For the full Criterion benchmark results, methodology, per-stage tables, and all PNG charts:
+**[Read BENCH.md](BENCH.md)**.
 
 ## 📂 Examples
 

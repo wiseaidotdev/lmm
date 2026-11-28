@@ -178,7 +178,9 @@ pub fn split_sentences_with_punct(text: &str) -> Vec<String> {
             let prev_digit = i > 0 && chars[i - 1].is_ascii_digit();
             let next_digit = next_char.map(|c| c.is_ascii_digit()).unwrap_or(false);
 
-            if ch == '.' && (next_lower || (prev_digit && next_digit)) {
+            let next_comma = next_char.map(|c| c == ',').unwrap_or(false);
+            if ch == '.' && (next_lower || (prev_digit && next_digit) || (prev_digit && next_comma))
+            {
                 continue;
             }
 

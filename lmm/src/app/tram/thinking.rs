@@ -104,6 +104,25 @@ pub async fn run_thinking_stage(cfg: ThinkingConfig<'_>) -> ThinkingStageOutput 
             oracle.seed_cache(&topic_query, &kb_corpus);
             oracle.seed_cache(prompt, &kb_corpus);
         }
+        let web_sources = [
+            "web-ia",
+            "web-ia-eval",
+            "web-ducky",
+            "web-lite",
+            "web-deep-scrape",
+            "skill",
+        ];
+        for source in &web_sources {
+            let chunks: String = index
+                .query(source, 5)
+                .into_iter()
+                .map(|c| c.text.clone())
+                .collect::<Vec<_>>()
+                .join(" ");
+            if !chunks.is_empty() {
+                oracle.seed_cache(source, &chunks);
+            }
+        }
     }
 
     let ate_goal: String = if think {
@@ -151,7 +170,8 @@ pub async fn run_thinking_stage(cfg: ThinkingConfig<'_>) -> ThinkingStageOutput 
     } else {
         iterations.min(6)
     };
-    let mut lp = ThinkLoop::builder(ate_goal.clone())
+    let think_goal = ate_goal.clone();
+    let mut lp = ThinkLoop::builder(think_goal)
         .max_iterations(think_iterations)
         .convergence_threshold(convergence_threshold)
         .k_proportional(1.2)
@@ -160,7 +180,7 @@ pub async fn run_thinking_stage(cfg: ThinkingConfig<'_>) -> ThinkingStageOutput 
 
     let think_result = lp.run(&mut oracle).await;
     let think_converged =
-        think_result.converged || (!index.is_empty() && think_result.final_error >= 0.99);
+        think_result.converged && !(index.is_empty() && think_result.final_error >= 0.99);
     info!(
         "  🔄 ThinkLoop: converged={} steps={} error={:.3}",
         think_converged, think_result.steps, think_result.final_error
@@ -174,11 +194,12 @@ pub async fn run_thinking_stage(cfg: ThinkingConfig<'_>) -> ThinkingStageOutput 
         .collect::<Vec<_>>()
         .join(" ");
 
+    let mut total_chunks: usize = 0;
     for entry in lp.cold.all() {
-        let chunks_added = index.ingest_text("think", &entry.content);
-        if verbose {
-            info!("  💡 Memory → KB: +{} chunk(s)", chunks_added);
-        }
+        total_chunks += index.ingest_text("think", &entry.content);
+    }
+    if verbose {
+        info!("  💡 Memory → KB: +{} chunk(s)", total_chunks);
     }
 
     let cold_store = lp.cold;

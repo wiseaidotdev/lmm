@@ -17,6 +17,12 @@
 //! The explanation is stored as an AND/OR proof tree and can be rendered either
 //! as a human-readable trace or as a compact prose paragraph suitable for
 //! inclusion in TRAM's output.
+//!
+//! ## See Also
+//!
+//! - [Expert system - Wikipedia](https://en.wikipedia.org/wiki/Expert_system#Explanation)
+//! - [MYCIN - Wikipedia](https://en.wikipedia.org/wiki/MYCIN)
+//! - [Clancey, W. J. (1983). The epistemology of a rule-based expert system. Artificial Intelligence, 20(3), 215-251.](https://doi.org/10.1016/0004-3702(83)90008-5)
 
 use crate::constants::expert::DEFAULT_RULE_LABEL;
 use crate::expert::uncertainty::CertaintyFactor;

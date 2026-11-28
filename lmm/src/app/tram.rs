@@ -21,6 +21,7 @@
 
 pub mod assembly;
 pub mod knowledge;
+pub mod loop_orchestrator;
 pub mod retrieval;
 pub mod rewards;
 pub mod thinking;
@@ -37,7 +38,6 @@ use {
         },
         cognition::task_decomposer::TaskDecomposer,
         constants::skill::SKILL_STORE_DIR,
-        tram::DEFAULT_CF_THRESHOLD,
     },
     std::path::PathBuf,
     tracing::info,
@@ -77,6 +77,8 @@ use {
 /// * `max_tasks`        - Upper bound on task-decomposer sub-tasks.
 /// * `no_frame`         - Skip response framing when `true`.
 /// * `deep`             - Activate deep-scrape web enrichment mode.
+/// * `loop_count`       - Number of recursive belief-propagation passes (1 = single pass).
+/// * `loop_threshold`   - Minimum quality improvement per pass for early-exit.
 ///
 /// # Time Complexity
 ///
@@ -103,18 +105,53 @@ pub async fn handle_tram(
     max_tasks: usize,
     no_frame: bool,
     deep: bool,
+    loop_count: usize,
+    loop_threshold: f64,
 ) -> anyhow::Result<()> {
     banner("TRAM · Text Reasoning and Applied Mathematics", "🧮");
     info!("  ❓ Prompt    : {:?}", prompt);
     info!("  🔁 Iterations: {}", iterations);
     info!(
         "  🔍 Inference : depth={} CF≥{:.2}",
-        inference_depth, DEFAULT_CF_THRESHOLD
+        inference_depth, cf_threshold
     );
 
     let skill_dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(SKILL_STORE_DIR);
+
+    if loop_count > 1 {
+        let lc = loop_orchestrator::LoopConfig {
+            loop_count,
+            loop_threshold,
+            verbose,
+        };
+        let final_state = loop_orchestrator::run_loop(
+            &prompt,
+            knowledge_base,
+            probability,
+            iterations,
+            inference_depth,
+            cf_threshold,
+            think,
+            think_steps,
+            think_threshold,
+            think_patience,
+            max_tasks,
+            no_frame,
+            deep,
+            lc,
+            skill_dir,
+        )
+        .await?;
+        divider("TRAM Response");
+        if verbose {
+            info!("  {}", final_state.answer);
+        } else {
+            info!("{}", final_state.answer);
+        }
+        return Ok(());
+    }
 
     divider("Web Knowledge");
 

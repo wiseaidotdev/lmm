@@ -36,6 +36,7 @@ pub mod text_topic;
 pub mod thought_decompose;
 pub mod tram_answer;
 pub mod tram_logging;
+pub mod tram_loop;
 pub mod tram_pipeline;
 pub mod tram_query;
 pub mod tram_response;

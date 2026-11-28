@@ -228,6 +228,13 @@ pub const DEEP_SCRAPE_DDG_ENTITY_PREFIX: &str = "https://duckduckgo.com/";
 pub const DEEP_SCRAPE_WIKIPEDIA_PREFIX: &str = "https://en.wikipedia.org/wiki/";
 
 /// Suffix appended to subject for Wikipedia program fallback URL.
+///
+/// # Deprecation Notice
+///
+/// This constant and its sibling `WIKIPEDIA_FALLBACK_*` constants are retained
+/// for backwards-compatibility only. The `build_wikipedia_fallback_urls`
+/// function no longer appends synthetic suffixes to avoid generating
+/// non-existent article URLs (B6/B10 fix).
 pub const WIKIPEDIA_FALLBACK_PROGRAM_SUFFIX: &str = "_program";
 
 /// Suffix appended to subject for Wikipedia example fallback URL.

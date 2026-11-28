@@ -51,10 +51,7 @@ use crate::constants::tram_web_fetch::{
     MIN_DEEP_SCRAPE_CONTENT_LENGTH, MIN_DEEP_SCRAPE_RELEVANCE_SCORE,
     OPENSEARCH_QUERY_ALGORITHM_LANG_TEMPLATE, OPENSEARCH_QUERY_IMPLEMENTATION_TEMPLATE,
     OPENSEARCH_QUERY_PROGRAM_LANG_TEMPLATE, OPENSEARCH_QUERY_PROGRAM_TEMPLATE,
-    WIKIPEDIA_FALLBACK_ALGORITHM_SUFFIX, WIKIPEDIA_FALLBACK_COMPUTATION_SUFFIX,
-    WIKIPEDIA_FALLBACK_EXAMPLE_SUFFIX, WIKIPEDIA_FALLBACK_FUNCTION_SUFFIX,
-    WIKIPEDIA_FALLBACK_METHOD_SUFFIX, WIKIPEDIA_FALLBACK_NUMERICAL_PREFIX,
-    WIKIPEDIA_FALLBACK_PROGRAM_SUFFIX, WIKIPEDIA_OPENSEARCH_API,
+    WIKIPEDIA_OPENSEARCH_API,
 };
 #[cfg(all(feature = "net", not(target_arch = "wasm32")))]
 use crate::net::{Browser, user_agent_by_seed};
@@ -567,47 +564,11 @@ fn build_wikipedia_fallback_urls(prompt: &str, topic: &str) -> Vec<String> {
     let lc = subject.to_ascii_lowercase().replace(' ', "_");
     let spaced = title_spaced_cap.replace(' ', "_");
 
-    let subject_is_single_word = !subject.contains(' ') && !subject.contains('_');
-
     let mut urls = vec![
         format!("{}{}", DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case.clone()),
         format!("{}{}", DEEP_SCRAPE_WIKIPEDIA_PREFIX, spaced.clone()),
         format!("{}{}", DEEP_SCRAPE_WIKIPEDIA_PREFIX, lc.clone()),
     ];
-    urls.push(format!(
-        "{}{}{}",
-        DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_PROGRAM_SUFFIX
-    ));
-    urls.push(format!(
-        "{}{}{}",
-        DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_EXAMPLE_SUFFIX
-    ));
-    if subject_is_single_word {
-        urls.push(format!(
-            "{}{}{}",
-            DEEP_SCRAPE_WIKIPEDIA_PREFIX, WIKIPEDIA_FALLBACK_NUMERICAL_PREFIX, spaced
-        ));
-        urls.push(format!(
-            "{}{}{}",
-            DEEP_SCRAPE_WIKIPEDIA_PREFIX, WIKIPEDIA_FALLBACK_NUMERICAL_PREFIX, title_case
-        ));
-        urls.push(format!(
-            "{}{}{}",
-            DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_ALGORITHM_SUFFIX
-        ));
-        urls.push(format!(
-            "{}{}{}",
-            DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_FUNCTION_SUFFIX
-        ));
-        urls.push(format!(
-            "{}{}{}",
-            DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_METHOD_SUFFIX
-        ));
-        urls.push(format!(
-            "{}{}{}",
-            DEEP_SCRAPE_WIKIPEDIA_PREFIX, title_case, WIKIPEDIA_FALLBACK_COMPUTATION_SUFFIX
-        ));
-    }
     urls.dedup();
     urls
 }

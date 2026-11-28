@@ -205,6 +205,63 @@ impl SentenceFilter {
             && !Self::is_title_prefix_fragment(sentence)
             && !Self::is_bare_question_title(sentence)
             && !Self::is_low_density(sentence)
+            && !Self::has_template_gaps(sentence)
+    }
+
+    /// Returns `true` when the sentence contains mid-sentence template artifacts,
+    /// a conjunction, auxiliary verb, or preposition directly followed by a comma
+    /// or period, indicating that a wiki template or citation was stripped and
+    /// left an orphaned punctuation mark.
+    ///
+    /// Examples rejected:
+    /// - `"features were , or to pump"` → `" were ,"`
+    /// - `"powered by ."` → `" by."`
+    /// - `"from either an or a cabalistic"` → `" either an"`
+    ///
+    /// # Time Complexity
+    ///
+    /// O(|sentence|)
+    pub fn has_template_gaps(sentence: &str) -> bool {
+        static GAP_BEFORE_PUNCT: &[&str] = &[
+            " were ,", " was ,", " is ,", " are ,", " by ,", " in ,", " from ,", " to ,", " of ,",
+            " or ,", " and ,", " a ,", " an ,", " the ,", " by as ", " by an ", " an and ",
+            " or an ", " or a ", ", ,", "( ,", "( .",
+        ];
+        static GAP_BEFORE_PERIOD: &[&str] = &[
+            " by.", " in.", " from.", " to.", " of.", " a.", " an.", " the.", " by .", " in .",
+            " from .", " to .", " of .", " a .", " an .", " the .", " or .", " and .", " with .",
+            " at .", " on .", " using .", " using .",
+        ];
+        static DOUBLE_ARTICLE_GAP: &[&str] = &[" either an ", " either a "];
+        static NOMINAL_GAP: &[&str] = &[
+            " indoor that ",
+            " outdoor that ",
+            " indoor which ",
+            " outdoor which ",
+        ];
+
+        let lower = sentence.to_ascii_lowercase();
+        for pat in GAP_BEFORE_PUNCT {
+            if lower.contains(pat) {
+                return true;
+            }
+        }
+        for pat in GAP_BEFORE_PERIOD {
+            if lower.contains(pat) {
+                return true;
+            }
+        }
+        for pat in DOUBLE_ARTICLE_GAP {
+            if lower.contains(pat) {
+                return true;
+            }
+        }
+        for pat in NOMINAL_GAP {
+            if lower.contains(pat) {
+                return true;
+            }
+        }
+        false
     }
 
     /// Returns `true` when this sentence can serve as the **opening sentence**
@@ -493,24 +550,52 @@ impl SentenceFilter {
     /// and does not end with a question mark.  Such strings are DuckDuckGo
     /// related-topic link titles, not prose sentences.
     ///
-    /// Example: `"What does Rust have instead of a garbage collector"`, no `?`,
-    /// starts with `"What"`, qualifies as a bare query fragment.
+    /// Also catches concatenated title+query fragments such as:
+    /// `"Rust: The Programming Language of the Future What are the disadvantages of Rust."`
+    /// where a capitalised topic title followed by a colon is prepended to a bare question.
     ///
     /// # Time Complexity
     ///
-    /// O(1): inspects only the first word and last character.
+    /// O(|sentence|): one linear pass for the colon-title check; O(1) for the leading-word check.
     pub fn is_bare_question_title(sentence: &str) -> bool {
         static QUESTION_STARTERS: &[&str] = &[
             "what", "why", "how", "when", "where", "which", "who", "whom", "whose",
         ];
+        let ends_with_question = sentence.trim_end().ends_with('?');
         let first = sentence
             .split_whitespace()
             .next()
             .unwrap_or(DEFAULT_EMPTY_WORD)
             .trim_matches(|c: char| !c.is_ascii_alphabetic())
             .to_ascii_lowercase();
-        let ends_with_question = sentence.trim_end().ends_with('?');
-        QUESTION_STARTERS.contains(&first.as_str()) && !ends_with_question
+        if QUESTION_STARTERS.contains(&first.as_str()) && !ends_with_question {
+            return true;
+        }
+        if sentence.contains(": ") {
+            let after_colon = sentence
+                .find(": ")
+                .and_then(|i| sentence.get(i + 2..))
+                .unwrap_or("");
+            let after_first = after_colon
+                .split_whitespace()
+                .next()
+                .unwrap_or(DEFAULT_EMPTY_WORD)
+                .trim_matches(|c: char| !c.is_ascii_alphabetic())
+                .to_ascii_lowercase();
+            if QUESTION_STARTERS.contains(&after_first.as_str()) && !ends_with_question {
+                return true;
+            }
+            let all_title_before_colon = sentence
+                .split(": ")
+                .next()
+                .unwrap_or("")
+                .split_whitespace()
+                .all(|w| w.chars().next().is_some_and(|c| c.is_uppercase()));
+            if all_title_before_colon {
+                return true;
+            }
+        }
+        false
     }
 
     /// Returns `true` when fewer than 50% of the sentence's words are unique,

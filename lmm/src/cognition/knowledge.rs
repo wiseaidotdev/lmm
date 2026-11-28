@@ -40,6 +40,12 @@
 //! let answer = index.answer("How does Rust handle memory?", 3);
 //! assert!(answer.is_some());
 //! ```
+//!
+//! ## See Also
+//!
+//! - [tf-idf - Wikipedia](https://en.wikipedia.org/wiki/Tf%E2%80%93idf)
+//! - [Extractive summarization - Wikipedia](https://en.wikipedia.org/wiki/Automatic_summarization#Extractive_summarization)
+//! - [Robertson, S., & Zaragoza, H. (2009). The probabilistic relevance framework: BM25 and beyond. Foundations and Trends in Information Retrieval, 3(4), 333-389.](https://doi.org/10.1561/1500000019)
 
 use crate::constants::knowledge::{
     CODE_BLOCK_SOURCE_LABEL, DEFAULT_EMPTY_EXTENSION, DEFAULT_FILE_LABEL,

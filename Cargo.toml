@@ -3,13 +3,14 @@ resolver = "2"
 members = [
     "lmm",
     "lmm-derive",
-    "lmm-agent"
+    "lmm-agent",
 ]
 exclude = [
     "target",
     "examples/arc-lmm-agent",
     "examples/chat",
     "examples/yap",
+    "benches",
 ]
 
 [workspace.dependencies]
@@ -48,7 +49,9 @@ quote = "1.0.45"
 proc-macro2 = "1.0.106"
 lmm-derive = { version = "0.0.2", path = "./lmm-derive" }
 lmm-agent = { version = "0.3.0", path = "./lmm-agent" }
-lmm = { version = "0.5.0", path = "./lmm" }
+lmm         = { version = "0.5.0", path = "./lmm" }
+criterion   = { version = "0.8.2",  features = ["html_reports"] }
+plotters    = { version = "0.3.7",  default-features = false, features = ["svg_backend", "bitmap_backend", "bitmap_encoder", "fontconfig-dlopen", "line_series", "point_series", "ttf"] }
 
 [profile.dev]
 split-debuginfo = "off"

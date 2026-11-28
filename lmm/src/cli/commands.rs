@@ -257,6 +257,31 @@ pub struct Cli {
     )]
     pub deep: bool,
 
+    /// Recursive belief-propagation loop passes.
+    ///
+    /// When set to N > 1, the full TRAM pipeline is executed up to N times,
+    /// with Bayesian belief propagation fusing the quality signal across passes.
+    /// Early exit fires when quality improvement falls below `--loop-threshold`.
+    #[arg(
+        long = "loop",
+        global = false,
+        default_value_t = 1,
+        help = "Recursive belief-propagation loop passes (default: 1 = single pass)"
+    )]
+    pub loop_count: usize,
+
+    /// Minimum quality improvement per pass to continue looping.
+    ///
+    /// When the quality delta between consecutive passes is less than this
+    /// value, the loop exits early.  Set to 0.0 to always run all passes.
+    #[arg(
+        long = "loop-threshold",
+        global = false,
+        default_value_t = 0.05,
+        help = "Min quality delta per pass for early-exit (default: 0.05)"
+    )]
+    pub loop_threshold: f64,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -327,6 +352,12 @@ pub enum Commands {
         /// Enable deep web scraping for topic-relevant content.
         #[arg(long, default_value_t = false)]
         deep: bool,
+        /// Recursive belief-propagation loop passes.
+        #[arg(long = "loop", default_value_t = 1)]
+        loop_count: usize,
+        /// Minimum quality improvement per pass to continue looping.
+        #[arg(long = "loop-threshold", default_value_t = 0.05)]
+        loop_threshold: f64,
     },
     #[command(about = "Simulate continuous logical pathways")]
     Simulate {

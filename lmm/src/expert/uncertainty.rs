@@ -20,6 +20,13 @@
 //!
 //! These operations are intentionally simpler than Bayes' theorem. human experts do not think in precise
 //! probabilities; a subjective certainty scale is a better fit for expert knowledge.
+//!
+//! ## See Also
+//!
+//! - [Certainty factor - Wikipedia](https://en.wikipedia.org/wiki/Certainty_factor)
+//! - [MYCIN - Wikipedia](https://en.wikipedia.org/wiki/MYCIN)
+//! - [Shortliffe, E. H., & Buchanan, B. G. (1975). A model of inexact reasoning in medicine. Mathematical Biosciences, 23(3-4), 351-379.](https://doi.org/10.1016/0025-5564(75)90047-4)
+//! - [Prospector (expert system) - Wikipedia](https://en.wikipedia.org/wiki/Prospector_(expert_system))
 
 /// A Prospector-style certainty factor in the interval [0.0, 1.0].
 ///

@@ -67,8 +67,10 @@
 //!
 //! ## See Also
 //!
-//! * [Dempster-Shafer theory](https://en.wikipedia.org/wiki/Dempster%E2%80%93Shafer_theory)
-//! * [Abductive reasoning](https://en.wikipedia.org/wiki/Abductive_reasoning)
+//! - [Dempster-Shafer theory - Wikipedia](https://en.wikipedia.org/wiki/Dempster%E2%80%93Shafer_theory)
+//! - [Shafer, G. (1976). A Mathematical Theory of Evidence. Princeton University Press.](https://doi.org/10.1515/9780691214696)
+//! - [Abductive reasoning - Wikipedia](https://en.wikipedia.org/wiki/Abductive_reasoning)
+//! - [Deductive reasoning - Wikipedia](https://en.wikipedia.org/wiki/Deductive_reasoning)
 
 pub mod belief;
 pub mod classifier;

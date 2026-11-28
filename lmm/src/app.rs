@@ -83,6 +83,8 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                 cli.max_tasks,
                 cli.no_frame,
                 cli.deep,
+                cli.loop_count,
+                cli.loop_threshold,
             )
             .await;
         }
@@ -104,6 +106,8 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
             max_tasks,
             no_frame,
             deep,
+            loop_count,
+            loop_threshold,
         } => {
             tram::handle_tram(
                 prompt,
@@ -120,6 +124,8 @@ pub async fn run_cli_entry(args: Vec<String>) -> anyhow::Result<()> {
                 max_tasks,
                 no_frame,
                 deep,
+                loop_count,
+                loop_threshold,
             )
             .await?;
         }

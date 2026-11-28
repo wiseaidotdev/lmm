@@ -21,6 +21,7 @@ LLM provides a variety of features that enable you to search and generate cohere
 - 🧠 **Expert System**: IF-THEN production rules auto-derived from KB chunks at runtime; backward-chaining inference engine with Prospector-model certainty factors; how/why explanation facility; slot-filling `ProseBuilder` that constructs novel paragraphs, never copies verbatim.
 - 🔀 **Coherence Scoring**: greedy nearest-neighbour sentence reordering by token overlap maximises topical flow across generated paragraphs.
 - 💡 **Adaptive Thought Engine (ATE)**: multi-step symbolic reasoner that classifies each prompt into one of eight reasoning modes (`factual`, `causal`, `procedural`, `analogical`, `definitional`, `exploratory`, `evaluative`, `task`) and iterates through typed thought steps to build a goal-directed reasoning chain before the main pipeline runs. Activated with `--think` / `-t`.
+- 🔁 **Recursive Belief Propagation Loop (`--loop N`)**: re-runs the full TRAM pipeline up to N times. After each pass a [`BeliefNet`](lmm/src/cognition/bayesian/) is built from the top KB chunks and prompt-evidence is propagated to yield a posterior belief interval. A scalar quality score (computed by `rewards::compute_response_reward`) measures answer improvement. The loop exits early when the quality delta falls below `--loop-threshold` (default `0.05`). The best-scoring pass wins. Combining with `--think` and `--deep` enables iterative retrieval refinement across passes.
 - 🎯 **Context-Aware Response Framing**: the final answer is prefixed with an intent-specific phrase (e.g. "The advantages of Rust are..."). Always-on; suppressible with `--no-frame`.
 - 🔍 **Task Decomposer**: fires up to `--max-tasks` intent-specific web queries to enrich the KB with mode-relevant content before reasoning.
 - 💻 **Code Responder**: for `task`-mode prompts, renders a fenced code block with templates or KB-extracted snippets.
@@ -37,6 +38,18 @@ flowchart TD
 
     B --> TDEC["TaskDecomposer\nClassify prompt mode\nFire intent-specific sub-queries\n(advantages of · vs · how to · code example)"]
     TDEC --> IDX
+
+    B --> LOOP_CHECK{"--loop N > 1?"}
+    LOOP_CHECK -- yes --> LOOP_ORCH["LoopOrchestrator\nrun_loop(pass=1..N)"]
+    LOOP_ORCH --> LOOP_PASS["Per-pass: full pipeline\n(knowledge → thinking → retrieval → assembly)"]
+    LOOP_PASS --> BNET["BeliefNet.from_chunks()\nBayesian belief propagation"]
+    BNET --> BPOST["posterior = propagate(prompt_tokens)\nbelief interval [lo, mid, hi]"]
+    BPOST --> QUAL["rewards::compute_response_reward()\nquality score ∈ [0, 1]"]
+    QUAL --> CONV{"delta < loop-threshold\nor pass == N?"}
+    CONV -- no --> LOOP_PASS
+    CONV -- yes --> BEST["Return best-scoring pass answer"]
+    BEST --> IDX
+    LOOP_CHECK -- no --> ATE_CHECK
 
     B --> ATE_CHECK{"--think flag?"}
     ATE_CHECK -- yes --> ATE["Adaptive Thought Engine\nClassify prompt mode\n(factual/causal/procedural/analogical/\ndefinitional/exploratory/evaluative/task)"]
