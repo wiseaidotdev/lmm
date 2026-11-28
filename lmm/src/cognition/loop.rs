@@ -47,8 +47,10 @@
 //!
 //! ## See Also
 //!
-//! * [PID controller - Wikipedia](https://en.wikipedia.org/wiki/PID_controller)
-//! * [Feedback - Wikipedia](https://en.wikipedia.org/wiki/Feedback)
+//! - [Proportional-integral-derivative controller - Wikipedia](https://en.wikipedia.org/wiki/Proportional%E2%80%93integral%E2%80%93derivative_controller)
+//! - [Feedback control - Wikipedia](https://en.wikipedia.org/wiki/Control_theory)
+//! - [Anti-windup / integral windup - Wikipedia](https://en.wikipedia.org/wiki/Integral_windup)
+//! - [Jaccard index - Wikipedia](https://en.wikipedia.org/wiki/Jaccard_index)
 
 use crate::cognition::goal::GoalEvaluator;
 use crate::cognition::memory::{ColdStore, HotStore, MemoryEntry};

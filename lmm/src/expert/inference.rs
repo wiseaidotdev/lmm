@@ -29,6 +29,13 @@
 //! ```
 //!
 //! Cycles are prevented by the `visited` depth limit (`max_depth`).
+//!
+//! ## See Also
+//!
+//! - [Backward chaining - Wikipedia](https://en.wikipedia.org/wiki/Backward_chaining)
+//! - [Expert system - Wikipedia](https://en.wikipedia.org/wiki/Expert_system)
+//! - [Shortliffe, E. H., & Buchanan, B. G. (1975). A model of inexact reasoning in medicine. Mathematical Biosciences, 23(3-4), 351-379.](https://doi.org/10.1016/0025-5564(75)90047-4)
+//! - [MYCIN - Wikipedia](https://en.wikipedia.org/wiki/MYCIN)
 
 use crate::expert::explain::{ExplanationTrace, ProofStep};
 use crate::expert::rule::{Rule, RuleBase};

@@ -33,8 +33,9 @@
 //!
 //! ## See Also
 //!
-//! * [Dempster-Shafer theory - Wikipedia](https://en.wikipedia.org/wiki/Dempster%E2%80%93Shafer_theory)
-//! * [Shafer, G. (1976). A Mathematical Theory of Evidence. Princeton UP.](https://en.wikipedia.org/wiki/Glenn_Shafer)
+//! - [Dempster-Shafer theory - Wikipedia](https://en.wikipedia.org/wiki/Dempster%E2%80%93Shafer_theory)
+//! - [Belief function - Wikipedia](https://en.wikipedia.org/wiki/Dempster%E2%80%93Shafer_theory#Belief_and_plausibility)
+//! - [Shafer, G. (1976). A Mathematical Theory of Evidence. Princeton University Press.](https://doi.org/10.1515/9780691214696)
 
 /// A belief interval `[belief, plausibility]` representing uncertain evidence.
 ///

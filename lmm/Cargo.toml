@@ -17,6 +17,7 @@ exclude = [
     "/examples",
     "/papers",
     "/python",
+    "/benches",
     "/bin",
     "package.json",
     "package-lock.json",

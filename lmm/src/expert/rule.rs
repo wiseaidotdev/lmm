@@ -37,6 +37,13 @@
 //! | `X prevents Y`   | `prevents` |
 //! | `X guarantees Y` | `guarantees` |
 //! | `X has Y`        | `has` |
+//!
+//! ## See Also
+//!
+//! - [Subject-verb-object - Wikipedia](https://en.wikipedia.org/wiki/Subject%E2%80%93verb%E2%80%93object)
+//! - [Prospector (expert system) - Wikipedia](https://en.wikipedia.org/wiki/Prospector_(expert_system))
+//! - [Certainty factor - Wikipedia](https://en.wikipedia.org/wiki/Certainty_factor)
+//! - [Shortliffe, E. H., & Buchanan, B. G. (1975). A model of inexact reasoning in medicine. Mathematical Biosciences, 23(3-4), 351-379.](https://doi.org/10.1016/0025-5564(75)90047-4)
 
 use std::collections::{HashMap, HashSet};
 
@@ -218,7 +225,7 @@ impl RuleBase {
             }
 
             let rel_count = triples.len() as f64;
-            let base_cf = (rel_count / 5.0).clamp(0.1, 1.0);
+            let base_cf = (rel_count / 5.0).clamp(0.3, 1.0);
 
             for triple in &triples {
                 let conclusion = triple.to_text();
@@ -292,7 +299,7 @@ impl RuleBase {
 /// Extracts SVO triples from a text chunk using RELATION_VERBS as pivot words.
 ///
 /// For each relation verb found, the left tokens (up to 3) form the subject
-/// and the right tokens (up to 4) form the object.
+/// and the right tokens (up to 6) form the object.
 ///
 /// # Time Complexity
 ///
@@ -326,7 +333,7 @@ fn extract_triples(text: &str) -> Vec<Condition> {
             .collect::<Vec<_>>()
             .join(" ");
 
-        let obj_end = (i + 5).min(words.len());
+        let obj_end = (i + 7).min(words.len());
         let object: String = words[i + 1..obj_end]
             .iter()
             .filter(|w| w.len() >= 2 && !is_stop(w))

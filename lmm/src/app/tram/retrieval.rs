@@ -26,7 +26,7 @@ use {
             ADVANTAGE_KEYWORDS, HISTORICAL_MARKERS, HISTORY_KEYWORDS, MIN_FILTERED_PARAGRAPHS,
         },
         constants::tram_scraper::{
-            ARTICLE_GAP_PATTERNS, CITATION_SEMICOLON_AND_GAP_PATTERN,
+            ARTICLE_GAP_PATTERNS, BOT_DETECTION_PATTERNS, CITATION_SEMICOLON_AND_GAP_PATTERN,
             CITATION_SEMICOLON_GAP_PATTERN, CITATION_SEMICOLON_WAS_GAP_PATTERN, CODE_INDICATORS,
             CODE_KEYWORDS, DISAMBIGUATION_MARKERS, EMPTY_GAP_PATTERN, INCOMPLETE_COMMON_PATTERN,
             INCOMPLETE_PARENTHETICAL_PATTERNS, INCOMPLETE_QUOTE_EXCEPTION,
@@ -114,6 +114,11 @@ fn filter_deep_paragraphs(paragraphs: Vec<String>) -> Vec<String> {
                     return false;
                 }
             }
+            for pattern in BOT_DETECTION_PATTERNS {
+                if lower.contains(pattern) {
+                    return false;
+                }
+            }
             for punct in STANDALONE_PUNCTUATION {
                 if s.trim().starts_with(*punct) {
                     return false;
@@ -139,7 +144,15 @@ fn filter_deep_paragraphs(paragraphs: Vec<String>) -> Vec<String> {
                     return false;
                 }
             }
-            true
+            let bare_version_tail = {
+                let last = s
+                    .trim_end_matches(['.', '!', '?', ' '])
+                    .split_whitespace()
+                    .last()
+                    .unwrap_or("");
+                last.len() <= 3 && last.chars().all(|c| c.is_ascii_digit() || c == '.')
+            };
+            !bare_version_tail
         })
         .take(MAX_DEEP_PARAGRAPHS_TO_SHOW)
         .collect()

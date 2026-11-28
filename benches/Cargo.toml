@@ -1,0 +1,45 @@
+[package]
+name    = "lmm-benches"
+version = "0.1.0"
+edition = "2024"
+publish = false
+authors = ["Mahmoud Harmouch <oss@wiseai.dev>"]
+description = "Benchmarks for the TRAM text-generation pipeline"
+
+[dev-dependencies]
+lmm       = { workspace = true }
+criterion = { workspace = true }
+plotters  = { workspace = true }
+
+[[bench]]
+name    = "stage1_knowledge_index"
+harness = false
+
+[[bench]]
+name    = "stage2_expert_inference"
+harness = false
+
+[[bench]]
+name    = "stage3_prose_builder"
+harness = false
+
+[[bench]]
+name    = "stage4_paragraph_assembly"
+harness = false
+
+[[bench]]
+name    = "stage5_stochastic"
+harness = false
+
+[[bench]]
+name    = "stage6_sentence_filter"
+harness = false
+
+[[bench]]
+name    = "tram_pipeline_e2e"
+harness = false
+
+[[bench]]
+name    = "vs_llm_comparison"
+harness = false
+

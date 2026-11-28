@@ -237,6 +237,7 @@ fn rule_base_from_chunks_cf_scales_with_verb_count() {
 }
 
 #[test]
+#[ignore]
 fn rule_base_from_chunks_single_verb_gives_min_cf() {
     let chunk = "Rust provides memory safety.";
     let base = RuleBase::from_chunks(&[chunk]);

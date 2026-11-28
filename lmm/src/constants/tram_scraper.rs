@@ -17,7 +17,58 @@ pub const MAX_DEEP_PARAGRAPHS_TO_SHOW: usize = 5;
 pub const MAX_LINKED_URLS_TO_FOLLOW: usize = 5;
 
 pub const EMPTY_GAP_PATTERN: &str = " , ";
-pub const ARTICLE_GAP_PATTERNS: &[&str] = &[" the .", " a .", " an .", " the ,", " a ,", " an ,"];
+
+/// Gap patterns that signal a Wikipedia template or citation was stripped,
+/// leaving an orphaned article, preposition, or conjunction before punctuation.
+pub const ARTICLE_GAP_PATTERNS: &[&str] = &[
+    " the .",
+    " a .",
+    " an .",
+    " the ,",
+    " a ,",
+    " an ,",
+    " were ,",
+    " was ,",
+    " is ,",
+    " are ,",
+    " by ,",
+    " in ,",
+    " from ,",
+    " or ,",
+    " and ,",
+    " to ,",
+    " of ,",
+    " by.",
+    " in.",
+    " from.",
+    " or.",
+    " to.",
+    " of.",
+    " by .",
+    " in .",
+    " from .",
+    " or .",
+    " to .",
+    " of .",
+    " a .",
+    " an .",
+    " the .",
+    " and .",
+    " with .",
+    " at .",
+    " on .",
+    " using .",
+    " either an",
+    "either a ",
+    " or a ,",
+    " or an ,",
+    " by as ",
+    " by an ",
+    " an and ",
+    ", ,",
+    "( ,",
+    "( .",
+];
 pub const INCOMPLETE_PARENTHETICAL_PATTERNS: &[&str] = &[" (e.g.,", " (i.e.,"];
 pub const INCOMPLETE_QUOTE_PATTERN: &str = " from \"";
 pub const INCOMPLETE_QUOTE_EXCEPTION: &str = " from \"mostly";
@@ -104,6 +155,45 @@ pub const DISAMBIGUATION_MARKERS: &[&str] = &[
     "(disambiguation)",
     " redirect here",
 ];
+
+/// Substrings indicating a bot-detection or access-denied page.
+///
+/// Paragraphs containing any of these strings (case-insensitive) are rejected
+/// by the deep-paragraph filter to prevent bot-block pages from leaking into
+/// the final response.
+pub const BOT_DETECTION_PATTERNS: &[&str] = &[
+    "malicious software",
+    "automated requests",
+    "browser plug-in",
+    "ip address may be",
+    "verify you are human",
+    "access denied",
+    "rate limit exceeded",
+    "unusual traffic",
+    "captcha",
+    "our systems have detected",
+    "this request was blocked",
+    "too many requests",
+];
+
+/// URL path suffixes that identify synthetically-generated Wikipedia pages
+/// that almost certainly do not exist (e.g. `Water_algorithm`,
+/// `Water_program`).  URLs containing these patterns are excluded from the
+/// deep-search URL list and the response URL footer.
+pub const URL_SYNTHETIC_WIKI_SUFFIXES: &[&str] = &[
+    "_program",
+    "_algorithm",
+    "_method",
+    "_function",
+    "_computation",
+    "_example",
+    "_implementation",
+];
+
+/// Prefix pattern for synthetically-generated "Numerical_X" Wikipedia URLs.
+///
+/// Must be all-lowercase because it is compared against `url.to_ascii_lowercase()`.
+pub const URL_SYNTHETIC_NUMERICAL_PREFIX: &str = "/wiki/numerical_";
 
 pub const MONTH_PATTERNS: &[&str] = &[
     "january",

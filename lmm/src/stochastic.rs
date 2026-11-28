@@ -233,6 +233,9 @@ static SYNONYM_BLOCKLIST: Set<&'static str> = phf_set! {
     "mephisto", "mephistopheles", "beelzebub", "apollyon",
     "aeshma", "azazel", "belial", "eblis", "lilith", "sammael", "shaitan",
     "gehenna", "naraka", "pandemonium", "putana",
+    "consubstantiation", "transubstantiation",
+    "conformation", "conformance", "congruence",
+    "adaptation", "accommodation", "adjustment",
     "clutter", "gush", "crawl",
     "hereabout", "hereabouts", "hereat", "hereinto", "hereto",
     "hereunto", "hitherward", "hitherwards",
@@ -379,6 +382,22 @@ static SYNONYM_BLOCKLIST: Set<&'static str> = phf_set! {
     "unctuous", "usufruct", "venal",
     "vexatious", "vitiate", "vituperate", "vociferous",
     "voluble", "waspish", "zealotry",
+    "bigwig", "bigwigs", "bigwigged",
+    "brass", "baron", "barons",
+    "vip", "luminary", "hotshot",
+    "jemadar", "marechal", "generalissimo",
+    "adc", "od",
+    "aeon", "aeons",
+    "digging", "diggings",
+    "escalade",
+    "cabalistic", "cabbalistic",
+    "himself", "herself", "itself", "oneself", "ourselves", "themselves",
+    "alter", "alterum", "anima", "atman", "ego", "superego",
+    "byzantine",
+    "aristocracy",
+    "alveolus",
+    "alveolation",
+    "alveolations",
 };
 
 /// A compile-time perfect-hash set of English stop words.
@@ -882,7 +901,7 @@ impl StochasticEnhancer {
             is_first = false;
         }
 
-        result.join(" ")
+        fix_article_agreement(result).join(" ")
     }
 
     /// Enhances a single line without counting substitutions.
@@ -981,6 +1000,41 @@ pub fn capitalize(s: &str) -> String {
 /// ```
 pub fn is_stop_word(word: &str) -> bool {
     STOP_WORDS.contains(word)
+}
+
+/// Fixes indefinite article agreement (`a`/`an`) in a token list after synonym
+/// substitution may have changed the following word's initial sound.
+///
+/// Scans consecutive token pairs; when the current token is `"a"` or `"an"`
+/// (bare, no prefix/suffix) and the next token starts with a vowel (`a e i o u`)
+/// the article is corrected to `"an"`, and vice-versa for a consonant start.
+///
+/// # Time Complexity
+///
+/// O(|tokens|)
+fn fix_article_agreement(mut tokens: Vec<String>) -> Vec<String> {
+    let vowels: &[char] = &['a', 'e', 'i', 'o', 'u'];
+    let len = tokens.len();
+    for i in 0..len.saturating_sub(1) {
+        let lower = tokens[i].to_ascii_lowercase();
+        if lower != "a" && lower != "an" {
+            continue;
+        }
+        let next_first = tokens[i + 1]
+            .chars()
+            .next()
+            .map(|c| c.to_ascii_lowercase())
+            .unwrap_or('x');
+        let needs_an = vowels.contains(&next_first);
+        let was_capitalised = tokens[i].chars().next().is_some_and(|c| c.is_uppercase());
+        let correct = if needs_an { "an" } else { "a" };
+        tokens[i] = if was_capitalised {
+            capitalize(correct)
+        } else {
+            correct.to_string()
+        };
+    }
+    tokens
 }
 // Copyright 2026 Mahmoud Harmouch.
 //

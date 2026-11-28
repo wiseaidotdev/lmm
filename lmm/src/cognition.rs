@@ -53,6 +53,7 @@
 //! * [Control theory - Wikipedia](https://en.wikipedia.org/wiki/Control_theory)
 
 pub mod attribution;
+pub mod bayesian;
 pub mod code_responder;
 pub mod drive;
 pub mod goal;
@@ -72,6 +73,7 @@ pub mod thought;
 pub mod types;
 
 pub use attribution::{AttributionReport, CausalAttributor};
+pub use bayesian::{BeliefNet, BeliefPropagator};
 pub use code_responder::CodeResponder;
 pub use drive::{DriveSignal, DriveState, InternalDrive};
 pub use goal::GoalEvaluator;

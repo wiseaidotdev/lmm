@@ -181,7 +181,7 @@ fn html_to_prose(html: &str) -> String {
 ///
 /// Code snippets extracted from `<pre>` and `<code>` tags are stored with
 /// [`KnowledgeIndex::ingest_code_block`], which bypasses the minimum-word-count
-/// filter — ensuring short snippets such as `print("Hello, World!")` survive
+/// filter, ensuring short snippets such as `print("Hello, World!")` survive
 /// ingestion.  HTML character entities are decoded before storage so the
 /// retrieved code is executable as-is.
 ///

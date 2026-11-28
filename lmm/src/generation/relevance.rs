@@ -8,6 +8,11 @@
 //! # Sentence Relevance Scorer
 //!
 //! Scores individual sentences for relevance to question intent using TF-IDF style scoring.
+//!
+//! ## See Also
+//!
+//! - [tf-idf - Wikipedia](https://en.wikipedia.org/wiki/Tf%E2%80%93idf)
+//! - [Spärck Jones, K. (1972). A statistical interpretation of term specificity and its application in retrieval. Journal of Documentation, 28(1), 11-21.](https://doi.org/10.1108/eb026526)
 
 use crate::cognition::thought::classifier::ReasoningMode;
 use phf::phf_set;

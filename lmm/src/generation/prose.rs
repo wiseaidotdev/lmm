@@ -200,7 +200,8 @@ impl ProseBuilder {
             seen_conclusions.insert(conc_key);
             let tmpl_idx = pick_template_unique(&mut seed, &used_templates);
             used_templates.insert(tmpl_idx);
-            let (step_subj, step_pred, step_obj) = extract_spo(&step.conclusion);
+            let (step_subj_raw, step_pred, step_obj) = extract_spo(&step.conclusion);
+            let step_subj = capitalise(step_subj_raw.as_str());
             let sentence = fill_template(
                 TEMPLATES[tmpl_idx],
                 &step_subj,
@@ -224,37 +225,74 @@ impl ProseBuilder {
         if !seen_conclusions.contains(&conc_key) {
             let tmpl_idx = pick_template_unique(&mut seed, &used_templates);
             used_templates.insert(tmpl_idx);
-            let conclusion_sentence =
-                fill_template(TEMPLATES[tmpl_idx], &subj, &pred, &obj, &result.conclusion);
+            let subj_cap = capitalise(subj.as_str());
+            let conclusion_sentence = fill_template(
+                TEMPLATES[tmpl_idx],
+                &subj_cap,
+                &pred,
+                &obj,
+                &result.conclusion,
+            );
             let capped = capitalise(conclusion_sentence);
             if !capped.is_empty() {
                 all_sentences.push(capped);
             }
         }
 
+        all_sentences.dedup();
+        let scorer = CoherenceScorer;
+        let ordered_templates = scorer.reorder(&all_sentences);
+
+        let mut kb_sentences: Vec<String> = Vec::new();
         for chunk in kb_chunks.iter().take(4) {
             for raw_sent in chunk.split(['.', '!', '?']) {
                 let trimmed = raw_sent.trim();
-                if trimmed.split_whitespace().count() >= 4 {
+                let ends_with_digit = trimmed.chars().last().is_some_and(|c| c.is_ascii_digit());
+                if trimmed.split_whitespace().count() >= 4 && !ends_with_digit {
                     let sent = if trimmed.ends_with(['.', '!', '?']) {
                         trimmed.to_string()
                     } else {
                         format!("{trimmed}.")
                     };
+                    let first_char = trimmed.chars().next().unwrap_or(' ');
+                    let sent_lower = sent.to_ascii_lowercase();
+                    let has_mid_digit = sent
+                        .split_whitespace()
+                        .any(|w| w.chars().any(|c| c.is_ascii_digit()));
+                    let word_count_sent = trimmed.split_whitespace().count();
+                    let is_title_line = has_mid_digit && word_count_sent <= 10;
+                    let has_year = sent_lower.chars().any(|c| c.is_ascii_digit());
+                    let has_history = [
+                        "began working",
+                        "successor to",
+                        "in the late",
+                        "in the early",
+                        "founded",
+                        "created",
+                        "released",
+                        "version",
+                        "developed",
+                    ]
+                    .iter()
+                    .any(|&m| sent_lower.contains(m));
+                    let is_historical = has_year && has_history;
                     if !SentenceFilter::is_metadata_line(&sent)
                         && !SentenceFilter::is_header_fragment(&sent)
                         && !SentenceFilter::is_disambiguation_fragment(&sent)
+                        && !SentenceFilter::has_template_gaps(&sent)
+                        && !first_char.is_ascii_digit()
+                        && !is_title_line
+                        && !is_historical
                     {
-                        all_sentences.push(capitalise(sent));
+                        kb_sentences.push(capitalise(normalise_conclusion(&sent)));
                     }
                 }
             }
         }
+        kb_sentences.dedup();
 
-        all_sentences.dedup();
-
-        let scorer = CoherenceScorer;
-        let ordered = scorer.reorder(&all_sentences);
+        let mut ordered: Vec<String> = ordered_templates;
+        ordered.extend(kb_sentences);
 
         if ordered.is_empty() {
             return String::new();
@@ -283,7 +321,7 @@ impl ProseBuilder {
             let para = if p > 0 && !chunk.is_empty() {
                 let conn = CONNECTORS[(seed as usize + p) % CONNECTORS.len()];
                 let first = &chunk[0];
-                let lowered = lower_first(first);
+                let lowered = normalise_conclusion(&lower_first(first));
                 let joined_first = format!("{conn} {lowered}");
                 let mut parts = vec![joined_first];
                 for s in &chunk[1..] {
@@ -303,7 +341,41 @@ impl ProseBuilder {
     }
 }
 
+/// Returns `obj` with an indefinite article prepended when it lacks a leading
+/// article, pronoun, or proper noun.
+///
+/// Examples: `"general-purpose programming language"` → `"a general-purpose
+/// programming language"`;  `"an ownership model"` → unchanged.
+///
+/// # Time Complexity
+///
+/// O(|obj|)
+fn maybe_add_article(obj: &str) -> String {
+    let lower = obj.to_ascii_lowercase();
+    let first_word: &str = lower.split_whitespace().next().unwrap_or("");
+    let has_article = matches!(first_word, "a" | "an" | "the");
+    let is_pronoun = matches!(
+        first_word,
+        "it" | "this" | "that" | "they" | "these" | "those" | "its"
+    );
+    let starts_with_vowel = lower
+        .chars()
+        .next()
+        .is_some_and(|c| matches!(c, 'a' | 'e' | 'i' | 'o' | 'u'));
+    if has_article || is_pronoun || obj.is_empty() {
+        obj.to_string()
+    } else if starts_with_vowel {
+        format!("an {obj}")
+    } else {
+        format!("a {obj}")
+    }
+}
+
 /// Extracts a (subject, predicate, object) triple from a simple conclusion string.
+///
+/// The returned object is passed through [`maybe_add_article`] so that
+/// template fills like `"Rust is general-purpose programming language"` become
+/// `"Rust is a general-purpose programming language"`.
 ///
 /// Falls back to ("it", "is", conclusion) when no relation verb is found.
 ///
@@ -331,8 +403,8 @@ fn extract_spo(conclusion: &str) -> (String, String, String) {
         let verb = lower.trim_matches(|c: char| !c.is_ascii_alphabetic());
         if REL_VERBS.contains(&verb) && i > 0 {
             let subj = words[..i].join(" ");
-            let obj = words[i + 1..].join(" ");
-            return (subj, verb.to_string(), obj);
+            let raw_obj = words[i + 1..].join(" ");
+            return (subj, verb.to_string(), maybe_add_article(&raw_obj));
         }
     }
     ("it".to_string(), "is".to_string(), conclusion.to_string())

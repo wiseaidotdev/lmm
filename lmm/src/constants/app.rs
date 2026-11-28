@@ -47,10 +47,10 @@ pub const DEFAULT_STOCHASTIC_PROBABILITY: f64 = 0.08;
 /// Because the curated synonym pool is smaller than the full Moby Thesaurus,
 /// the probability must be raised to compensate so that enough tokens are
 /// considered for substitution.
-pub const CURATED_ONLY_PROBABILITY: f64 = 0.20;
+pub const CURATED_ONLY_PROBABILITY: f64 = 0.05;
 pub const PROBABILITY_MIN: f64 = 0.0;
 pub const PROBABILITY_MAX: f64 = 1.0;
-pub const MIN_EXPERT_PROSE_WORDS: usize = 30;
+pub const MIN_EXPERT_PROSE_WORDS: usize = 10;
 // Copyright 2026 Mahmoud Harmouch.
 //
 // Licensed under the MIT license

@@ -20,7 +20,6 @@ use crate::generation::{
     dedup::GlobalDeduplicator, filter::SentenceFilter, shaper::ParagraphShaper,
 };
 use crate::tram::{extract_topic, split_sentences_with_punct, strip_discourse_connector};
-use std::cmp::Reverse;
 
 /// Assembles paragraphs from retrieved text, prioritising sentences that mention
 /// the topic entities while filtering out metadata and low-quality content.
@@ -194,48 +193,15 @@ pub fn assemble_paragraphs_for(text: &str, run_seed: u64, topic: &str) -> String
         score
     }
 
-    let mut scored: Vec<(i32, String)> = sentences
+    let mut scored: Vec<(i32, usize, String)> = sentences
         .into_iter()
-        .map(|s| (score_sentence(&s, &query_keywords), s.clone()))
+        .enumerate()
+        .map(|(i, s)| (score_sentence(&s, &query_keywords), i, s))
         .collect();
 
-    scored.sort_by_key(|a| Reverse(a.0));
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
 
-    let best_score = scored.first().map(|(sc, _)| *sc).unwrap_or(0);
-    let top_tier: Vec<String> = scored
-        .iter()
-        .filter(|(sc, _)| *sc >= best_score)
-        .map(|(_, s)| s.clone())
-        .collect();
-    let rest: Vec<String> = scored
-        .iter()
-        .filter(|(sc, _)| *sc < best_score)
-        .map(|(_, s)| s.clone())
-        .collect();
-
-    let mut top_shuffled = top_tier;
-    let top_n = top_shuffled.len();
-    let mut seed = run_seed;
-    for i in (1..top_n).rev() {
-        seed = seed
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        let j = (seed >> 33) as usize % (i + 1);
-        top_shuffled.swap(i, j);
-    }
-
-    let mut rest_shuffled = rest;
-    let rest_n = rest_shuffled.len();
-    for i in (1..rest_n).rev() {
-        seed = seed
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        let j = (seed >> 33) as usize % (i + 1);
-        rest_shuffled.swap(i, j);
-    }
-
-    top_shuffled.extend(rest_shuffled);
-    let sentences = top_shuffled;
+    let sentences: Vec<String> = scored.into_iter().map(|(_, _, s)| s).collect();
 
     let deduplicator = GlobalDeduplicator::new(DEDUP_THRESHOLD);
     let mut sentences = deduplicator.deduplicate(sentences);

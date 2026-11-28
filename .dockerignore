@@ -5,6 +5,7 @@ npm/
 wheels/
 tests/
 examples/
+benches/
 package.json
 index.js
 index.d.ts

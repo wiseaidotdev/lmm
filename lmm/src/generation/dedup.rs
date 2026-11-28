@@ -32,6 +32,11 @@
 //! 2. For each candidate sentence, compute Jaccard similarity against every
 //!    previously accepted sentence.
 //! 3. Accept the candidate only when no accepted sentence has similarity ≥ `threshold`.
+//!
+//! ## See Also
+//!
+//! - [Jaccard index - Wikipedia](https://en.wikipedia.org/wiki/Jaccard_index)
+//! - [Content similarity detection - Wikipedia](https://en.wikipedia.org/wiki/Content_similarity_detection)
 
 use std::collections::HashSet;
 

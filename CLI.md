@@ -59,6 +59,8 @@ lmm tram -p "what is WebAssembly?" --think --verbose
 | `--think-threshold`                |   -   |  `0.40`  | ATE confidence threshold, stops early when reached [0.0 - 1.0]                             |
 | `--think-patience`                 |   -   |   `2`    | ATE stall patience, number of low-gain steps before early stopping                         |
 | `--max-tasks`                      |   -   |   `4`    | Maximum intent-specific sub-tasks for web enrichment (TaskDecomposer)                      |
+| `--loop`                           |   -   |   `1`    | Recursive belief-propagation passes; `1` = single pass (existing behaviour)                |
+| `--loop-threshold`                 |   -   |  `0.05`  | Minimum quality-improvement delta per pass; loop exits early when delta falls below this   |
 | `--no-frame`                       |   -   | `false`  | Suppress response framing prefix; emit raw pipeline output                                 |
 | `--verbose`                        | `-v`  | `false`  | Show full banners, seeds, pipeline stages, and statistics                                  |
 
@@ -66,7 +68,7 @@ lmm tram -p "what is WebAssembly?" --think --verbose
 
 ### 0. `tram` (default): Text Reasoning and Applied Mathematics
 
-The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API + intent-specific sub-queries), **context-aware response framing**, **optional Adaptive Thought Engine (ATE)** reasoning, closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, **expert-system inference** (backward-chaining rule engine with Prospector certainty factors), novel slot-filling prose generation, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
+The primary reasoning engine. Combines web knowledge retrieval (DuckDuckGo Instant Answer API + intent-specific sub-queries), **context-aware response framing**, **optional Adaptive Thought Engine (ATE)** reasoning, **optional Recursive Belief Propagation loop (`--loop N`)**, closed-loop ThinkLoop reasoning, IDF-ranked knowledge retrieval, **expert-system inference** (backward-chaining rule engine with Prospector certainty factors), novel slot-filling prose generation, and curated stochastic enhancement. No GPU, no neural weights, no API keys.
 
 The **Adaptive Thought Engine** (`--think` / `-t`) is an optional pre-reasoning layer that:
 
@@ -109,6 +111,11 @@ lmm -p "rust vs python" -t --think-steps 4 --think-threshold 0.7 --verbose
 lmm -p "how to install rust" --think --think-steps 5 --think-patience 2 --verbose
 lmm -p "machine learning" --think --think-steps 6 --think-threshold 0.55 --think-patience 2 --verbose
 
+# Recursive belief-propagation loop (--loop N):
+lmm -p "what are the advantages of rust?" --think --loop 2 --verbose
+lmm -p "what are the advantages of water?" --think --deep --loop 3 --verbose
+lmm -p "what are the advantages of python?" --think --loop 5 --loop-threshold 0.3 --verbose
+
 # Control task decomposition and framing:
 lmm -p "what are the advantages of rust?" --max-tasks 6 --verbose
 lmm -p "rust programming" --no-frame --verbose
@@ -136,6 +143,8 @@ lmm tram -p "write hello world in python" --max-tasks 4 --verbose
 | `--think-threshold`                |   -   |  `0.55`  | ATE confidence threshold for early stopping [0.0 - 1.0]                                    |
 | `--think-patience`                 |   -   |   `3`    | ATE stall patience before early stopping                                                   |
 | `--max-tasks`                      |   -   |   `4`    | Maximum intent-specific sub-tasks for web enrichment                                       |
+| `--loop`                           |   -   |   `1`    | Recursive belief-propagation passes; `1` = single pass (existing behaviour)                |
+| `--loop-threshold`                 |   -   |  `0.05`  | Minimum quality-improvement delta per pass; loop exits early when delta falls below this   |
 | `--no-frame`                       |   -   | `false`  | Suppress intent-specific response framing (emit raw pipeline output)                       |
 | `--verbose`                        | `-v`  | `false`  | Show pipeline stage banners and statistics                                                 |
 
@@ -219,6 +228,111 @@ lmm tram -p "write hello world in python" --max-tasks 4 --verbose
   Software developer Graydon Hoare created Rust in 2006 while working at Mozilla, which
   officially sponsored the project in 2009.
 ```
+
+**With `--loop N` (Recursive Belief Propagation):**
+
+```sh
+> lmm -p "what are the advantages of rust?" --think --loop 2 --verbose
+
+╔══════════════════════════════════════════════════════╗
+║  🧮  TRAM · Text Reasoning and Applied Mathematics   ║
+╚══════════════════════════════════════════════════════╝
+
+  ❓ Prompt    : "what are the advantages of rust?"
+  🔁 Iterations: 10
+  🔍 Inference : depth=5 CF≥0.25
+
+-- Loop Pass 1/2 -----------------------------
+
+-- Web Knowledge -----------------------------
+  🔍 Web Search: querying DDG for: rust
+  🔍 Web Search: querying DDG for: rust programming language
+  🔍 Web Search: IA abstract found (954 chars)
+  🔍 Web Search: querying DDG for: advantages of rust
+  🔍 Web Search: querying DDG for: rust overview
+  🔍 Web Search: querying DDG for: rust introduction
+  🧠 Skill synthesised: topic='rust'
+  🔍 Web Search: querying DDG for: advantages of rust
+  🔍 Web Search: querying DDG for: benefits of rust
+  🔍 Web Search: querying DDG for: disadvantages of rust
+
+-- Adaptive Thought Engine -------------------
+  🧠 ATE: mode=evaluative steps=5 confidence=0.050
+  💬 Thought 1 [abductive]: Evidence on 'advantages of rust' is limited (recall 5%). This aspect requires further investigation.
+  💬 Thought 2 [abductive]: Evidence on 'benefits of rust' is limited (recall 5%). This aspect requires further investigation.
+  💬 Thought 3 [abductive]: Evidence on 'disadvantages of rust' is limited (recall 5%). This aspect requires further investigation.
+  💬 Thought 4 [abductive]: Evidence on 'pros and cons of rust' is limited (recall 5%). This aspect requires further investigation.
+  💬 Thought 5 [corrective]: Re-examining 'rust' from a different angle reveals this aspect needs broader context.
+
+-- ThinkLoop Reasoning -----------------------
+  🔄 ThinkLoop: converged=true steps=1 error=0.000
+  💡 Memory → KB: +5 chunk(s)
+
+-- Knowledge Retrieval -----------------------
+  ✅ KB answer found (157 chars)
+
+-- Expert Inference --------------------------
+  ⚙️  Config      : depth=5 CF≥0.25
+  🧠 Inference: conclusion="rust is general-purpose programming language" CF=0.30 depth=1 rules=3
+  📋 Explanation: 2 steps
+  💬 Based on observed knowledge (rust is general-purpose programming language). rule_0 establishes that rust is general-purpose programming language with moderate confidence (CF=0.30).
+
+-- Stochastic Enhancement --------------------
+  🎲 substitutions=0 language=English prob=0.08
+  🔁 Pass 1/2: quality=0.717 delta=+0.717 belief_mid=0.335
+
+-- Loop Pass 2/2 -----------------------------
+
+-- Web Knowledge -----------------------------
+  🔍 Web Search: querying DDG for: rust
+  🔍 Web Search: querying DDG for: rust programming language
+  🔍 Web Search: IA abstract found (954 chars)
+  🔍 Web Search: querying DDG for: advantages of rust
+  🔍 Web Search: querying DDG for: rust overview
+  🔍 Web Search: querying DDG for: rust introduction
+  🧠 Skill synthesised: topic='rust'
+  🔍 Web Search: querying DDG for: advantages of rust
+  🔍 Web Search: querying DDG for: benefits of rust
+  🔍 Web Search: querying DDG for: disadvantages of rust
+
+-- Adaptive Thought Engine -------------------
+  🧠 ATE: mode=evaluative steps=5 confidence=0.050
+  💬 Thought 1 [abductive]: Evidence on 'advantages of rust' is limited (recall 5%). This aspect requires further investigation.
+  💬 Thought 2 [abductive]: Evidence on 'benefits of rust' is limited (recall 5%). This aspect requires further investigation.
+  💬 Thought 3 [abductive]: Evidence on 'disadvantages of rust' is limited (recall 5%). This aspect requires further investigation.
+  💬 Thought 4 [abductive]: Evidence on 'pros and cons of rust' is limited (recall 5%). This aspect requires further investigation.
+  💬 Thought 5 [corrective]: Re-examining 'rust' from a different angle reveals this aspect needs broader context.
+
+-- ThinkLoop Reasoning -----------------------
+  🔄 ThinkLoop: converged=true steps=1 error=0.000
+  💡 Memory → KB: +5 chunk(s)
+
+-- Knowledge Retrieval -----------------------
+  ✅ KB answer found (386 chars)
+
+-- Expert Inference --------------------------
+  ⚙️  Config      : depth=5 CF≥0.25
+  🧠 Inference: conclusion="rust is general-purpose programming language" CF=0.30 depth=1 rules=3
+  📋 Explanation: 2 steps
+  💬 Based on observed knowledge (rust is general-purpose programming language). rule_0 establishes that rust is general-purpose programming language with moderate confidence (CF=0.30).
+
+-- Stochastic Enhancement --------------------
+  🎲 substitutions=0 language=English prob=0.08
+  🔁 Pass 2/2: quality=0.717 delta=+0.000 belief_mid=0.241
+  ✅ Loop converged at pass 2 (delta=0.000 < threshold=0.050)
+
+-- TRAM Response -----------------------------
+  From both a theoretical and a practical standpoint Rust offers several notable advantages:
+
+Rust is a general-purpose programming language that emphasizes performance, type safety, concurrency, and memory safety.
+
+Rust also provides structs, enums, traits, and methods as alternatives to traditional object-oriented programming, without relying on classes or inheritance.
+
+Notably, in essence, rust is general-purpose programming language.
+```
+
+> [!NOTE]
+> The **Recursive Belief Propagation loop** runs the entire TRAM pipeline (knowledge → ATE → ThinkLoop → retrieval → expert inference → assembly) up to N times. After each pass a `BeliefNet` built from KB chunks propagates prompt-evidence, and a reward signal measures quality improvement. The best-scoring pass answer is returned. Early exit fires when `delta < --loop-threshold`. Use `--loop 1` (default) to retain the original single-pass behaviour.
 
 > [!NOTE]
 > TRAM uses the `duckduckgo` crate exclusively (`Browser::get_api_response` for the Instant Answer API, `Browser::lite_search` for the Lite fallback).

@@ -33,8 +33,10 @@
 //!
 //! ## See Also
 //!
-//! * [Jaccard index - Wikipedia](https://en.wikipedia.org/wiki/Jaccard_index)
-//! * [Signal processing - Wikipedia](https://en.wikipedia.org/wiki/Signal_processing)
+//! - [Jaccard index - Wikipedia](https://en.wikipedia.org/wiki/Jaccard_index)
+//! - [Gain scheduling - Wikipedia](https://en.wikipedia.org/wiki/Gain_scheduling)
+//! - [Reinforcement learning - Wikipedia](https://en.wikipedia.org/wiki/Reinforcement_learning)
+//! - [Signal processing - Wikipedia](https://en.wikipedia.org/wiki/Signal_processing)
 
 use std::collections::HashSet;
 
@@ -158,10 +160,10 @@ pub fn error_from_texts(goal: &str, text: &str) -> f64 {
     let text_tokens = tokenize(text);
 
     if goal_tokens.is_empty() && text_tokens.is_empty() {
-        return 0.0;
+        return 1.0;
     }
     if goal_tokens.is_empty() {
-        return 0.0;
+        return 1.0;
     }
     if text_tokens.is_empty() {
         return 1.0;
