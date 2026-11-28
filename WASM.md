@@ -16,7 +16,7 @@ Add `lmm` to your `Cargo.toml` with the **`net`** feature. The single `net` feat
 
 ```toml
 [dependencies]
-lmm = { version = "0.5.0", default-features = false, features = ["net"] }
+lmm = { version = "0.6.0", default-features = false, features = ["net"] }
 ```
 
 > [!IMPORTANT]
